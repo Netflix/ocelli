@@ -1,6 +1,7 @@
 package rx.loadbalancer.loadbalancer;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -19,7 +20,7 @@ public class RandomWeightSelector implements WeightSelector {
     private Random random = new Random();
     
     @Override
-    public Integer call(Integer[] weights, Integer count) {
-        return Arrays.binarySearch(weights, random.nextInt(count));
+    public Integer call(List<Integer> weights, Integer count) {
+        return Collections.binarySearch(weights, random.nextInt(count));
     }
 }

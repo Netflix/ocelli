@@ -4,16 +4,15 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import rx.functions.Action0;
 import rx.loadbalancer.ClientEvent;
-import rx.loadbalancer.FailureDetector;
 
-public class SimpleClientMetrics implements FailureDetector {
+public class SimpleClientMetrics implements ClientMetrics {
     private AtomicLong requestStartCount   = new AtomicLong();
     private AtomicLong requestFailureCount = new AtomicLong();
     private AtomicLong requestSuccessCount = new AtomicLong();
     private AtomicLong connectStartCount   = new AtomicLong();
     private AtomicLong connectSuccessCount = new AtomicLong();
     private AtomicLong connectFailureCount = new AtomicLong();
-
+    
     private Action0 shutdown;
     
     public SimpleClientMetrics(Action0 shutdown) {
@@ -76,9 +75,12 @@ public class SimpleClientMetrics implements FailureDetector {
     public long getRequestSuccessCount() {
         return requestSuccessCount.get();
     }
-
-    @Override
-    public int getWeight() {
-        return 0;
+    
+    public long getPendingConnectCount() {
+        return connectStartCount.get() - connectSuccessCount.get() - connectFailureCount.get();
+    }
+    
+    public long getPendingRequestCount() {
+        return requestStartCount.get() - requestSuccessCount.get() - requestFailureCount.get();
     }
 }

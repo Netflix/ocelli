@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -17,9 +18,10 @@ import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.TestClient;
 import rx.loadbalancer.client.TestHost;
 import rx.loadbalancer.loadbalancer.RoundRobinLoadBalancer;
+import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
 import rx.loadbalancer.operations.TrackingOperation;
-import rx.loadbalancer.selector.SimplePoolSelector;
+import rx.loadbalancer.selector.DefaultClientSelector;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
@@ -39,7 +41,7 @@ public class LoadBalancerTest {
 
     private RoundRobinLoadBalancer<TestClient> loadBalancer;
 
-    private SimplePoolSelector<TestHost, TestClient> selector;
+    private DefaultClientSelector<TestHost, TestClient, ClientMetrics> selector;
 
     @BeforeClass
     public static void setup() {
@@ -59,14 +61,23 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() {
-        this.selector = new SimplePoolSelector<TestHost, TestClient>(new TestClientFactory(), new SimpleClientMetricsFactory<TestHost>());
+        this.selector = DefaultClientSelector.<TestHost, TestClient, ClientMetrics>builder()
+                .withHostSource(Observable
+                    .from(servers)
+                    .map(HostEvent.<TestHost>toAdd()))
+                .withConnector(new TestClientFactory())
+                .withClientTrackerFactory(new SimpleClientMetricsFactory<TestHost>())
+                .build();
         
-        Observable
-            .from(servers)
-            .map(HostEvent.<TestHost>toAdd())
-            .subscribe(this.selector);
+        this.selector.initialize();
         
         loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.aquire());
+    }
+    
+    @After
+    public void after() {
+        if (this.selector != null)
+            this.selector.shutdown();
     }
     
     @Test

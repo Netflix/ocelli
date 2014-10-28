@@ -16,26 +16,27 @@ import rx.loadbalancer.LoadBalancer;
  * @param <Client>
  */
 public class RoundRobinLoadBalancer<Client> implements LoadBalancer<Client> {
-    private final Observable<List<Client>> source;
+    private final Observable<ClientsAndWeights<Client>> source;
     
     private final AtomicInteger position = new AtomicInteger();
     
-    public RoundRobinLoadBalancer(Observable<List<Client>> source) {
+    public RoundRobinLoadBalancer(Observable<ClientsAndWeights<Client>> source) {
         this.source = source;
     }
     
     @Override
     public Observable<Client> select() {
         return source
-            .concatMap(new Func1<List<Client>, Observable<Client>>() {
+            .concatMap(new Func1<ClientsAndWeights<Client>, Observable<Client>>() {
                 int pos = position.incrementAndGet();
 
                 @Override
-                public Observable<Client> call(List<Client> hosts) {
-                    if (hosts.isEmpty()) {
+                public Observable<Client> call(ClientsAndWeights<Client> hosts) {
+                    List<Client> clients = hosts.getClients();
+                    if (clients == null || hosts.isEmpty()) {
                         return Observable.empty();
                     }
-                    return Observable.just(hosts.get(pos++ % hosts.size()));
+                    return Observable.just(clients.get(pos++ % clients.size()));
                 }
             });
     }
