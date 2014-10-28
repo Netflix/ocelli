@@ -4,18 +4,25 @@ import rx.functions.Func1;
 
 public class HostEvent<Host> {
     public enum Action {
+        // A new host was added
         ADD,
-        REMOVE
+        
+        // A host was removed
+        REMOVE,
     }
     
     private final Host host;
     private final Action action;
     
-    public static <Host> HostEvent<Host> add(Host host) {
+    public static <Host> HostEvent<Host> added(Host host) {
         return new HostEvent<Host>(Action.ADD, host);
     }
     
-    public static <Host> HostEvent<Host> remove(Host host) {
+    public static <Host> HostEvent<Host> removed(Host host) {
+        return new HostEvent<Host>(Action.REMOVE, host);
+    }
+    
+    public static <Host> HostEvent<Host> failed(Host host) {
         return new HostEvent<Host>(Action.REMOVE, host);
     }
     
@@ -41,7 +48,7 @@ public class HostEvent<Host> {
         return new Func1<Host, HostEvent<Host>>() {
             @Override
             public HostEvent<Host> call(Host t1) {
-                return HostEvent.add(t1);
+                return HostEvent.added(t1);
             }
         };
     }

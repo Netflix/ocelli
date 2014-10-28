@@ -1,5 +1,7 @@
 package rx.loadbalancer.loadbalancer;
 
+import java.util.List;
+
 import rx.functions.Func2;
 
 /**
@@ -12,6 +14,6 @@ import rx.functions.Func2;
  * @author elandau
  *
  */
-public interface WeightSelector extends Func2<Integer[], Integer, Integer> {
+public interface WeightSelector extends Func2<List<Integer>, Integer, Integer> {
 
 }

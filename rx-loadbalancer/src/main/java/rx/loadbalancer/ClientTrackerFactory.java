@@ -9,12 +9,12 @@ import rx.functions.Func2;
  *
  * @param Host - Host being tracked
  * @param Acton0 - Active to invoke when the host fails
- * @return FailureDetector
+ * @return ClientTracker
  * 
  * @author elandau
  *
  * @param <Host>
  */
-public interface FailureDetectorFactory<Host> extends Func2<Host, Action0, FailureDetector>{
+public interface ClientTrackerFactory<Host, ClientTracker> extends Func2<Host, Action0, ClientTracker> {
 
 }

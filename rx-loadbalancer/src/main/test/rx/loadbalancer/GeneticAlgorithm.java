@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -18,9 +19,10 @@ import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.TestClient;
 import rx.loadbalancer.client.TestHost;
 import rx.loadbalancer.loadbalancer.RoundRobinLoadBalancer;
+import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
 import rx.loadbalancer.operations.TrackingOperation;
-import rx.loadbalancer.selector.SimplePoolSelector;
+import rx.loadbalancer.selector.DefaultClientSelector;
 
 public class GeneticAlgorithm {
     private static final Logger LOG = LoggerFactory.getLogger(GeneticAlgorithm.class);
@@ -29,7 +31,7 @@ public class GeneticAlgorithm {
     
     private RoundRobinLoadBalancer<TestClient> loadBalancer;
 
-    private SimplePoolSelector<TestHost, TestClient> selector;
+    private DefaultClientSelector<TestHost, TestClient, ClientMetrics> selector;
     
     @BeforeClass
     public static void setup() {
@@ -41,14 +43,24 @@ public class GeneticAlgorithm {
     
     @Before
     public void beforeTest() {
-        this.selector = new SimplePoolSelector<TestHost, TestClient>(new TestClientFactory(), new SimpleClientMetricsFactory<TestHost>());
+        this.selector = DefaultClientSelector.<TestHost, TestClient, ClientMetrics>builder()
+                .withHostSource(Observable
+                    .from(hosts)
+                    .map(HostEvent.<TestHost>toAdd()))
+                .withConnector(new TestClientFactory())
+                .withClientTrackerFactory(new SimpleClientMetricsFactory<TestHost>())
+                .build();
         
-        Observable
-            .from(hosts)
-            .map(HostEvent.<TestHost>toAdd())
-            .subscribe(this.selector);
+        this.selector.initialize();
         
         loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.aquire());
+    }
+    
+    @After
+    public void afterTest() {
+        if (this.selector != null) {
+            this.selector.shutdown();
+        }
     }
     
     public static class ResponseHolder implements Observer<String> {

@@ -1,8 +1,7 @@
 package rx.loadbalancer;
 
-import java.util.List;
-
 import rx.Observable;
+import rx.loadbalancer.loadbalancer.ClientsAndWeights;
 
 /**
  * A concrete ClientSelector keeps track of all available hosts and returns 
@@ -14,7 +13,7 @@ public interface ClientSelector<Client> {
     /**
      * @return Observable that emits a single List<Client> for all connected hosts
      */
-    Observable<List<Client>> aquire();
+    Observable<ClientsAndWeights<Client>> aquire();
     
     /**
      * Prime Clients using the maximum number of allows Clients

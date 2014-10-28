@@ -23,8 +23,14 @@ public class ClientEvent {
         REQUEST_SUCCESS,
         
         // The client request failed. This also means that the client connection
-        // failed
+        // failed.  This should not be used to count non-retryable errors such
+        // as bad requests (such as HTTP 404).
         REQUEST_FAILURE,
+        
+        // This is a specialization of REQUEST_FAILURE in that it 
+        // should be treated differently for the purposes of identifying excessive
+        // load situations rather than excessive failure situations
+        REQUEST_THROTTLED,
     }
     
     private final long duration;

@@ -1,6 +1,7 @@
 package rx.loadbalancer.loadbalancer;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -20,7 +21,7 @@ public class RoundRobinWeightSelector implements WeightSelector {
     private AtomicInteger position = new AtomicInteger();
     
     @Override
-    public Integer call(Integer[] weights, Integer count) {
-        return Arrays.binarySearch(weights, position.incrementAndGet() % count);
+    public Integer call(List<Integer> weights, Integer count) {
+        return Collections.binarySearch(weights, position.incrementAndGet() % count);
     }
 }

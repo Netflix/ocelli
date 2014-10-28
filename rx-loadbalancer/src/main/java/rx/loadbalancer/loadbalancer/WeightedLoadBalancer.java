@@ -13,11 +13,11 @@ import rx.loadbalancer.LoadBalancer;
  */
 public class WeightedLoadBalancer<Client> implements LoadBalancer<Client> {
     
-    private final Observable<ClientsWithWeights<Client>> source;
+    private final Observable<ClientsAndWeights<Client>> source;
     
     private final WeightSelector func;
     
-    public WeightedLoadBalancer(Observable<ClientsWithWeights<Client>> source, WeightSelector func) {
+    public WeightedLoadBalancer(Observable<ClientsAndWeights<Client>> source, WeightSelector func) {
         this.source = source;
         this.func = func;
     }
@@ -25,11 +25,11 @@ public class WeightedLoadBalancer<Client> implements LoadBalancer<Client> {
     @Override
     public Observable<Client> select() {
         return source
-            .concatMap(new Func1<ClientsWithWeights<Client>, Observable<Client>>() {
+            .concatMap(new Func1<ClientsAndWeights<Client>, Observable<Client>>() {
                 int pos = -1;
 
                 @Override
-                public Observable<Client> call(ClientsWithWeights<Client> hosts) {
+                public Observable<Client> call(ClientsAndWeights<Client> hosts) {
                     if (hosts.isEmpty()) {
                         return Observable.empty();
                     }
@@ -38,7 +38,7 @@ public class WeightedLoadBalancer<Client> implements LoadBalancer<Client> {
                         pos = func.call(hosts.getWeights(), hosts.getTotalWeights());
                     }
 
-                    return Observable.just(hosts.getClients()[pos++ % hosts.getClients().length]);
+                    return Observable.just(hosts.getClients().get(pos++ % hosts.getClients().size()));
                 }
             });
     }
