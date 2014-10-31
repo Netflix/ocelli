@@ -11,7 +11,7 @@ import rx.loadbalancer.util.Stopwatch;
 
 public class TestClientFactory implements HostClientConnector<TestHost, TestClient> {
     @Override
-    public Observable<TestClient> call(TestHost host, final Action1<ClientEvent> actions) {
+    public Observable<TestClient> call(TestHost host, final Action1<ClientEvent> actions, Observable<Void> signal) {
         final Stopwatch sw = Stopwatch.createStarted();
         actions.call(ClientEvent.connectStart());
         return host

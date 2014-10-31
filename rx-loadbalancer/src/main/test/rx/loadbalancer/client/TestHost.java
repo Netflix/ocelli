@@ -1,5 +1,7 @@
 package rx.loadbalancer.client;
 
+import java.util.concurrent.Semaphore;
+
 import rx.Observable;
 import rx.functions.Func1;
 import rx.loadbalancer.util.RxUtil;
@@ -8,6 +10,8 @@ public class TestHost {
     private final String id;
     private final Func1<TestClient, Observable<TestClient>> behavior;
     private final Observable<Void> connect;
+    private final int concurrency = 10;
+    private final Semaphore sem = new Semaphore(concurrency);
     
     public static TestHost create(String id, Observable<Void> connect, Func1<TestClient, Observable<TestClient>> behavior) {
         return new TestHost(id, connect, behavior);
@@ -23,15 +27,18 @@ public class TestHost {
         return connect;
     }
     
-    public String toString() {
-        return "Host[" + id + "]";
-    }
-
     public Observable<String> execute(TestClient client, Func1<TestClient, Observable<String>> operation) {
         return Observable
                 .just(client)
-                .doOnNext(RxUtil.info("Trying"))
+                .doOnSubscribe(RxUtil.acquire(sem))
                 .concatMap(behavior)
-                .concatMap(operation);
+                .concatMap(operation)
+                .doOnCompleted(RxUtil.release(sem))
+                ;
     }
+    
+    public String toString() {
+        return "Host[" + id + " pending=" + (concurrency - sem.availablePermits()) + "]";
+    }
+
 }

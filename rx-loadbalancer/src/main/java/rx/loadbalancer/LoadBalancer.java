@@ -3,11 +3,12 @@ package rx.loadbalancer;
 import rx.Observable;
 
 /**
- * SPI for a load balancer.  
+ * A concrete ClientSelector keeps track of all available hosts and returns 
+ * the most recent immutable collection of connected {@link Client}'s.
  * 
  * @author elandau
  */
-public interface LoadBalancer<Client> {
+public interface LoadBalancer<Host, Client> {
     /**
      * Return an Observable that when subscribed to will select the next Client
      * in the pool.  Call select() for each use of the load balancer.  The Observable
@@ -16,4 +17,9 @@ public interface LoadBalancer<Client> {
      * @return
      */
     Observable<Client> select();
+
+    /**
+     * @return Stream of all host events
+     */
+    Observable<HostEvent<Host>> events();
 }

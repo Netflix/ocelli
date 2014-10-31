@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -376,7 +377,7 @@ public class RxUtil {
     private static String getSourceLabel(String label) {
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
         StackTraceElement element = stack[3];
-        return "(" + element.getFileName() + ":" + element.getLineNumber() + ") " + label + " ";
+        return "(" + element.getFileName() + ":" + element.getLineNumber() + ") " + label;
     }
 
     /**
@@ -613,5 +614,38 @@ public class RxUtil {
                 action.call();
             }
         } ;
+    }
+    
+    public static <T> Action01<T> acquire(final Semaphore sem) {
+        return new Action01<T>() {
+            @Override
+            public void call(T t1) {
+                call();
+            }
+
+            @Override
+            public void call() {
+                try {
+                    sem.acquire();
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+        };
+    }
+    
+    public static <T> Action01<T> release(final Semaphore sem) {
+        return new Action01<T>() {
+            @Override
+            public void call(T t1) {
+                call();
+            }
+
+            @Override
+            public void call() {
+                sem.release();
+            }
+        };
     }
 }

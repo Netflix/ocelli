@@ -1,4 +1,4 @@
-package rx.loadbalancer.selector;
+package rx.loadbalancer.util;
 
 import rx.functions.Func1;
 

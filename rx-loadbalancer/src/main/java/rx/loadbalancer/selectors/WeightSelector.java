@@ -1,4 +1,4 @@
-package rx.loadbalancer.loadbalancer;
+package rx.loadbalancer.selectors;
 
 import java.util.List;
 
