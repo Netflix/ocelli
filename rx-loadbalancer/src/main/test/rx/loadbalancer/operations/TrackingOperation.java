@@ -20,7 +20,6 @@ public class TrackingOperation implements Func1<TestClient, Observable<String>> 
     @Override
     public Observable<String> call(final TestClient client) {
         servers.add(client.getHost());
-        
         return client.execute(new Func1<TestClient, Observable<String>>() {
             @Override
             public Observable<String> call(TestClient t1) {

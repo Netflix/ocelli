@@ -71,7 +71,7 @@ public class LoadBalancerTest {
         
         this.selector.initialize();
         
-        loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.aquire());
+        loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.acquire());
     }
     
     @After

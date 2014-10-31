@@ -7,7 +7,15 @@ import rx.loadbalancer.WeightingStrategy;
 import rx.loadbalancer.loadbalancer.ClientsAndWeights;
 import rx.loadbalancer.selector.HostContext;
 
-public class IdentityWeightingStrategy<Host, Client, Tracker> implements WeightingStrategy<Host, Client, Tracker> {
+/**
+ * Strategy where all clients have the same weight
+ * @author elandau
+ *
+ * @param <Host>
+ * @param <Client>
+ * @param <Tracker>
+ */
+public class EqualWeightStrategy<Host, Client, Tracker> implements WeightingStrategy<Host, Client, Tracker> {
 
     @Override
     public ClientsAndWeights<Client> call(List<HostContext<Host, Client, Tracker>> t1) {

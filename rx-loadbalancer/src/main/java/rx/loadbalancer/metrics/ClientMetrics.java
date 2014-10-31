@@ -23,4 +23,7 @@ public interface ClientMetrics extends Action1<ClientEvent> {
     long getRequestStartCount();
     long getRequestFailureCount();
     long getRequestSuccessCount();
+    long getPendingConnectCount();
+    long getPendingRequestCount();
+    long getLatencyScore();
 }

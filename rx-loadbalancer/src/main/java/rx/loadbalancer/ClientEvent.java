@@ -33,7 +33,7 @@ public class ClientEvent {
         REQUEST_THROTTLED,
     }
     
-    private final long duration;
+    private final Long duration;
     private final TimeUnit units;
     private final Type type;
     private final Throwable e;
@@ -96,6 +96,9 @@ public class ClientEvent {
         StringBuilder sb = new StringBuilder();
         sb.append("ClientEvent[")
           .append("type=").append(type);
+        
+        if (duration != null)
+            sb.append(" ").append(duration).append(" ").append(units);
         
         sb.append("]");
         return sb.toString();

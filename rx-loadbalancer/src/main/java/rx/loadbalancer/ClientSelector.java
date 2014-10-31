@@ -9,23 +9,14 @@ import rx.loadbalancer.loadbalancer.ClientsAndWeights;
  * 
  * @author elandau
  */
-public interface ClientSelector<Client> {
+public interface ClientSelector<Host, Client> {
     /**
      * @return Observable that emits a single List<Client> for all connected hosts
      */
-    Observable<ClientsAndWeights<Client>> aquire();
-    
+    Observable<ClientsAndWeights<Client>> acquire();
+
     /**
-     * Prime Clients using the maximum number of allows Clients
-     * 
-     * @return Observable that will emit the primed clients 
+     * @return Stream of all host events
      */
-//    Observable<Client> prime();
-    
-    /**
-     * Prime N clients
-     * @param count
-     * @return
-     */
-//    Observable<Client> prime(int count);
+    Observable<HostEvent<Host>> events();
 }
