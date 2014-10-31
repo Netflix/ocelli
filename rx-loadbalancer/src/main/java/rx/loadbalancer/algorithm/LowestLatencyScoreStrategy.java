@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import rx.loadbalancer.WeightingStrategy;
-import rx.loadbalancer.loadbalancer.ClientsAndWeights;
+import rx.loadbalancer.loadbalancer.HostContext;
 import rx.loadbalancer.metrics.ClientMetrics;
-import rx.loadbalancer.selector.HostContext;
+import rx.loadbalancer.selectors.ClientsAndWeights;
 
 public class LowestLatencyScoreStrategy<Host, Client, Tracker extends ClientMetrics> implements WeightingStrategy<Host, Client, Tracker> {
     @Override

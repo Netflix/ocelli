@@ -1,12 +1,10 @@
-package rx.loadbalancer.operations;
+package rx.loadbalancer.client;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import rx.Observable;
 import rx.functions.Func1;
-import rx.loadbalancer.client.TestClient;
-import rx.loadbalancer.client.TestHost;
 
 public class TrackingOperation implements Func1<TestClient, Observable<String>> {
     private final String response;

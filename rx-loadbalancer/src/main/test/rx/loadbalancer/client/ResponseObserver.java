@@ -1,12 +1,13 @@
 package rx.loadbalancer.client;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import rx.Observer;
 
 public class ResponseObserver implements Observer<String> {
     private volatile Throwable t;
-    private String response;
+    private volatile String response;
     private CountDownLatch latch = new CountDownLatch(1);
     
     @Override
@@ -25,10 +26,14 @@ public class ResponseObserver implements Observer<String> {
         this.response = t;
     }
     
-    public String get() throws Throwable {
-        latch.await();
+    public String await(long duration, TimeUnit units) throws Throwable {
+        latch.await(duration, units);
         if (this.t != null)
             throw this.t;
+        return response;
+    }
+    
+    public String get() {
         return response;
     }
 }

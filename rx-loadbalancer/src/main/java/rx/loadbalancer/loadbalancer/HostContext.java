@@ -1,4 +1,4 @@
-package rx.loadbalancer.selector;
+package rx.loadbalancer.loadbalancer;
 
 import rx.Subscription;
 import rx.functions.Action1;

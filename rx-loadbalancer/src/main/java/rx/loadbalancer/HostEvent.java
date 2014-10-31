@@ -36,20 +36,22 @@ public class HostEvent<Host> {
         return new HostEvent<Host>(type, host);
     }
     
-    public static <Host> HostEvent<Host> added(Host host) {
-        return new HostEvent<Host>(EventType.ADD, host);
+    public static <Host> Func1<Host, HostEvent<Host>> toAdd() {
+        return new Func1<Host, HostEvent<Host>>() {
+            @Override
+            public HostEvent<Host> call(Host host) {
+                return HostEvent.create(host, EventType.ADD);
+            }
+        };
     }
     
-    public static <Host> HostEvent<Host> removed(Host host) {
-        return new HostEvent<Host>(EventType.REMOVE, host);
-    }
-    
-    public static <Host> HostEvent<Host> failed(Host host) {
-        return new HostEvent<Host>(EventType.FAILED, host);
-    }
-    
-    public static <Host> HostEvent<Host> stop(Host host) {
-        return new HostEvent<Host>(EventType.STOP, host);
+    public static <Host> Func1<HostEvent<Host>, HostEvent.EventType> byAction() {
+        return new Func1<HostEvent<Host>, HostEvent.EventType>() {
+            @Override
+            public EventType call(HostEvent<Host> t1) {
+                return t1.getAction();
+            }
+        };
     }
     
     public HostEvent(EventType action, Host host) {
@@ -65,26 +67,11 @@ public class HostEvent<Host> {
         return this.host;
     }
 
+   
     @Override
     public String toString() {
         return "HostEvent [" + action + " " + host + "]";
     }
 
-    public static <Host> Func1<Host, HostEvent<Host>> toAdd() {
-        return new Func1<Host, HostEvent<Host>>() {
-            @Override
-            public HostEvent<Host> call(Host t1) {
-                return HostEvent.added(t1);
-            }
-        };
-    }
-    
-    public static <Host> Func1<HostEvent<Host>, HostEvent.EventType> byAction() {
-        return new Func1<HostEvent<Host>, HostEvent.EventType>() {
-            @Override
-            public EventType call(HostEvent<Host> t1) {
-                return t1.getAction();
-            }
-        };
-    }
+
 }

@@ -17,32 +17,30 @@ import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.ResponseObserver;
 import rx.loadbalancer.client.TestClient;
 import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.loadbalancer.RoundRobinLoadBalancer;
+import rx.loadbalancer.client.TrackingOperation;
+import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
-import rx.loadbalancer.operations.TrackingOperation;
-import rx.loadbalancer.selector.DefaultClientSelector;
+import rx.loadbalancer.selectors.RoundRobinSelectionStrategy;
 
 public class GeneticAlgorithm {
     private static final Logger LOG = LoggerFactory.getLogger(GeneticAlgorithm.class);
         
     private static List<TestHost> hosts = new ArrayList<TestHost>();
     
-    private RoundRobinLoadBalancer<TestClient> loadBalancer;
-
-    private DefaultClientSelector<TestHost, TestClient, ClientMetrics> selector;
+    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
     
     @BeforeClass
     public static void setup() {
         hosts = new ArrayList<TestHost>();
         hosts.add(TestHost.create("dead-2", Connects.failure(10, TimeUnit.MILLISECONDS), Behaviors.immediate()));
-        hosts.add(TestHost.create("bad-0" , Connects.delay  (10, TimeUnit.MILLISECONDS), Behaviors.delayedFailure(10, TimeUnit.MILLISECONDS)));
+        hosts.add(TestHost.create("bad-0" , Connects.delay  (10, TimeUnit.MILLISECONDS), Behaviors.failure(10, TimeUnit.MILLISECONDS)));
         hosts.add(TestHost.create("good-1", Connects.delay  (10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS)));
     }
     
     @Before
     public void beforeTest() {
-        this.selector = DefaultClientSelector.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                     .from(hosts)
                     .map(HostEvent.<TestHost>toAdd()))
@@ -51,8 +49,6 @@ public class GeneticAlgorithm {
                 .build();
         
         this.selector.initialize();
-        
-        loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.acquire());
     }
     
     @After
@@ -67,7 +63,7 @@ public class GeneticAlgorithm {
         final TrackingOperation op = new TrackingOperation("response");
         final ResponseObserver response = new ResponseObserver();
         
-        loadBalancer
+        selector
             .select()
             .concatMap(op)
             .retry(2)

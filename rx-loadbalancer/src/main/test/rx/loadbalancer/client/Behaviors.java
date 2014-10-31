@@ -29,7 +29,7 @@ public class Behaviors {
         };
     }
     
-    public static Func1<TestClient, Observable<TestClient>> delayedFailure(final long amount, final TimeUnit units) {
+    public static Func1<TestClient, Observable<TestClient>> failure(final long amount, final TimeUnit units) {
         return new Func1<TestClient, Observable<TestClient>>() {
             @Override
             public Observable<TestClient> call(TestClient client) {
@@ -37,6 +37,30 @@ public class Behaviors {
                         .just(client)
                         .delay(amount, units)
                         .ignoreElements()
+                        .concatWith(Observable.<TestClient>error(new Exception("error")));
+            }
+        };
+    }
+    
+    public static Func1<TestClient, Observable<TestClient>> failFirst(final int num) {
+        return new Func1<TestClient, Observable<TestClient>>() {
+            private int counter;
+            @Override
+            public Observable<TestClient> call(TestClient client) {
+                if (counter++ < num) {
+                    return Observable.error(new Exception("Failure-" + counter));
+                }
+                return Observable.just(client);
+            }
+        };
+    }
+    
+    public static Func1<TestClient, Observable<TestClient>> failure() {
+        return new Func1<TestClient, Observable<TestClient>>() {
+            @Override
+            public Observable<TestClient> call(TestClient client) {
+                return Observable
+                        .just(client)
                         .concatWith(Observable.<TestClient>error(new Exception("error")));
             }
         };

@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import rx.loadbalancer.WeightingStrategy;
-import rx.loadbalancer.loadbalancer.ClientsAndWeights;
-import rx.loadbalancer.selector.HostContext;
+import rx.loadbalancer.loadbalancer.HostContext;
+import rx.loadbalancer.selectors.ClientsAndWeights;
 
 /**
  * Strategy where all clients have the same weight

@@ -20,11 +20,10 @@ import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.TestClient;
 import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.loadbalancer.RoundRobinLoadBalancer;
+import rx.loadbalancer.client.TrackingOperation;
+import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
-import rx.loadbalancer.operations.TrackingOperation;
-import rx.loadbalancer.selector.DefaultClientSelector;
 import rx.loadbalancer.selector.DefaultClientSelectorTest;
 import rx.schedulers.Schedulers;
 
@@ -35,8 +34,7 @@ public class PerfTest {
     private static Observable<HostEvent<TestHost>> source;
     private static final Random RANDOM = new Random();
     
-    private RoundRobinLoadBalancer<TestClient> loadBalancer;
-    private DefaultClientSelector<TestHost, TestClient, ClientMetrics> selector;
+    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
     
     @BeforeClass
     public static void setup() {
@@ -62,7 +60,7 @@ public class PerfTest {
     
     @Test
     public void perf() throws InterruptedException {
-        this.selector = DefaultClientSelector.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(source)
                 .withConnector(new TestClientFactory())
                 .withClientTrackerFactory(new SimpleClientMetricsFactory<TestHost>())
@@ -72,23 +70,21 @@ public class PerfTest {
         this.selector.initialize();
 //        this.selector.prime(10).toBlocking().last();
 
-        loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.acquire());
-        
         Observable.range(1, 10)
             .subscribe(new Action1<Integer>() {
                 @Override
                 public void call(final Integer id) {
-                    Observable.interval(1000, TimeUnit.MILLISECONDS, Schedulers.newThread())
+                    Observable.interval(100, TimeUnit.MILLISECONDS, Schedulers.newThread())
                         .subscribe(new Action1<Long>() {
                            @Override
                             public void call(final Long counter) {
-                               loadBalancer.select()
+                               selector.select()
                                    .concatMap(new TrackingOperation(counter + ""))
                                    .retry()
                                    .subscribe(new Action1<String>() {
                                        @Override
                                        public void call(String t1) {
-//                                           LOG.info("{} - {} - {}", id, counter, t1);
+                                           LOG.info("{} - {} - {}", id, counter, t1);
                                        }
                                    });
                             }

@@ -1,4 +1,4 @@
-package rx.loadbalancer.selector;
+package rx.loadbalancer.loadbalancer;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -19,14 +19,16 @@ import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.loadbalancer.ClientEvent;
-import rx.loadbalancer.ClientSelector;
+import rx.loadbalancer.LoadBalancer;
 import rx.loadbalancer.ClientTrackerFactory;
 import rx.loadbalancer.HostClientConnector;
 import rx.loadbalancer.HostEvent;
 import rx.loadbalancer.HostEvent.EventType;
 import rx.loadbalancer.WeightingStrategy;
 import rx.loadbalancer.algorithm.EqualWeightStrategy;
-import rx.loadbalancer.loadbalancer.ClientsAndWeights;
+import rx.loadbalancer.selectors.ClientsAndWeights;
+import rx.loadbalancer.selectors.RoundRobinSelectionStrategy;
+import rx.loadbalancer.util.Functions;
 import rx.loadbalancer.util.RandomBlockingQueue;
 import rx.loadbalancer.util.RxUtil;
 import rx.loadbalancer.util.StateMachine.State;
@@ -45,8 +47,8 @@ import rx.subscriptions.CompositeSubscription;
  * 
  * TODO: Host quarantine 
  */
-public class DefaultClientSelector<Host, Client, Tracker extends Action1<ClientEvent>> implements ClientSelector<Host, Client> {
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultClientSelector.class);
+public class DefaultLoadBalancer<Host, Client, Tracker extends Action1<ClientEvent>> implements LoadBalancer<Host, Client> {
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
     /**
      * Da Builder 
@@ -63,6 +65,7 @@ public class DefaultClientSelector<Host, Client, Tracker extends Action1<ClientE
         private WeightingStrategy<Host, Client, Tracker> weightingStrategy = new EqualWeightStrategy<Host, Client, Tracker>();
         private Func1<Integer, Integer> connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long> quaratineDelayStrategy;
+        private Func1<ClientsAndWeights<Client>, Observable<Client>> selectionStrategy = new RoundRobinSelectionStrategy<Client>();
         
         public Builder<Host, Client, Tracker> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
             this.quaratineDelayStrategy = quaratineDelayStrategy;
@@ -94,12 +97,17 @@ public class DefaultClientSelector<Host, Client, Tracker extends Action1<ClientE
             return this;
         }
         
-        public DefaultClientSelector<Host, Client, Tracker> build() {
+        public Builder<Host, Client, Tracker> withSelectionStrategy(Func1<ClientsAndWeights<Client>, Observable<Client>> selectionStrategy) {
+            this.selectionStrategy = selectionStrategy;
+            return this;
+        }
+        
+        public DefaultLoadBalancer<Host, Client, Tracker> build() {
             assert connector != null;
             assert clientTrackerFactory != null;
             assert hostSource != null;
             
-            return new DefaultClientSelector<Host, Client, Tracker>(this);
+            return new DefaultLoadBalancer<Host, Client, Tracker>(this);
         }
     }
     
@@ -172,14 +180,17 @@ public class DefaultClientSelector<Host, Client, Tracker extends Action1<ClientE
     private CopyOnWriteArrayList<HostContext<Host, Client, Tracker>> activeClients = new CopyOnWriteArrayList<HostContext<Host, Client, Tracker>>();
     
     private PublishSubject<HostEvent<Host>> eventStream = PublishSubject.create();
+
+    private Func1<ClientsAndWeights<Client>, Observable<Client>> selectionStrategy;
     
-    private DefaultClientSelector(Builder<Host, Client, Tracker> builder) {
+    private DefaultLoadBalancer(Builder<Host, Client, Tracker> builder) {
         this.connector = builder.connector;
         this.clientTrackerFactory = builder.clientTrackerFactory;
         this.hostSource = builder.hostSource;
         this.weightingStrategy = builder.weightingStrategy;
         this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
         this.quaratineDelayStrategy = builder.quaratineDelayStrategy;
+        this.selectionStrategy = builder.selectionStrategy;
     }
 
     private State<HostContext<Host, Client, Tracker>, EventType> IDLE         = State.create("IDLE");
@@ -391,12 +402,13 @@ public class DefaultClientSelector<Host, Client, Tracker extends Action1<ClientE
      * Acquire the most recent list of hosts
      */
     @Override
-    public Observable<ClientsAndWeights<Client>> acquire() {
-        return Observable.create(new OnSubscribe<ClientsAndWeights<Client>>() {
+    public Observable<Client> select() {
+        return Observable.create(new OnSubscribe<Client>() {
             @Override
-            public void call(final Subscriber<? super ClientsAndWeights<Client>> child) {
-                child.onNext(weightingStrategy.call(new ArrayList<HostContext<Host, Client, Tracker>>(activeClients)));
-                child.onCompleted();
+            public void call(final Subscriber<? super Client> child) {
+                selectionStrategy.call(
+                    weightingStrategy.call(new ArrayList<HostContext<Host, Client, Tracker>>(activeClients)))
+                    .subscribe(child);
             }
         });
     }

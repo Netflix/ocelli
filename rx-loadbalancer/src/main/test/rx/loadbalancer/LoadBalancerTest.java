@@ -17,11 +17,10 @@ import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.TestClient;
 import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.loadbalancer.RoundRobinLoadBalancer;
+import rx.loadbalancer.client.TrackingOperation;
+import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
-import rx.loadbalancer.operations.TrackingOperation;
-import rx.loadbalancer.selector.DefaultClientSelector;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
@@ -39,9 +38,7 @@ public class LoadBalancerTest {
 
     private static List<TestHost> servers;
 
-    private RoundRobinLoadBalancer<TestClient> loadBalancer;
-
-    private DefaultClientSelector<TestHost, TestClient, ClientMetrics> selector;
+    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
 
     @BeforeClass
     public static void setup() {
@@ -61,7 +58,7 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() {
-        this.selector = DefaultClientSelector.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                     .from(servers)
                     .map(HostEvent.<TestHost>toAdd()))
@@ -70,8 +67,6 @@ public class LoadBalancerTest {
                 .build();
         
         this.selector.initialize();
-        
-        loadBalancer = new RoundRobinLoadBalancer<TestClient>(selector.acquire());
     }
     
     @After
@@ -84,7 +79,7 @@ public class LoadBalancerTest {
     public void testManualOperation() throws Exception {
         final TrackingOperation op = new TrackingOperation("response");
         
-        String resp = loadBalancer
+        String resp = selector
             .select()
             .flatMap(op)
             .retry(2)

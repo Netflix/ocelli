@@ -1,4 +1,4 @@
-package rx.loadbalancer.selector;
+package rx.loadbalancer.loadbalancer;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
