@@ -18,8 +18,16 @@ public interface LoadBalancer<H, C, M extends Action1<ClientEvent>> {
      * 
      * @return
      */
-    Observable<C> select();
+    Observable<C> choose();
 
+    /**
+     * Return an Observable for the Client for this host
+     * 
+     * @param host
+     * @return
+     */
+    Observable<C> choose(H host);
+    
     /**
      * Partition the load balancer using the provided partitioner function.
      * @param partitioner

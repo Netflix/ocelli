@@ -15,6 +15,7 @@ public class TestHost {
     private final int concurrency = 10;
     private final Semaphore sem = new Semaphore(concurrency);
     private final Set<String> vips = new HashSet<String>();
+    private String rack;
     
     public static Func1<TestHost, Observable<String>> byVip() {
         return new Func1<TestHost, Observable<String>>() {
@@ -25,6 +26,15 @@ public class TestHost {
         };
     }
     
+    public static Func1<TestHost, Observable<String>> byRack() {
+        return new Func1<TestHost, Observable<String>>() {
+            @Override
+            public Observable<String> call(TestHost t1) {
+                return Observable.just(t1.rack);
+            }
+        };
+    }
+
     public static TestHost create(String id, Observable<Void> connect, Func1<TestClient, Observable<TestClient>> behavior) {
         return new TestHost(id, connect, behavior);
     }
@@ -44,8 +54,17 @@ public class TestHost {
         return this;
     }
     
+    public TestHost withRack(String rack) {
+        this.rack = rack;
+        return this;
+    }
+
     public Set<String> vips() {
         return this.vips;
+    }
+    
+    public String rack() {
+        return this.rack;
     }
     
     public Observable<String> execute(TestClient client, Func1<TestClient, Observable<String>> operation) {
@@ -59,7 +78,7 @@ public class TestHost {
     }
     
     public String toString() {
-        return "Host[" + id + " pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + "]";
+        return "Host[id=" + id + ", pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + " rack=" + rack + "]";
     }
 
     @Override
@@ -86,5 +105,4 @@ public class TestHost {
             return false;
         return true;
     }
-
 }
