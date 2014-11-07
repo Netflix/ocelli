@@ -1,12 +1,12 @@
 package netflix.ocelli.client;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.Semaphore;
-
 import netflix.ocelli.util.RxUtil;
 import rx.Observable;
 import rx.functions.Func1;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Semaphore;
 
 public class TestHost {
     private final String id;

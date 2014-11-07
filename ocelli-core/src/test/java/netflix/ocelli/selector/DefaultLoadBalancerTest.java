@@ -1,11 +1,6 @@
 package netflix.ocelli.selector;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.ManagedClientFactory;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.Operations;
@@ -22,7 +17,6 @@ import netflix.ocelli.retrys.Retrys;
 import netflix.ocelli.selectors.Delays;
 import netflix.ocelli.util.Functions;
 import netflix.ocelli.util.RxUtil;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -32,9 +26,12 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.subjects.PublishSubject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class DefaultLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);

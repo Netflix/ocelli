@@ -1,13 +1,13 @@
 package netflix.ocelli.client;
 
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.ClientEvent;
 import netflix.ocelli.util.Stopwatch;
 import rx.Observable;
 import rx.Observer;
 import rx.functions.Action1;
 import rx.functions.Func1;
+
+import java.util.concurrent.TimeUnit;
 
 public class TestClient {
     private final TestHost host;

@@ -1,10 +1,10 @@
 package netflix.ocelli.client;
 
-import java.net.SocketTimeoutException;
-import java.util.concurrent.TimeUnit;
-
 import rx.Observable;
 import rx.functions.Func1;
+
+import java.net.SocketTimeoutException;
+import java.util.concurrent.TimeUnit;
 
 public class Operations {
     

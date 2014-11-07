@@ -1,9 +1,9 @@
 package netflix.ocelli.client;
 
+import rx.Observer;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import rx.Observer;
 
 public class ResponseObserver implements Observer<String> {
     private volatile Throwable t;
