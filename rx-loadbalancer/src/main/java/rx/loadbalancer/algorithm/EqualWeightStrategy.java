@@ -3,8 +3,10 @@ package rx.loadbalancer.algorithm;
 import java.util.ArrayList;
 import java.util.List;
 
+import rx.functions.Action1;
+import rx.loadbalancer.ClientEvent;
+import rx.loadbalancer.ManagedClient;
 import rx.loadbalancer.WeightingStrategy;
-import rx.loadbalancer.loadbalancer.HostContext;
 import rx.loadbalancer.selectors.ClientsAndWeights;
 
 /**
@@ -13,14 +15,14 @@ import rx.loadbalancer.selectors.ClientsAndWeights;
  *
  * @param <Host>
  * @param <Client>
- * @param <Tracker>
+ * @param <Metrics>
  */
-public class EqualWeightStrategy<Host, Client, Tracker> implements WeightingStrategy<Host, Client, Tracker> {
+public class EqualWeightStrategy<Host, Client, Metrics extends Action1<ClientEvent>> implements WeightingStrategy<Host, Client, Metrics> {
 
     @Override
-    public ClientsAndWeights<Client> call(List<HostContext<Host, Client, Tracker>> t1) {
+    public ClientsAndWeights<Client> call(List<ManagedClient<Host, Client, Metrics>> t1) {
         List<Client> clients = new ArrayList<Client>(t1.size());
-        for (HostContext<Host, Client, Tracker> context : t1) {
+        for (ManagedClient<Host, Client, Metrics> context : t1) {
             clients.add(context.getClient());
         }
         return new ClientsAndWeights<Client>(clients, null);

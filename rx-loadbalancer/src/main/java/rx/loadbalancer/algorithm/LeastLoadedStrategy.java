@@ -3,21 +3,21 @@ package rx.loadbalancer.algorithm;
 import java.util.ArrayList;
 import java.util.List;
 
+import rx.loadbalancer.ManagedClient;
 import rx.loadbalancer.WeightingStrategy;
-import rx.loadbalancer.loadbalancer.HostContext;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.selectors.ClientsAndWeights;
 
 public class LeastLoadedStrategy<Host, Client, Tracker extends ClientMetrics> implements WeightingStrategy<Host, Client, Tracker> {
     @Override
-    public ClientsAndWeights<Client> call(List<HostContext<Host, Client, Tracker>> source) {
+    public ClientsAndWeights<Client> call(List<ManagedClient<Host, Client, Tracker>> source) {
         List<Client>  clients = new ArrayList<Client>(source.size());
         List<Integer> weights = new ArrayList<Integer>();
         Integer max = 0;
-        for (HostContext<Host, Client, Tracker> context : source) {
+        for (ManagedClient<Host, Client, Tracker> context : source) {
             clients.add(context.getClient());
             
-            int cur = (int) context.getClientTracker().getPendingRequestCount();
+            int cur = (int) context.getMetrics().getPendingRequestCount();
             if (cur > max) 
                 max = cur;
             weights.add(cur);

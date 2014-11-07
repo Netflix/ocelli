@@ -8,14 +8,18 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
+import rx.loadbalancer.client.ResponseObserver;
 import rx.loadbalancer.client.TestClient;
+import rx.loadbalancer.client.TestClientFactory;
 import rx.loadbalancer.client.TestHost;
 import rx.loadbalancer.client.TrackingOperation;
 import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
@@ -25,21 +29,24 @@ import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
     
-    private static final TestHost  s1  = TestHost.create("1",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s2  = TestHost.create("2",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s3  = TestHost.create("3",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s4  = TestHost.create("4",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s5  = TestHost.create("5",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s6  = TestHost.create("6",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s7  = TestHost.create("7",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s8  = TestHost.create("8",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s9  = TestHost.create("9",  Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
-    private static final TestHost  s10 = TestHost.create("10", Connects.delay(1, TimeUnit.SECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s1  = TestHost.create("1",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s2  = TestHost.create("2",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s3  = TestHost.create("3",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s4  = TestHost.create("4",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s5  = TestHost.create("5",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s6  = TestHost.create("6",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s7  = TestHost.create("7",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s8  = TestHost.create("8",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s9  = TestHost.create("9",  Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
+    private static final TestHost  s10 = TestHost.create("10", Connects.delay(10, TimeUnit.MILLISECONDS), Behaviors.delay(10, TimeUnit.MILLISECONDS));
 
     private static List<TestHost> servers;
 
     private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
 
+    @Rule
+    public TestName name = new TestName();
+    
     @BeforeClass
     public static void setup() {
         servers = new ArrayList<TestHost>();
@@ -53,20 +60,23 @@ public class LoadBalancerTest {
         servers.add(s8);
         servers.add(s9);
         servers.add(s10);
-
     }
     
     @Before 
-    public void before() {
+    public void before() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                     .from(servers)
                     .map(HostEvent.<TestHost>toAdd()))
-                .withConnector(new TestClientFactory())
-                .withClientTrackerFactory(new SimpleClientMetricsFactory<TestHost>())
+                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
+                        new TestClientFactory(), 
+                        new SimpleClientMetricsFactory<TestHost>()))
                 .build();
         
         this.selector.initialize();
+        TimeUnit.SECONDS.sleep(1);
+        
+        LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
     
     @After
@@ -76,21 +86,21 @@ public class LoadBalancerTest {
     }
     
     @Test
-    public void testManualOperation() throws Exception {
+    public void testManualOperation() throws Throwable {
         final TrackingOperation op = new TrackingOperation("response");
-        
-        String resp = selector
+        final ResponseObserver response = new ResponseObserver();
+
+        selector
             .select()
             .flatMap(op)
             .retry(2)
-            .toBlocking()
-            .first();
+            .subscribe(response);
         
-        LOG.info("Response : " + resp);
+        response.await(10, TimeUnit.SECONDS);
+        LOG.info("Response : " + response.get());
         LOG.info(op.getServers().toString());
         
         List<TestHost> expected = new ArrayList<TestHost>();
-        expected.add(s1);
         expected.add(s2);
         
         Assert.assertEquals(expected, op.getServers());

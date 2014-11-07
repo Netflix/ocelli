@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import rx.Observable;
+import rx.functions.Action0;
 import rx.functions.Func1;
 import rx.loadbalancer.util.RxUtil;
 
@@ -11,10 +12,11 @@ public class Behaviors {
     public static Func1<TestClient, Observable<TestClient>> delay(final long amount, final TimeUnit units) {
         return new Func1<TestClient, Observable<TestClient>>() {
             @Override
-            public Observable<TestClient> call(TestClient client) {
+            public Observable<TestClient> call(final TestClient client) {
                 return Observable
                         .just(client)
-                        .delay(amount, units);
+                        .delay(amount, units)
+                        ;
             }
         };
     }

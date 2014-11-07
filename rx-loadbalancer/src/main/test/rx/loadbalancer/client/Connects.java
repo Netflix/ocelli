@@ -3,23 +3,11 @@ package rx.loadbalancer.client;
 import java.util.concurrent.TimeUnit;
 
 import rx.Observable;
-import rx.Observable.OnSubscribe;
-import rx.Subscriber;
+import rx.functions.Func1;
 
 public class Connects {
     public static Observable<Void> delay(final long timeout, final TimeUnit units) {
-        return Observable.create(new OnSubscribe<Void>() {
-            @Override
-            public void call(Subscriber<? super Void> t1) {
-                try {
-                    units.sleep(timeout);
-                    t1.onCompleted();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    t1.onError(e);
-                }
-            }
-        });
+        return Observable.timer(timeout, units).ignoreElements().cast(Void.class);
     }
     
     public static Observable<Void> failure() {
@@ -27,16 +15,10 @@ public class Connects {
     }
     
     public static Observable<Void> failure(final long timeout, final TimeUnit units) {
-        return Observable.create(new OnSubscribe<Void>() {
+        return Observable.timer(timeout, units).concatMap(new Func1<Long, Observable<Void>>() {
             @Override
-            public void call(Subscriber<? super Void> t1) {
-                try {
-                    units.sleep(timeout);
-                    t1.onError(new Exception("Connectus interruptus"));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    t1.onError(e);
-                }
+            public Observable<Void> call(Long t1) {
+                return Observable.error(new Exception("Connectus interruptus"));
             }
         });
     }

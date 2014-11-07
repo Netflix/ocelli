@@ -1,5 +1,7 @@
 package rx.loadbalancer.client;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import rx.Observable;
@@ -12,6 +14,16 @@ public class TestHost {
     private final Observable<Void> connect;
     private final int concurrency = 10;
     private final Semaphore sem = new Semaphore(concurrency);
+    private final Set<String> vips = new HashSet<String>();
+    
+    public static Func1<TestHost, Observable<String>> byVip() {
+        return new Func1<TestHost, Observable<String>>() {
+            @Override
+            public Observable<String> call(TestHost t1) {
+                return Observable.from(t1.vips).concatWith(Observable.just("*"));
+            }
+        };
+    }
     
     public static TestHost create(String id, Observable<Void> connect, Func1<TestClient, Observable<TestClient>> behavior) {
         return new TestHost(id, connect, behavior);
@@ -27,6 +39,15 @@ public class TestHost {
         return connect;
     }
     
+    public TestHost withVip(String vip) {
+        this.vips.add(vip);
+        return this;
+    }
+    
+    public Set<String> vips() {
+        return this.vips;
+    }
+    
     public Observable<String> execute(TestClient client, Func1<TestClient, Observable<String>> operation) {
         return Observable
                 .just(client)
@@ -38,7 +59,32 @@ public class TestHost {
     }
     
     public String toString() {
-        return "Host[" + id + " pending=" + (concurrency - sem.availablePermits()) + "]";
+        return "Host[" + id + " pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + "]";
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((id == null) ? 0 : id.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        TestHost other = (TestHost) obj;
+        if (id == null) {
+            if (other.id != null)
+                return false;
+        } else if (!id.equals(other.id))
+            return false;
+        return true;
     }
 
 }

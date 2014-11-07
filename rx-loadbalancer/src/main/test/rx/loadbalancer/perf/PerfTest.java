@@ -14,21 +14,22 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.loadbalancer.HostEvent;
-import rx.loadbalancer.TestClientFactory;
+import rx.loadbalancer.ManagedClientFactory;
 import rx.loadbalancer.algorithm.LowestLatencyScoreStrategy;
 import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
 import rx.loadbalancer.client.TestClient;
+import rx.loadbalancer.client.TestClientFactory;
 import rx.loadbalancer.client.TestHost;
 import rx.loadbalancer.client.TrackingOperation;
 import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
-import rx.loadbalancer.selector.DefaultClientSelectorTest;
+import rx.loadbalancer.selector.DefaultLoadBalancerTest;
 import rx.schedulers.Schedulers;
 
 public class PerfTest {
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultClientSelectorTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);
     
     private static final int NUM_HOSTS = 10;
     private static Observable<HostEvent<TestHost>> source;
@@ -62,8 +63,9 @@ public class PerfTest {
     public void perf() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(source)
-                .withConnector(new TestClientFactory())
-                .withClientTrackerFactory(new SimpleClientMetricsFactory<TestHost>())
+                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
+                        new TestClientFactory(), 
+                        new SimpleClientMetricsFactory<TestHost>()))
                 .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
