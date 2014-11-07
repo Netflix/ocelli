@@ -90,7 +90,7 @@ public class LoadBalancerTest {
         final ResponseObserver response = new ResponseObserver();
 
         selector
-            .select()
+            .choose()
             .flatMap(op)
             .retry(2)
             .subscribe(response);

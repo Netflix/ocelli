@@ -304,9 +304,18 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
      * Acquire the most recent list of hosts
      */
     @Override
-    public Observable<C> select() {
+    public Observable<C> choose() {
         return selectionStrategy.call(
                     weightingStrategy.call(new ArrayList<ManagedClient<H, C, M>>(activeClients)));
+    }
+
+    @Override
+    public Observable<C> choose(H host) {
+        Holder holder = hosts.get(host);
+        if (holder == null) {
+            return Observable.empty();
+        }
+        return holder.client.connect();
     }
 
     @Override

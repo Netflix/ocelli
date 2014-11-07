@@ -85,7 +85,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb.select()
+        lb.choose()
             .concatMap(operation)
             .retry()
             .subscribe(response);
@@ -177,7 +177,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb.select()
+        lb.choose()
             .concatMap(operation)
             .retry()
             .subscribe(response);
@@ -203,7 +203,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb.select()
+        lb.choose()
             .concatMap(operation)
             .single()
             .retry()

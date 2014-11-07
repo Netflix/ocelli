@@ -81,16 +81,7 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
                             .subscribe(new Action1<K>() {
                                 @Override
                                 public void call(K id) {
-                                    Holder holder = partitions.get(id);
-                                    if (null == holder) {
-                                        PublishSubject<HostEvent<H>> subject = PublishSubject.create();
-                                        holder = new Holder(factory.call(id, subject), subject);
-                                        Holder prev = partitions.putIfAbsent(id, holder);
-                                        if (prev != null) {
-                                            holder = prev;
-                                        }
-                                    }
-                                    holder.hostStream.onNext(event);
+                                    getOrCreateHolder(id).hostStream.onNext(event);
                                 }
                             });
                 }
@@ -103,13 +94,22 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
         cs.unsubscribe();
     }
     
+    private Holder getOrCreateHolder(K id) {
+        Holder holder = partitions.get(id);
+        if (null == holder) {
+            PublishSubject<HostEvent<H>> subject = PublishSubject.create();
+            Holder newHolder = new Holder(factory.call(id, subject), subject);
+            holder = partitions.putIfAbsent(id, newHolder);
+            if (holder == null) {
+                holder = newHolder;
+            }
+        }
+        return holder;
+    }
+    
     @Override
     public LoadBalancer<H, C, M> get(K id) {
-        Holder holder = partitions.get(id);
-        if (holder == null)
-            return null;
-        
-        return holder.loadBalancer;
+        return getOrCreateHolder(id).loadBalancer;
     }
 
     @Override

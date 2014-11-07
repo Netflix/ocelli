@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
 import rx.Observable.Operator;
 import rx.Observer;
 import rx.Subscriber;
@@ -23,6 +24,10 @@ import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.functions.FuncN;
+import rx.loadbalancer.LoadBalancer;
+import rx.loadbalancer.client.TestClient;
+import rx.loadbalancer.client.TestClientMetrics;
+import rx.loadbalancer.client.TestHost;
 import rx.subscriptions.Subscriptions;
 
 public class RxUtil {
@@ -507,6 +512,21 @@ public class RxUtil {
         };
     }
     
+    public static <T> Observable<Observable<T>> onSubscribeChooseNext(final Observable<T> ... sources) {
+        return Observable.create(new OnSubscribe<Observable<T>>() {
+            private AtomicInteger count = new AtomicInteger();
+            
+            @Override
+            public void call(Subscriber<? super Observable<T>> t1) {
+                int index = count.getAndIncrement();
+                if (index < sources.length) {
+                    t1.onNext(sources[index]);
+                }
+                t1.onCompleted();
+            }
+        });
+    }
+
     /**
      * Given a list of observables that emit a boolean condition AND all conditions whenever
      * any condition changes and emit the resulting condition when the final condition changes.

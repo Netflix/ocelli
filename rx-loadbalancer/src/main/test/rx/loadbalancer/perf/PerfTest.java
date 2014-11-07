@@ -78,7 +78,7 @@ public class PerfTest {
                         .subscribe(new Action1<Long>() {
                            @Override
                             public void call(final Long counter) {
-                               selector.select()
+                               selector.choose()
                                    .concatMap(new TrackingOperation(counter + ""))
                                    .retry()
                                    .subscribe(new Action1<String>() {
