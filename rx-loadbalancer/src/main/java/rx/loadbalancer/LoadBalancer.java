@@ -1,6 +1,7 @@
 package rx.loadbalancer;
 
 import rx.Observable;
+import rx.functions.Action1;
 import rx.functions.Func1;
 
 /**
@@ -9,7 +10,7 @@ import rx.functions.Func1;
  * 
  * @author elandau
  */
-public interface LoadBalancer<H, C> {
+public interface LoadBalancer<H, C, M extends Action1<ClientEvent>> {
     /**
      * Return an Observable that when subscribed to will select the next C
      * in the pool.  Call select() for each use of the load balancer.  The Observable
@@ -24,7 +25,7 @@ public interface LoadBalancer<H, C> {
      * @param partitioner
      * @return
      */
-    <I> PartitionedLoadBalancer<H, C, I> partition(Func1<H, Observable<I>> partitioner);
+    <K> PartitionedLoadBalancer<H, C, M, K> partition(Func1<H, Observable<K>> partitioner);
 
     /**
      * @return Stream of all host events
@@ -56,4 +57,6 @@ public interface LoadBalancer<H, C> {
      * Perform cleanup and unregister
      */
     void shutdown();
+
+    ManagedClient<H, C, M> getClient(H host);
 }

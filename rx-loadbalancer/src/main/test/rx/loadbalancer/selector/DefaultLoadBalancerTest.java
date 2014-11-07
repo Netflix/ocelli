@@ -74,9 +74,8 @@ public class DefaultLoadBalancerTest {
                 .withHostSource(Observable
                         .just(TestHost.create("h1", Connects.immediate(), Behaviors.immediate()))
                         .map(HostEvent.<TestHost>toAdd()))
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withConnectedHostCountStrategy(Functions.identity())
                 .build();
         
@@ -103,9 +102,8 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withName(testName.getMethodName())
                 .withHostSource(hostEvents)
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -125,9 +123,8 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withName(testName.getMethodName())
                 .withHostSource(hostEvents)
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -152,9 +149,8 @@ public class DefaultLoadBalancerTest {
                         .just(TestHost.create("h1", Connects.failure(1, TimeUnit.SECONDS), Behaviors.immediate()))
                         .map(HostEvent.<TestHost>toAdd()))
                 .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -170,9 +166,8 @@ public class DefaultLoadBalancerTest {
                 .withHostSource(Observable
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failure(1, TimeUnit.SECONDS)))
                         .map(HostEvent.<TestHost>toAdd()))
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
                 .build();
         
@@ -198,9 +193,8 @@ public class DefaultLoadBalancerTest {
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failFirst(1)))
                         .map(HostEvent.<TestHost>toAdd()))
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -236,9 +230,8 @@ public class DefaultLoadBalancerTest {
     public void openConnections() {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(source)
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.initialize();

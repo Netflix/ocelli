@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 import rx.loadbalancer.HostEvent;
 import rx.loadbalancer.LoadBalancer;
-import rx.loadbalancer.ManagedClientFactory;
 import rx.loadbalancer.PartitionedLoadBalancer;
 import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
@@ -30,10 +29,6 @@ import com.google.common.collect.Sets;
 public class PartitionedLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(PartitionedLoadBalancerTest.class);
     
-    private ManagedClientFactory<TestHost,TestClient,TestClientMetrics> factory = new ManagedClientFactory<TestHost,TestClient,TestClientMetrics>(
-            new TestClientFactory(), 
-            new TestClientMetricsFactory<TestHost>());
-    
     @Test
     public void testVip() throws InterruptedException {
         PublishSubject<HostEvent<TestHost>> hostSource = PublishSubject.create();
@@ -46,10 +41,11 @@ public class PartitionedLoadBalancerTest {
         DefaultLoadBalancer<TestHost, TestClient, TestClientMetrics> lb = DefaultLoadBalancer.<TestHost, TestClient, TestClientMetrics>builder()
                 .withName("core")
                 .withHostSource(hostSource)
-                .withClientFactory(factory)
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new TestClientMetricsFactory<TestHost>())
                 .build()
                 ;
-        PartitionedLoadBalancer<TestHost, TestClient, String> plb = lb.partition(TestHost.byVip());
+        PartitionedLoadBalancer<TestHost, TestClient, TestClientMetrics, String> plb = lb.partition(TestHost.byVip());
         plb.initialize();
         
         lb.initialize();
@@ -67,9 +63,9 @@ public class PartitionedLoadBalancerTest {
         TimeUnit.SECONDS.sleep(10);
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient> lbB = plb.get("b");
-        LoadBalancer<TestHost, TestClient> lbAll = plb.get("*");
+        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
+        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbB = plb.get("b");
+        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
         
         Assert.assertNotNull(lbA);
         Assert.assertNotNull(lbB);
@@ -128,10 +124,11 @@ public class PartitionedLoadBalancerTest {
         DefaultLoadBalancer<TestHost, TestClient, TestClientMetrics> lb = DefaultLoadBalancer.<TestHost, TestClient, TestClientMetrics>builder()
                 .withName("core")
                 .withHostSource(hostSource)
-                .withClientFactory(factory)
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new TestClientMetricsFactory<TestHost>())
                 .build()
                 ;
-        PartitionedLoadBalancer<TestHost, TestClient, String> plb = lb.partition(TestHost.byVip());
+        PartitionedLoadBalancer<TestHost, TestClient, TestClientMetrics, String> plb = lb.partition(TestHost.byVip());
         plb.initialize();
         lb.initialize();
         lb.events().subscribe(RxUtil.info(""));
@@ -143,8 +140,8 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(HostEvent.create(h2, HostEvent.EventType.ADD));
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient> lbAll = plb.get("*");
+        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
+        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
         
         // List all hosts
         Set<TestHost> hostsA = new HashSet<TestHost>(lbA.listAllHosts().toList().toBlocking().first());
@@ -156,7 +153,7 @@ public class PartitionedLoadBalancerTest {
         
         //////////////////////////
         // Step 2: Kill h2 host
-        TestClientMetrics m = factory.get(h2).getMetrics();
+        TestClientMetrics m = lb.getClient(h2).getMetrics();
         Assert.assertNotNull(m);
         m.shutdown();
         

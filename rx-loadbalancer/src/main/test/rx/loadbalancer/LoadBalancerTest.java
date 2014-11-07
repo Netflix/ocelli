@@ -68,9 +68,8 @@ public class LoadBalancerTest {
                 .withHostSource(Observable
                     .from(servers)
                     .map(HostEvent.<TestHost>toAdd()))
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.selector.initialize();

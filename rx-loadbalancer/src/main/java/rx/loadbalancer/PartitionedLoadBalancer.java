@@ -1,6 +1,7 @@
 package rx.loadbalancer;
 
 import rx.Observable;
+import rx.functions.Action1;
 
 /**
  * Created from a {@link LoadBalancer} a PartitionedLoadBalancer splits the hosts of 
@@ -31,11 +32,11 @@ import rx.Observable;
  *      
  * @param partitioner   Function that converts a Host into an Observable of partition Ids
  */
-public interface PartitionedLoadBalancer<H, C, K> {
+public interface PartitionedLoadBalancer<H, C, M extends Action1<ClientEvent>, K> {
     /**
      * @return Return the LoadBalancer for the specified partition key
      */
-    public LoadBalancer<H, C> get(K key);
+    public LoadBalancer<H, C, M> get(K key);
 
     /**
      * @return Stream of events for this partitioned load balancer

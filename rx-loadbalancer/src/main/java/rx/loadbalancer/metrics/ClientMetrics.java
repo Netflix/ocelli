@@ -8,8 +8,8 @@ import rx.loadbalancer.ClientEvent;
  * performs an analysis based on the input to determine if the client
  * is down.  
  * 
- * An instaed of a FailureDetector is created for each Client by
- * the FailureDectorFactory.  A failure detector is associated
+ * An instance of ClientMetrics is created for each Client by
+ * the ClientMetricsFactory.  A failure detector is associated
  * with the Client as well as a single Action0 callback to invoke
  * when the client has been determined to be 'down'.
  * 
