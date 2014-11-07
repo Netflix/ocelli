@@ -1,7 +1,7 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
+import netflix.ocelli.metrics.SimpleClientMetrics;
 import rx.functions.Action0;
-import rx.loadbalancer.metrics.SimpleClientMetrics;
 
 public class TestClientMetrics extends SimpleClientMetrics {
     private Action0 shutdown;

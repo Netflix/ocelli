@@ -1,15 +1,15 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import netflix.ocelli.ClientEvent;
+import netflix.ocelli.HostClientConnector;
+import netflix.ocelli.util.RxUtil;
+import netflix.ocelli.util.Stopwatch;
 import rx.Observable;
 import rx.Observer;
 import rx.functions.Action1;
-import rx.loadbalancer.ClientEvent;
-import rx.loadbalancer.HostClientConnector;
-import rx.loadbalancer.util.RxUtil;
-import rx.loadbalancer.util.Stopwatch;
 
 public class TestClientFactory implements HostClientConnector<TestHost, TestClient> {
     private final AtomicInteger counter = new AtomicInteger();

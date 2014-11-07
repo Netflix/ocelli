@@ -1,10 +1,22 @@
-package rx.loadbalancer.selector;
+package netflix.ocelli.selector;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
+import netflix.ocelli.HostEvent;
+import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.PartitionedLoadBalancer;
+import netflix.ocelli.client.Behaviors;
+import netflix.ocelli.client.Connects;
+import netflix.ocelli.client.TestClient;
+import netflix.ocelli.client.TestClientFactory;
+import netflix.ocelli.client.TestClientMetrics;
+import netflix.ocelli.client.TestClientMetricsFactory;
+import netflix.ocelli.client.TestHost;
+import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
+import netflix.ocelli.util.RxUtil;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -14,18 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.functions.Func1;
-import rx.loadbalancer.HostEvent;
-import rx.loadbalancer.LoadBalancer;
-import rx.loadbalancer.PartitionedLoadBalancer;
-import rx.loadbalancer.client.Behaviors;
-import rx.loadbalancer.client.Connects;
-import rx.loadbalancer.client.TestClient;
-import rx.loadbalancer.client.TestClientFactory;
-import rx.loadbalancer.client.TestClientMetrics;
-import rx.loadbalancer.client.TestClientMetricsFactory;
-import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
-import rx.loadbalancer.util.RxUtil;
 import rx.subjects.PublishSubject;
 
 import com.google.common.collect.Sets;
