@@ -26,7 +26,7 @@ apply from: file('gradle/release.gradle')
 // apply from: file('gradle/netflix-oss.gradle')
 
 subprojects {
-    group = "com.netflix.experiments" // TEMPLATE: Set to organization of project
+    group = "netflix.ocelli" // TEMPLATE: Set to organization of project
     
     dependencies {
         compile     'log4j:log4j:1.2.17'
