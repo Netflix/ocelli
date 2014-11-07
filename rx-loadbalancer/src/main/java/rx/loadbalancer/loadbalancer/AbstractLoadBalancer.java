@@ -33,7 +33,7 @@ import rx.loadbalancer.util.StateMachine.State;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
-public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>> implements LoadBalancer<H, C> {
+public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>> implements LoadBalancer<H, C, M> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
     /**
@@ -339,6 +339,14 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
         });
     }
     
+    @Override
+    public ManagedClient<H, C, M> getClient(H host) {
+        Holder holder = hosts.get(host);
+        if (holder == null)
+            return null;
+        return holder.client;
+    }
+
     public String getName() {
         return name;
     }

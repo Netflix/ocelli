@@ -10,10 +10,12 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
 import rx.loadbalancer.ClientEvent;
+import rx.loadbalancer.HostClientConnector;
 import rx.loadbalancer.HostEvent;
 import rx.loadbalancer.HostEvent.EventType;
 import rx.loadbalancer.LoadBalancer;
 import rx.loadbalancer.ManagedClientFactory;
+import rx.loadbalancer.MetricsFactory;
 import rx.loadbalancer.PartitionedLoadBalancer;
 import rx.loadbalancer.WeightingStrategy;
 import rx.loadbalancer.algorithm.EqualWeightStrategy;
@@ -47,12 +49,14 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
      * @param <Tracker>
      */
     public static class Builder<H, C, M extends Action1<ClientEvent>> {
-        private Observable<HostEvent<H>> hostSource;
+        private Observable<HostEvent<H>>   hostSource;
         private WeightingStrategy<H, C, M> weightingStrategy = new EqualWeightStrategy<H, C, M>();
-        private Func1<Integer, Integer> connectedHostCountStrategy = Functions.identity();
-        private Func1<Integer, Long> quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
+        private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
+        private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
+        private String                     name = "<unnamed>";
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private String name = "<unnamed>";
+        private HostClientConnector<H, C> connector;
+        private MetricsFactory<H, M> metricsFactory;
         private ManagedClientFactory<H, C, M> clientFactory;
         
         public Builder<H, C, M> withName(String name) {
@@ -75,11 +79,16 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
             return this;
         }
         
-        public Builder<H, C, M> withClientFactory(ManagedClientFactory<H, C, M> clientFactory) {
-            this.clientFactory = clientFactory;
+        public Builder<H, C, M> withClientConnector(HostClientConnector<H, C> connector) {
+            this.connector = connector;
             return this;
         }
-
+        
+        public Builder<H, C, M> withMetricsFactory(MetricsFactory<H, M> metricsFactory) {
+            this.metricsFactory = metricsFactory;
+            return this;
+        }
+        
         public Builder<H, C, M> withWeightingStrategy(WeightingStrategy<H, C, M> algorithm) {
             this.weightingStrategy = algorithm;
             return this;
@@ -90,9 +99,19 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
             return this;
         }
         
+        Builder<H, C, M> withClientFactory(ManagedClientFactory<H, C, M> factory) {
+            this.clientFactory = factory;
+            return this;
+        }
+        
         public DefaultLoadBalancer<H, C, M> build() {
-            assert clientFactory != null;
             assert hostSource != null;
+            if (this.clientFactory == null) {
+                assert connector != null;
+                assert metricsFactory != null;
+
+                this.clientFactory = new ManagedClientFactory<H, C, M>(connector, metricsFactory);
+            }
             
             return new DefaultLoadBalancer<H, C, M>(this);
         }
@@ -150,13 +169,13 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
     }
 
     @Override
-    public <I> PartitionedLoadBalancer<H, C, I> partition(Func1<H, Observable<I>> partitioner) {
+    public <I> PartitionedLoadBalancer<H, C, M, I> partition(Func1<H, Observable<I>> partitioner) {
         return DefaultPartitioningLoadBalancer.<H, C, M, I>builder()
                 .withHostSource(eventStream)
                 .withPartitioner(partitioner)
-                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, LoadBalancer<H, C>>() {
+                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, LoadBalancer<H, C, M>>() {
                     @Override
-                    public LoadBalancer<H, C> call(I id, Observable<HostEvent<H>> hostSource) {
+                    public LoadBalancer<H, C, M> call(I id, Observable<HostEvent<H>> hostSource) {
                         LOG.info("Creating partition : " + id);
                         DefaultLoadBalancer<H, C, M> lb =  DefaultLoadBalancer.<H, C, M>builder()
                                 .withName(getName() + "_" + id)

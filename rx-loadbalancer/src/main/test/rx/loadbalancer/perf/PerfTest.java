@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.loadbalancer.HostEvent;
-import rx.loadbalancer.ManagedClientFactory;
 import rx.loadbalancer.algorithm.LowestLatencyScoreStrategy;
 import rx.loadbalancer.client.Behaviors;
 import rx.loadbalancer.client.Connects;
@@ -63,9 +62,8 @@ public class PerfTest {
     public void perf() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(source)
-                .withClientFactory(new ManagedClientFactory<TestHost,TestClient,ClientMetrics>(
-                        new TestClientFactory(), 
-                        new SimpleClientMetricsFactory<TestHost>()))
+                .withClientConnector(new TestClientFactory())
+                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
