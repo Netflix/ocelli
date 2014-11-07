@@ -30,7 +30,7 @@ public class HostEvent<Host> {
     }
     
     private final Host host;
-    private final EventType action;
+    private final EventType type;
     
     public static <Host> HostEvent<Host> create(Host host, EventType type) {
         return new HostEvent<Host>(type, host);
@@ -49,29 +49,26 @@ public class HostEvent<Host> {
         return new Func1<HostEvent<Host>, HostEvent.EventType>() {
             @Override
             public EventType call(HostEvent<Host> t1) {
-                return t1.getAction();
+                return t1.getType();
             }
         };
     }
     
-    public HostEvent(EventType action, Host host) {
-        this.action = action;
+    public HostEvent(EventType type, Host host) {
+        this.type = type;
         this.host = host;
     }
     
-    public EventType getAction() {
-        return this.action;
+    public EventType getType() {
+        return this.type;
     }
     
     public Host getHost() {
         return this.host;
     }
-
    
     @Override
     public String toString() {
-        return "HostEvent [" + action + " " + host + "]";
+        return "HostEvent [" + type + " " + host + "]";
     }
-
-
 }

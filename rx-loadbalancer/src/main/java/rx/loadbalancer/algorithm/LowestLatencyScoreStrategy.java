@@ -3,21 +3,21 @@ package rx.loadbalancer.algorithm;
 import java.util.ArrayList;
 import java.util.List;
 
+import rx.loadbalancer.ManagedClient;
 import rx.loadbalancer.WeightingStrategy;
-import rx.loadbalancer.loadbalancer.HostContext;
 import rx.loadbalancer.metrics.ClientMetrics;
 import rx.loadbalancer.selectors.ClientsAndWeights;
 
 public class LowestLatencyScoreStrategy<Host, Client, Tracker extends ClientMetrics> implements WeightingStrategy<Host, Client, Tracker> {
     @Override
-    public ClientsAndWeights<Client> call(List<HostContext<Host, Client, Tracker>> source) {
+    public ClientsAndWeights<Client> call(List<ManagedClient<Host, Client, Tracker>> source) {
         List<Client>  clients = new ArrayList<Client>(source.size());
         List<Integer> weights = new ArrayList<Integer>();
         Integer min = 0;
-        for (HostContext<Host, Client, Tracker> context : source) {
+        for (ManagedClient<Host, Client, Tracker> context : source) {
             clients.add(context.getClient());
             
-            int cur = (int) context.getClientTracker().getLatencyScore();
+            int cur = (int) context.getMetrics().getLatencyScore();
             if (cur < min || min == 0) 
                 min = cur;
             weights.add(cur);

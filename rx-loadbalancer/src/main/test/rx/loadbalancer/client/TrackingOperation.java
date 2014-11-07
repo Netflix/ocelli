@@ -3,10 +3,15 @@ package rx.loadbalancer.client;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.functions.Func1;
 
 public class TrackingOperation implements Func1<TestClient, Observable<String>> {
+    private static final Logger LOG = LoggerFactory.getLogger(TrackingOperation.class);
+    
     private final String response;
     
     private List<TestHost> servers = new ArrayList<TestHost>();

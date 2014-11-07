@@ -1,7 +1,9 @@
 package rx.loadbalancer.util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ public class StateMachine<T, E> implements Action1<E> {
         private Func1<T, Observable<E>> enter;
         private Func1<T, Observable<E>> exit;
         private Map<E, State<T, E>> transitions = new HashMap<E, State<T, E>>();
+        private Set<E> ignore = new HashSet<E>();
         
         public static <T, E> State<T, E> create(String name) {
             return new State<T, E>(name);
@@ -43,6 +46,11 @@ public class StateMachine<T, E> implements Action1<E> {
         
         public State<T, E> transition(E event, State<T, E> state) {
             transitions.put(event, state);
+            return this;
+        }
+        
+        public State<T, E> ignore(E event) {
+            ignore.add(event);
             return this;
         }
         
@@ -80,21 +88,21 @@ public class StateMachine<T, E> implements Action1<E> {
         this.context = context;
     }
 
-    public Observable<Void> connect() {
+    public Observable<Void> start() {
         return Observable.create(new OnSubscribe<Void>() {
             @Override
             public void call(Subscriber<? super Void> sub) {
                 sub.add(events.collect(context, new Action2<T, E>() {
                         @Override
                         public void call(T context, E event) {
-//                            LOG.info("{} : {}", event, state);
+                            LOG.info("{} : {}({})", context, state, event);
                             final State<T, E> next = state.next(event);
                             if (next != null) {
                                 state.exit(context);
                                 state = next;
                                 next.enter(context).subscribe(StateMachine.this);
                             }
-                            else {
+                            else if (!state.ignore.contains(event)) {
                                 LOG.info("Unexpected event {} in state {} for {} ", event, state, context);
                             }
                         }
