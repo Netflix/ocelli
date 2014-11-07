@@ -1,8 +1,19 @@
-package rx.loadbalancer;
+package netflix.ocelli;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import netflix.ocelli.client.Behaviors;
+import netflix.ocelli.client.Connects;
+import netflix.ocelli.client.ResponseObserver;
+import netflix.ocelli.client.TestClient;
+import netflix.ocelli.client.TestClientFactory;
+import netflix.ocelli.client.TestHost;
+import netflix.ocelli.client.TrackingOperation;
+import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
+import netflix.ocelli.metrics.ClientMetrics;
+import netflix.ocelli.metrics.SimpleClientMetricsFactory;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -15,16 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
-import rx.loadbalancer.client.Behaviors;
-import rx.loadbalancer.client.Connects;
-import rx.loadbalancer.client.ResponseObserver;
-import rx.loadbalancer.client.TestClient;
-import rx.loadbalancer.client.TestClientFactory;
-import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.client.TrackingOperation;
-import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
-import rx.loadbalancer.metrics.ClientMetrics;
-import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);

@@ -1,4 +1,4 @@
-package rx.loadbalancer.util;
+package netflix.ocelli.util;
 
 import java.util.ArrayList;
 import java.util.Collections;

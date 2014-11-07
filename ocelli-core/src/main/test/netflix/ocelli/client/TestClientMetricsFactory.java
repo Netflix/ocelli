@@ -1,9 +1,9 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
 import java.util.concurrent.ConcurrentMap;
 
+import netflix.ocelli.MetricsFactory;
 import rx.functions.Action0;
-import rx.loadbalancer.MetricsFactory;
 
 import com.google.common.collect.Maps;
 

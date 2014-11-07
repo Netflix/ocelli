@@ -1,12 +1,12 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
+import netflix.ocelli.util.RxUtil;
 import rx.Observable;
 import rx.functions.Func1;
-import rx.loadbalancer.util.RxUtil;
 
 public class TestHost {
     private final String id;

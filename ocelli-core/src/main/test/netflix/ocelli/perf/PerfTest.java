@@ -1,9 +1,22 @@
-package rx.loadbalancer.perf;
+package netflix.ocelli.perf;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+
+import netflix.ocelli.HostEvent;
+import netflix.ocelli.algorithm.LowestLatencyScoreStrategy;
+import netflix.ocelli.client.Behaviors;
+import netflix.ocelli.client.Connects;
+import netflix.ocelli.client.TestClient;
+import netflix.ocelli.client.TestClientFactory;
+import netflix.ocelli.client.TestHost;
+import netflix.ocelli.client.TrackingOperation;
+import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
+import netflix.ocelli.metrics.ClientMetrics;
+import netflix.ocelli.metrics.SimpleClientMetricsFactory;
+import netflix.ocelli.selector.DefaultLoadBalancerTest;
 
 import org.junit.After;
 import org.junit.BeforeClass;
@@ -13,18 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.functions.Action1;
-import rx.loadbalancer.HostEvent;
-import rx.loadbalancer.algorithm.LowestLatencyScoreStrategy;
-import rx.loadbalancer.client.Behaviors;
-import rx.loadbalancer.client.Connects;
-import rx.loadbalancer.client.TestClient;
-import rx.loadbalancer.client.TestClientFactory;
-import rx.loadbalancer.client.TestHost;
-import rx.loadbalancer.client.TrackingOperation;
-import rx.loadbalancer.loadbalancer.DefaultLoadBalancer;
-import rx.loadbalancer.metrics.ClientMetrics;
-import rx.loadbalancer.metrics.SimpleClientMetricsFactory;
-import rx.loadbalancer.selector.DefaultLoadBalancerTest;
 import rx.schedulers.Schedulers;
 
 public class PerfTest {

@@ -1,4 +1,4 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;

@@ -1,12 +1,12 @@
-package rx.loadbalancer.client;
+package netflix.ocelli.client;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.util.RxUtil;
 import rx.Observable;
 import rx.functions.Action0;
 import rx.functions.Func1;
-import rx.loadbalancer.util.RxUtil;
 
 public class Behaviors {
     public static Func1<TestClient, Observable<TestClient>> delay(final long amount, final TimeUnit units) {
