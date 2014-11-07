@@ -1,27 +1,14 @@
-RxLoadBalancer
-==============
+Ocelli : Generic client load balancer
 
-RxLoadBalancer is an RxJava based software load balancer.
-
-RxLoadBalancer provides an exteremely simple Rx API for getting a Client from the load balancer.  Simply call select() and get back an Observable that when subscribed to will emit a single Client based on the configured load balancer algorithms.  Operations are 'executed' as a concateMap or flatMap from the Client to the desired response.
+Ocelli is an extremely simple but powerful implementation of a client side load balancer.  Ocelli takes the reactive approach to provide a composable load balancer through which any number of load balancing and failover algorithms may be implemented.  The SPI for Ocelli is as simple as a subscribing to a load balancer Observable that emits a single client.  Executing an operation on the client is simply a mapping for the client to a response.  Retries are implemented using standard RxJava functions such as retry() and onErrorResumeNext().  
 
 ```java
 Observable<Client> loadBalancer = ...;
 
-loadBalancer.select()
-  .concatMap(new Func1<Client, Observable<Response>>() {
-     Observable<Response> call(Client client) {
-         return client.doSomethingThatReturnsAResponse();
-     }
-  })
+loadBalancer
+  .choose()
+  .concatMap((client) -> client.doSomethingRetrunsAnObservableResponse())
+  .retry(2) 
   .subscribe();
 ```
 
-Since RxLoadBalancer is Rx based it's very easy to add user defined retry policies.
-
-```java
-loadBalancer.select()
-  .concateMap(someOperation)
-  .retry(3)
-  .subscribe();
-```
