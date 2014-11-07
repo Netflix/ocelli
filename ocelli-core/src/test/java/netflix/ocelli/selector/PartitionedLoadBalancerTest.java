@@ -1,9 +1,6 @@
 package netflix.ocelli.selector;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.collect.Sets;
 import junit.framework.Assert;
 import netflix.ocelli.HostEvent;
 import netflix.ocelli.LoadBalancer;
@@ -17,18 +14,18 @@ import netflix.ocelli.client.TestClientMetricsFactory;
 import netflix.ocelli.client.TestHost;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import netflix.ocelli.util.RxUtil;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
-import com.google.common.collect.Sets;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class PartitionedLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(PartitionedLoadBalancerTest.class);

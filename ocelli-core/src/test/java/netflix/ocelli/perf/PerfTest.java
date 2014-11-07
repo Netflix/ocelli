@@ -1,10 +1,5 @@
 package netflix.ocelli.perf;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.HostEvent;
 import netflix.ocelli.algorithm.LowestLatencyScoreStrategy;
 import netflix.ocelli.client.Behaviors;
@@ -17,16 +12,19 @@ import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import netflix.ocelli.metrics.ClientMetrics;
 import netflix.ocelli.metrics.SimpleClientMetricsFactory;
 import netflix.ocelli.selector.DefaultLoadBalancerTest;
-
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class PerfTest {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);

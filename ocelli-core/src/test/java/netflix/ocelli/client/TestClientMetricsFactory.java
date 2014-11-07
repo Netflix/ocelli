@@ -1,11 +1,10 @@
 package netflix.ocelli.client;
 
-import java.util.concurrent.ConcurrentMap;
-
+import com.google.common.collect.Maps;
 import netflix.ocelli.MetricsFactory;
 import rx.functions.Action0;
 
-import com.google.common.collect.Maps;
+import java.util.concurrent.ConcurrentMap;
 
 public class TestClientMetricsFactory<Host> implements MetricsFactory<Host, TestClientMetrics> {
     private final ConcurrentMap<Host, TestClientMetrics> instances = Maps.newConcurrentMap();
