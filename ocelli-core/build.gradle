@@ -13,16 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
 apply plugin: 'osgi'
 apply plugin: 'groovy'
 
-sourceCompatibility = JavaVersion.VERSION_1_6
-targetCompatibility = JavaVersion.VERSION_1_6
-
 dependencies {
-
     testCompile 'junit:junit:4.10'
+}
+
+eclipse {
+    classpath {
+        // include 'provided' dependencies on the classpath
+        plusConfigurations += configurations.provided
+
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
+
+idea {
+    module {
+        // include 'provided' dependencies on the classpath
+        scopes.PROVIDED.plus += configurations.provided
+        scopes.PROVIDED.plus += configurations.provided
+    }
 }
 

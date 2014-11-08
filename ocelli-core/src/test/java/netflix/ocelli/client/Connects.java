@@ -1,9 +1,9 @@
 package netflix.ocelli.client;
 
-import java.util.concurrent.TimeUnit;
-
 import rx.Observable;
 import rx.functions.Func1;
+
+import java.util.concurrent.TimeUnit;
 
 public class Connects {
     public static Observable<Void> delay(final long timeout, final TimeUnit units) {
