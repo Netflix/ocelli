@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ResponseObserver;
@@ -68,7 +69,7 @@ public class LoadBalancerTest {
         this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                     .from(servers)
-                    .map(HostEvent.<TestHost>toAdd()))
+                    .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
