@@ -56,6 +56,8 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
             }
         });
         
+        // TODO: This is very ugly code.  We should probably replace this 
+        // with a combination of switchOnNext and cache.
         this.connector = Observable.create(new OnSubscribe<C>() {
             private List<Subscriber<? super C>> connectSubscribers = new ArrayList<Subscriber<? super C>>();
             private Subscription connectSubscription;
@@ -68,7 +70,7 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
                         public void call() {
                             synchronized (lock) {
                                 connectSubscribers.remove(t1);
-                                if (connectSubscribers.isEmpty()) {
+                                if (connectSubscribers.isEmpty() && connectSubscription != null) {
                                     connectSubscription.unsubscribe();
                                     connectSubscription = null;
                                 }
@@ -92,6 +94,14 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
 
                                     @Override
                                     public void onError(Throwable e) {
+                                        e.printStackTrace();
+                                        synchronized (lock) {
+                                            stream.onNext(Notification.<C>createOnError(e));
+                                            for (Subscriber<? super C> sub : new ArrayList<Subscriber<? super C>>(connectSubscribers)) {
+                                                sub.onError(e);
+                                            }
+                                            connectSubscribers.clear();
+                                        }
                                     }
 
                                     @Override
@@ -99,6 +109,10 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
                                         synchronized (lock) {
                                             client = t;
                                             stream.onNext(Notification.createOnNext(client));
+                                            for (Subscriber<? super C> sub : new ArrayList<Subscriber<? super C>>(connectSubscribers)) {
+                                                sub.onNext(client);
+                                                sub.onCompleted();
+                                            }
                                             connectSubscribers.clear();
                                         }
                                     }

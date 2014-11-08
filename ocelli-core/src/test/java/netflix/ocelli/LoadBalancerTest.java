@@ -1,5 +1,6 @@
 package netflix.ocelli;
 
+import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ResponseObserver;
@@ -10,6 +11,7 @@ import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import netflix.ocelli.metrics.ClientMetrics;
 import netflix.ocelli.metrics.SimpleClientMetricsFactory;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -19,6 +21,7 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 
 import java.util.ArrayList;
@@ -66,7 +69,7 @@ public class LoadBalancerTest {
         this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                     .from(servers)
-                    .map(HostEvent.<TestHost>toAdd()))
+                    .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();

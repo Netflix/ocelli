@@ -36,11 +36,11 @@ public class HostEvent<Host> {
         return new HostEvent<Host>(type, host);
     }
     
-    public static <Host> Func1<Host, HostEvent<Host>> toAdd() {
+    public static <Host> Func1<Host, HostEvent<Host>> toEvent(final EventType type) {
         return new Func1<Host, HostEvent<Host>>() {
             @Override
             public HostEvent<Host> call(Host host) {
-                return HostEvent.create(host, EventType.ADD);
+                return HostEvent.create(host, type);
             }
         };
     }

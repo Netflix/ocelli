@@ -1,6 +1,11 @@
 package netflix.ocelli.selector;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import netflix.ocelli.HostEvent;
+import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.Operations;
@@ -17,6 +22,7 @@ import netflix.ocelli.retrys.Retrys;
 import netflix.ocelli.selectors.Delays;
 import netflix.ocelli.util.Functions;
 import netflix.ocelli.util.RxUtil;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -26,12 +32,9 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.subjects.PublishSubject;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class DefaultLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);
@@ -56,7 +59,7 @@ public class DefaultLoadBalancerTest {
         
         source = Observable
             .from(hosts)
-            .map(HostEvent.<TestHost>toAdd());
+            .map(HostEvent.<TestHost>toEvent(EventType.ADD));
     }
     
     @After
@@ -71,7 +74,7 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("h1", Connects.immediate(), Behaviors.immediate()))
-                        .map(HostEvent.<TestHost>toAdd()))
+                        .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withConnectedHostCountStrategy(Functions.identity())
@@ -145,7 +148,7 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("h1", Connects.failure(1, TimeUnit.SECONDS), Behaviors.immediate()))
-                        .map(HostEvent.<TestHost>toAdd()))
+                        .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
@@ -163,7 +166,7 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failure(1, TimeUnit.SECONDS)))
-                        .map(HostEvent.<TestHost>toAdd()))
+                        .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
@@ -189,7 +192,7 @@ public class DefaultLoadBalancerTest {
         this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failFirst(1)))
-                        .map(HostEvent.<TestHost>toAdd()))
+                        .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
