@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.PartitionedLoadBalancer;
 import rx.Observable;
 import rx.functions.Action1;
@@ -18,7 +18,7 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
     public static class Builder<H, C, M extends Action1<ClientEvent>, K> {
         private Func1<H, Observable<K>> partitioner;
         private Observable<HostEvent<H>> hostSource;
-        private Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory;
+        private Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C, M>> factory;
         
         public Builder<H, C, M, K> withHostSource(Observable<HostEvent<H>> hosts) {
             this.hostSource = hosts;
@@ -30,7 +30,7 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
             return this;
         }
         
-        public Builder<H, C, M, K> withLoadBalancerFactory(Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory) {
+        public Builder<H, C, M, K> withLoadBalancerFactory(Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C, M>> factory) {
             this.factory = factory;
             return this;
         }
@@ -46,16 +46,16 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
 
     private final CompositeSubscription cs = new CompositeSubscription();
     private final Func1<H, Observable<K>> partitioner;
-    private final Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory;
+    private final Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C, M>> factory;
     private final Observable<HostEvent<H>> hostSource;
     private final PublishSubject<HostEvent<H>> eventStream = PublishSubject.create();
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
     
     private final class Holder {
         final PublishSubject<HostEvent<H>> hostStream;
-        final LoadBalancer<H, C, M> loadBalancer;
+        final ManagedLoadBalancer<H, C, M> loadBalancer;
         
-        public Holder(LoadBalancer<H, C, M> loadBalancer, PublishSubject<HostEvent<H>> hostStream) {
+        public Holder(ManagedLoadBalancer<H, C, M> loadBalancer, PublishSubject<HostEvent<H>> hostStream) {
             this.loadBalancer = loadBalancer;
             this.hostStream = hostStream;
         }
@@ -108,7 +108,7 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
     }
     
     @Override
-    public LoadBalancer<H, C, M> get(K id) {
+    public ManagedLoadBalancer<H, C, M> get(K id) {
         return getOrCreateHolder(id).loadBalancer;
     }
 

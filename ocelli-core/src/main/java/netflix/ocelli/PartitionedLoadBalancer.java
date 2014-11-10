@@ -4,7 +4,7 @@ import rx.Observable;
 import rx.functions.Action1;
 
 /**
- * Created from a {@link LoadBalancer} a PartitionedLoadBalancer splits the hosts of 
+ * Created from a {@link ManagedLoadBalancer} a PartitionedLoadBalancer splits the hosts of 
  * a load balancer across partitions using a partition function.  Note that partitions
  * need not span the entire host space and the same host may exist in multiple partitions.
  * 
@@ -36,7 +36,7 @@ public interface PartitionedLoadBalancer<H, C, M extends Action1<ClientEvent>, K
     /**
      * @return Return the LoadBalancer for the specified partition key
      */
-    public LoadBalancer<H, C, M> get(K key);
+    public ManagedLoadBalancer<H, C, M> get(K key);
 
     /**
      * @return Stream of events for this partitioned load balancer

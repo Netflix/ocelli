@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostClientConnector;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.ManagedClientFactory;
 import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.PartitionedLoadBalancer;
@@ -174,9 +174,9 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
         return DefaultPartitioningLoadBalancer.<H, C, M, I>builder()
                 .withHostSource(eventStream)
                 .withPartitioner(partitioner)
-                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, LoadBalancer<H, C, M>>() {
+                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, ManagedLoadBalancer<H, C, M>>() {
                     @Override
-                    public LoadBalancer<H, C, M> call(I id, Observable<HostEvent<H>> hostSource) {
+                    public ManagedLoadBalancer<H, C, M> call(I id, Observable<HostEvent<H>> hostSource) {
                         LOG.info("Creating partition : " + id);
                         DefaultLoadBalancer<H, C, M> lb =  DefaultLoadBalancer.<H, C, M>builder()
                                 .withName(getName() + "_" + id)

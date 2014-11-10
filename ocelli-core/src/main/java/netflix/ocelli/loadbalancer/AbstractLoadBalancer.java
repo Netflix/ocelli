@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.ManagedClient;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.HostEvent.EventType;
@@ -34,7 +34,7 @@ import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
-public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>> implements LoadBalancer<H, C, M> {
+public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>> implements ManagedLoadBalancer<H, C, M> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
     /**

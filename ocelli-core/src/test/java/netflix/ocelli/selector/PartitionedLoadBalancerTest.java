@@ -3,7 +3,7 @@ package netflix.ocelli.selector;
 import com.google.common.collect.Sets;
 import junit.framework.Assert;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -66,9 +66,9 @@ public class PartitionedLoadBalancerTest {
         TimeUnit.SECONDS.sleep(10);
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbB = plb.get("b");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> lbB = plb.get("b");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
         
         Assert.assertNotNull(lbA);
         Assert.assertNotNull(lbB);
@@ -143,8 +143,8 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(HostEvent.create(h2, HostEvent.EventType.ADD));
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
         
         // List all hosts
         Set<TestHost> hostsA = new HashSet<TestHost>(lbA.listAllHosts().toList().toBlocking().first());
@@ -193,10 +193,10 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(HostEvent.create(h2, HostEvent.EventType.ADD));
         hostSource.onNext(HostEvent.create(h3, HostEvent.EventType.ADD));
 
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneA = plb.get("us-east-1a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneB = plb.get("us-east-1b");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneC = plb.get("us-east-1c");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneD = plb.get("us-east-1d");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> zoneA = plb.get("us-east-1a");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> zoneB = plb.get("us-east-1b");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> zoneC = plb.get("us-east-1c");
+        ManagedLoadBalancer<TestHost, TestClient, TestClientMetrics> zoneD = plb.get("us-east-1d");
         
         RxUtil.onSubscribeChooseNext(zoneA.choose(), zoneB.choose(), zoneC.choose(), zoneD.choose())
             .concatMap(new Func1<Observable<TestClient>, Observable<String>>() {
