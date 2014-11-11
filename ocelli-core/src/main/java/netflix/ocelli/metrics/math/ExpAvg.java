@@ -10,7 +10,7 @@ public class ExpAvg implements Average {
     }
     
     @Override
-    public synchronized void addSample(int sample) {
+    public synchronized void addSample(long sample) {
         ema = sample * k + ema * (1-k);
     }
 

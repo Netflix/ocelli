@@ -1,17 +1,19 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostClientConnector;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.ManagedClientFactory;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
+import netflix.ocelli.metrics.CoreClientMetricsFactory;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.selectors.Delays;
 import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
@@ -37,7 +39,7 @@ import rx.functions.Func2;
  * 
  * TODO: Host quarantine 
  */
-public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends AbstractLoadBalancer<H, C, M> {
+public class DefaultLoadBalancer<H, C> extends AbstractLoadBalancer<H, C> {
     
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
@@ -49,90 +51,93 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
      * @param <C>
      * @param <Tracker>
      */
-    public static class Builder<H, C, M extends Action1<ClientEvent>> {
+    public static class Builder<H, C> {
         private Observable<HostEvent<H>>   hostSource;
-        private WeightingStrategy<H, C, M> weightingStrategy = new EqualWeightStrategy<H, C, M>();
+        private WeightingStrategy<H, C>    weightingStrategy = new EqualWeightStrategy<H, C>();
         private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private String                     name = "<unnamed>";
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private HostClientConnector<H, C> connector;
-        private MetricsFactory<H, M> metricsFactory;
-        private ManagedClientFactory<H, C, M> clientFactory;
+        private HostClientConnector<H, C>  connector;
+        private List<MetricsFactory<H>>    metricsFactories = new ArrayList<MetricsFactory<H>>();
+        private ManagedClientFactory<H, C> clientFactory;
         
-        public Builder<H, C, M> withName(String name) {
+        private Builder() {
+            metricsFactories.add(new CoreClientMetricsFactory<H>());
+        }
+        
+        public Builder<H, C> withName(String name) {
             this.name = name;
             return this;
         }
         
-        public Builder<H, C, M> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
+        public Builder<H, C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
             this.quaratineDelayStrategy = quaratineDelayStrategy;
             return this;
         }
         
-        public Builder<H, C, M> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
+        public Builder<H, C> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
             this.connectedHostCountStrategy = connectedHostCountStrategy;
             return this;
         }
         
-        public Builder<H, C, M> withHostSource(Observable<HostEvent<H>> hostSource) {
+        public Builder<H, C> withHostSource(Observable<HostEvent<H>> hostSource) {
             this.hostSource = hostSource;
             return this;
         }
         
-        public Builder<H, C, M> withClientConnector(HostClientConnector<H, C> connector) {
+        public Builder<H, C> withClientConnector(HostClientConnector<H, C> connector) {
             this.connector = connector;
             return this;
         }
         
-        public Builder<H, C, M> withMetricsFactory(MetricsFactory<H, M> metricsFactory) {
-            this.metricsFactory = metricsFactory;
+        public Builder<H, C> withMetricsFactory(MetricsFactory<H> metricsFactory) {
+            this.metricsFactories.add(metricsFactory);
             return this;
         }
         
-        public Builder<H, C, M> withWeightingStrategy(WeightingStrategy<H, C, M> algorithm) {
+        public Builder<H, C> withWeightingStrategy(WeightingStrategy<H, C> algorithm) {
             this.weightingStrategy = algorithm;
             return this;
         }
         
-        public Builder<H, C, M> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
+        public Builder<H, C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
             this.selectionStrategy = selectionStrategy;
             return this;
         }
         
-        Builder<H, C, M> withClientFactory(ManagedClientFactory<H, C, M> factory) {
+        Builder<H, C> withClientFactory(ManagedClientFactory<H, C> factory) {
             this.clientFactory = factory;
             return this;
         }
         
-        public DefaultLoadBalancer<H, C, M> build() {
+        public DefaultLoadBalancer<H, C> build() {
             assert hostSource != null;
             if (this.clientFactory == null) {
                 assert connector != null;
-                assert metricsFactory != null;
 
-                this.clientFactory = new ManagedClientFactory<H, C, M>(connector, metricsFactory);
+                this.clientFactory = new ManagedClientFactory<H, C>(connector, metricsFactories);
             }
             
-            return new DefaultLoadBalancer<H, C, M>(this);
+            return new DefaultLoadBalancer<H, C>(this);
         }
     }
     
-    public static <H, C, M extends Action1<ClientEvent>> Builder<H, C, M> builder() {
-        return new Builder<H, C, M>();
+    public static <H, C> Builder<H, C> builder() {
+        return new Builder<H, C>();
     }
     
     /**
      * Externally provided factory for creating a Client from a Host
      */
-    private final ManagedClientFactory<H, C, M> clientFactory;
+    private final ManagedClientFactory<H, C> clientFactory;
     
     /**
      * Source for host membership events
      */
     private final Observable<HostEvent<H>> hostSource;
     
-    private DefaultLoadBalancer(Builder<H, C, M> builder) {
+    private DefaultLoadBalancer(Builder<H, C> builder) {
         super(
                 builder.name, 
                 builder.weightingStrategy, 
@@ -170,15 +175,15 @@ public class DefaultLoadBalancer<H, C, M extends Action1<ClientEvent>> extends A
     }
 
     @Override
-    public <I> PartitionedLoadBalancer<H, C, M, I> partition(Func1<H, Observable<I>> partitioner) {
-        return DefaultPartitioningLoadBalancer.<H, C, M, I>builder()
+    public <I> PartitionedLoadBalancer<H, C, I> partition(Func1<H, Observable<I>> partitioner) {
+        return DefaultPartitioningLoadBalancer.<H, C, I>builder()
                 .withHostSource(eventStream)
                 .withPartitioner(partitioner)
-                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, LoadBalancer<H, C, M>>() {
+                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, ManagedLoadBalancer<H, C>>() {
                     @Override
-                    public LoadBalancer<H, C, M> call(I id, Observable<HostEvent<H>> hostSource) {
+                    public ManagedLoadBalancer<H, C> call(I id, Observable<HostEvent<H>> hostSource) {
                         LOG.info("Creating partition : " + id);
-                        DefaultLoadBalancer<H, C, M> lb =  DefaultLoadBalancer.<H, C, M>builder()
+                        DefaultLoadBalancer<H, C> lb =  DefaultLoadBalancer.<H, C>builder()
                                 .withName(getName() + "_" + id)
                                 .withClientFactory(clientFactory)
                                 .withHostSource(hostSource)

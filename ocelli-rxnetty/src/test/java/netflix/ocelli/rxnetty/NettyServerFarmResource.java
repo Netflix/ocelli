@@ -9,6 +9,7 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import netflix.ocelli.HostAddress;
 import netflix.ocelli.HostEvent;
 import netflix.ocelli.HostEvent.EventType;
 
@@ -24,7 +25,7 @@ public class NettyServerFarmResource extends ExternalResource {
     private static final Logger LOG = LoggerFactory.getLogger(NettyServerFarmResource.class);
         
     private final int count;
-    private final HashMap<ServerInfo, HttpServer<ByteBuf, ByteBuf>> servers = Maps.newHashMap();
+    private final HashMap<HostAddress, HttpServer<ByteBuf, ByteBuf>> servers = Maps.newHashMap();
     
     public NettyServerFarmResource(int count) {
         this.count = count;
@@ -38,7 +39,7 @@ public class NettyServerFarmResource extends ExternalResource {
             
             LOG.info("Starting server: localhost:" + server.getServerPort());
             servers.put(
-                new ServerInfo()
+                new HostAddress()
                     .setHost("localhost")
                     .setPort(server.getServerPort()),
                 server);
@@ -67,7 +68,7 @@ public class NettyServerFarmResource extends ExternalResource {
         return server;
     }
     
-    public Observable<HostEvent<ServerInfo>> hostEvents() {
-        return Observable.from(servers.keySet()).map(HostEvent.<ServerInfo>toEvent(EventType.ADD));
+    public Observable<HostEvent<HostAddress>> hostEvents() {
+        return Observable.from(servers.keySet()).map(HostEvent.<HostAddress>toEvent(EventType.ADD));
     }
 }

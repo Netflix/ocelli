@@ -16,9 +16,13 @@ public class Stopwatch {
     private long endTime = -1;
     
     public long elapsed(TimeUnit units) {
+        return units.convert(getRawElapsed(), TimeUnit.NANOSECONDS);
+    }
+    
+    public long getRawElapsed() {
         if (endTime == -1) {
-            return units.convert(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);
+            return System.nanoTime() - startTime;
         }
-        return units.convert(endTime - startTime, TimeUnit.NANOSECONDS);
+        return endTime - startTime;
     }
 }

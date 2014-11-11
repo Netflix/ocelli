@@ -16,8 +16,7 @@ import netflix.ocelli.client.TestClientFactory;
 import netflix.ocelli.client.TestHost;
 import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.metrics.ClientMetrics;
-import netflix.ocelli.metrics.SimpleClientMetricsFactory;
+import netflix.ocelli.metrics.CoreClientMetricsFactory;
 import netflix.ocelli.util.Functions;
 
 import org.junit.After;
@@ -37,7 +36,7 @@ public class PerfTest {
     private static Observable<HostEvent<TestHost>> source;
     private static final Random RANDOM = new Random();
     
-    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
+    private DefaultLoadBalancer<TestHost, TestClient> selector;
     
     @BeforeClass
     public static void setup() {
@@ -64,10 +63,10 @@ public class PerfTest {
     
     @Test
     public void perf() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(source)
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
+                .withMetricsFactory(new CoreClientMetricsFactory<TestHost>())
                 .withConnectedHostCountStrategy(Functions.sqrt())
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
@@ -102,11 +101,11 @@ public class PerfTest {
     
     @Test
     public void perf2() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(source)
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
-                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
+                .withMetricsFactory(new CoreClientMetricsFactory<TestHost>())
+                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
                 .withConnectedHostCountStrategy(Functions.sqrt())
                 .build();
         

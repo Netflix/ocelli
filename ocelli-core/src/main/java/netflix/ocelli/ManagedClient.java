@@ -4,13 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import netflix.ocelli.metrics.ClientMetricsListener;
+import netflix.ocelli.metrics.CompositeClientMetricsListener;
 import rx.Notification;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Action0;
-import rx.functions.Action1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.Subscriptions;
 
@@ -29,10 +30,10 @@ import rx.subscriptions.Subscriptions;
  * @param <C>
  * @param <M>
  */
-public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
+public class ManagedClient<H, C> {
 
     private final H host;
-    private final M metrics;
+    private final CompositeClientMetricsListener metrics;
     private C client;
     
     private final PublishSubject<Notification<C>> stream = PublishSubject.create();
@@ -44,9 +45,10 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
     public ManagedClient(
             final H host, 
             final HostClientConnector<H, C> connector,
-            MetricsFactory<H, M> metricsFactory) {
+            final List<MetricsFactory<H>> metricsFactory) {
         this.host = host;
-        this.metrics = metricsFactory.call(host, new Action0() {
+        
+        Action0 shutdownAction = new Action0() {
             @Override
             public void call() {
                 synchronized (lock) {
@@ -54,7 +56,13 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
                     stream.onNext(Notification.<C>createOnError(new RuntimeException("Host failed")));
                 }
             }
-        });
+        };
+        
+        List<ClientMetricsListener> listeners = new ArrayList<ClientMetricsListener>();
+        for (MetricsFactory<H> factory : metricsFactory) {
+            listeners.add(factory.call(host, shutdownAction));
+        }
+        this.metrics = new CompositeClientMetricsListener(listeners);
         
         // TODO: This is very ugly code.  We should probably replace this 
         // with a combination of switchOnNext and cache.
@@ -175,8 +183,8 @@ public class ManagedClient<H, C, M extends Action1<ClientEvent>> {
         return client;
     }
     
-    public M getMetrics() {
-        return metrics;
+    public <T> T getMetrics(Class<T> type) {
+        return metrics.getMetrics(type);
     }
     
     public String toString() {

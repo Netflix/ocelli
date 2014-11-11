@@ -4,10 +4,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.ClientEvent;
-import netflix.ocelli.metrics.math.ExpAvg;
 import rx.functions.Action0;
 
-public class SimpleClientMetrics implements ClientMetrics {
+public class CoreClientMetrics implements ClientMetricsListener {
     private AtomicLong requestStartCount   = new AtomicLong();
     private AtomicLong requestFailureCount = new AtomicLong();
     private AtomicLong requestSuccessCount = new AtomicLong();
@@ -16,18 +15,46 @@ public class SimpleClientMetrics implements ClientMetrics {
     private AtomicLong connectFailureCount = new AtomicLong();
     
     private Action0 shutdown;
-    private ExpAvg longAvg = new ExpAvg(20);
-    private ExpAvg shortAvg = new ExpAvg(20);
     
-    public SimpleClientMetrics(Action0 shutdown) {
+    public CoreClientMetrics(Action0 shutdown) {
         this.shutdown = shutdown;
     }
     
+    public long getConnectStartCount() {
+        return connectStartCount.get();
+    }
+
+    public long getConnectFailureCount() {
+        return connectFailureCount.get();
+    }
+
+    public long getConnectSuccessCount() {
+        return connectSuccessCount.get();
+    }
+
+    public long getRequestStartCount() {
+        return requestStartCount.get();
+    }
+
+    public long getRequestFailureCount() {
+        return requestFailureCount.get();
+    }
+
+    public long getRequestSuccessCount() {
+        return requestSuccessCount.get();
+    }
+    
+    public long getPendingConnectCount() {
+        return connectStartCount.get() - connectSuccessCount.get() - connectFailureCount.get();
+    }
+    
+    public long getPendingRequestCount() {
+        return requestStartCount.get() - requestSuccessCount.get() - requestFailureCount.get();
+    }
+
     @Override
-    public void call(ClientEvent event) {
-        switch (event.getType()) {
-        case REMOVED:
-            break;
+    public void onEvent(ClientEvent event, long duration, TimeUnit timeUnit, Throwable throwable, Object value) {
+        switch (event) {
         case CONNECT_START:
             connectStartCount.incrementAndGet();
             break;
@@ -43,59 +70,13 @@ public class SimpleClientMetrics implements ClientMetrics {
             break;
         case REQUEST_SUCCESS:
             requestSuccessCount.incrementAndGet();
-            int dur = (int) event.getDuration(TimeUnit.MILLISECONDS);
-            longAvg.addSample(dur);
-            shortAvg.addSample(dur);
             break;
         case REQUEST_FAILURE:
             requestFailureCount.incrementAndGet();
             shutdown.call();
             break;
+        default:
+            break;
         }
-    }
-
-    @Override
-    public long getConnectStartCount() {
-        return connectStartCount.get();
-    }
-
-    @Override
-    public long getConnectFailureCount() {
-        return connectFailureCount.get();
-    }
-
-    @Override
-    public long getConnectSuccessCount() {
-        return connectSuccessCount.get();
-    }
-
-    @Override
-    public long getRequestStartCount() {
-        return requestStartCount.get();
-    }
-
-    @Override
-    public long getRequestFailureCount() {
-        return requestFailureCount.get();
-    }
-
-    @Override
-    public long getRequestSuccessCount() {
-        return requestSuccessCount.get();
-    }
-    
-    @Override
-    public long getPendingConnectCount() {
-        return connectStartCount.get() - connectSuccessCount.get() - connectFailureCount.get();
-    }
-    
-    @Override
-    public long getPendingRequestCount() {
-        return requestStartCount.get() - requestSuccessCount.get() - requestFailureCount.get();
-    }
-
-    @Override
-    public long getLatencyScore() {
-        return (long)longAvg.get();
     }
 }

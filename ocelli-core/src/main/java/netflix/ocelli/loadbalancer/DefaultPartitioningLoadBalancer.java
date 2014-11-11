@@ -3,9 +3,8 @@ package netflix.ocelli.loadbalancer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.PartitionedLoadBalancer;
 import rx.Observable;
 import rx.functions.Action1;
@@ -14,54 +13,54 @@ import rx.functions.Func2;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
-public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent>, K> implements PartitionedLoadBalancer<H, C, M, K> {
-    public static class Builder<H, C, M extends Action1<ClientEvent>, K> {
+public class DefaultPartitioningLoadBalancer<H, C, K> implements PartitionedLoadBalancer<H, C, K> {
+    public static class Builder<H, C, K> {
         private Func1<H, Observable<K>> partitioner;
         private Observable<HostEvent<H>> hostSource;
-        private Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory;
+        private Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C>> factory;
         
-        public Builder<H, C, M, K> withHostSource(Observable<HostEvent<H>> hosts) {
+        public Builder<H, C, K> withHostSource(Observable<HostEvent<H>> hosts) {
             this.hostSource = hosts;
             return this;
         }
         
-        public Builder<H, C, M, K> withPartitioner(Func1<H, Observable<K>> partitioner) {
+        public Builder<H, C, K> withPartitioner(Func1<H, Observable<K>> partitioner) {
             this.partitioner = partitioner;
             return this;
         }
         
-        public Builder<H, C, M, K> withLoadBalancerFactory(Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory) {
+        public Builder<H, C, K> withLoadBalancerFactory(Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C>> factory) {
             this.factory = factory;
             return this;
         }
         
-        public DefaultPartitioningLoadBalancer<H, C, M, K> build() {
-            return new DefaultPartitioningLoadBalancer<H, C, M, K>(this);
+        public DefaultPartitioningLoadBalancer<H, C, K> build() {
+            return new DefaultPartitioningLoadBalancer<H, C, K>(this);
         }
     }
     
-    public static <H, C, M extends Action1<ClientEvent>, I> Builder<H, C, M, I> builder() {
-        return new Builder<H, C, M, I>();
+    public static <H, C, K> Builder<H, C, K> builder() {
+        return new Builder<H, C, K>();
     }
 
     private final CompositeSubscription cs = new CompositeSubscription();
     private final Func1<H, Observable<K>> partitioner;
-    private final Func2<K, Observable<HostEvent<H>>, LoadBalancer<H, C, M>> factory;
+    private final Func2<K, Observable<HostEvent<H>>, ManagedLoadBalancer<H, C>> factory;
     private final Observable<HostEvent<H>> hostSource;
     private final PublishSubject<HostEvent<H>> eventStream = PublishSubject.create();
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
     
     private final class Holder {
         final PublishSubject<HostEvent<H>> hostStream;
-        final LoadBalancer<H, C, M> loadBalancer;
+        final ManagedLoadBalancer<H, C> loadBalancer;
         
-        public Holder(LoadBalancer<H, C, M> loadBalancer, PublishSubject<HostEvent<H>> hostStream) {
+        public Holder(ManagedLoadBalancer<H, C> loadBalancer, PublishSubject<HostEvent<H>> hostStream) {
             this.loadBalancer = loadBalancer;
             this.hostStream = hostStream;
         }
     }
     
-    private DefaultPartitioningLoadBalancer(Builder<H, C, M, K> builder) {
+    private DefaultPartitioningLoadBalancer(Builder<H, C, K> builder) {
         this.partitioner = builder.partitioner;
         this.hostSource  = builder.hostSource;
         this.factory     = builder.factory;
@@ -108,7 +107,7 @@ public class DefaultPartitioningLoadBalancer<H, C, M extends Action1<ClientEvent
     }
     
     @Override
-    public LoadBalancer<H, C, M> get(K id) {
+    public ManagedLoadBalancer<H, C> get(K id) {
         return getOrCreateHolder(id).loadBalancer;
     }
 

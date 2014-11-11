@@ -16,8 +16,6 @@ import netflix.ocelli.client.TestClientMetricsFactory;
 import netflix.ocelli.client.TestHost;
 import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.metrics.ClientMetrics;
-import netflix.ocelli.metrics.SimpleClientMetricsFactory;
 import netflix.ocelli.retrys.Retrys;
 import netflix.ocelli.selectors.Delays;
 import netflix.ocelli.util.Functions;
@@ -42,9 +40,8 @@ public class DefaultLoadBalancerTest {
     private static final int NUM_HOSTS = 10;
     private static Observable<HostEvent<TestHost>> source;
     
-    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> lb;
+    private DefaultLoadBalancer<TestHost, TestClient> lb;
     private TestClientMetricsFactory<TestHost> metrics = new TestClientMetricsFactory<TestHost>();
-    private TestClientFactory clientFactory = new TestClientFactory();
     private PublishSubject<HostEvent<TestHost>> hostEvents = PublishSubject.create();
 
     @Rule
@@ -71,12 +68,11 @@ public class DefaultLoadBalancerTest {
     
     @Test
     public void openConnectionImmediately() throws Throwable {
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("h1", Connects.immediate(), Behaviors.immediate()))
                         .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withConnectedHostCountStrategy(Functions.identity())
                 .build();
         
@@ -100,11 +96,10 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromSource() {
         TestHost h1 = TestHost.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withName(testName.getMethodName())
                 .withHostSource(hostEvents)
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -121,11 +116,11 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromFailure() {
         TestHost h1 = TestHost.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withName(testName.getMethodName())
                 .withHostSource(hostEvents)
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
+                .withMetricsFactory(metrics)
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -145,13 +140,12 @@ public class DefaultLoadBalancerTest {
     @Test
     @Ignore
     public void oneBadConnectHost() throws InterruptedException {
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("h1", Connects.failure(1, TimeUnit.SECONDS), Behaviors.immediate()))
                         .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -163,12 +157,11 @@ public class DefaultLoadBalancerTest {
     @Test
     @Ignore
     public void oneBadResponseHost() throws Throwable {
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failure(1, TimeUnit.SECONDS)))
                         .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
                 .build();
         
@@ -189,13 +182,12 @@ public class DefaultLoadBalancerTest {
     @Test
     @Ignore
     public void failFirstResponse() throws Throwable {
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(Observable
                         .just(TestHost.create("bar", Connects.immediate(), Behaviors.failFirst(1)))
                         .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withQuaratineStrategy(Delays.linear(1, TimeUnit.SECONDS))
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.events().subscribe(RxUtil.info(""));
@@ -229,10 +221,9 @@ public class DefaultLoadBalancerTest {
     @Test
     @Ignore
     public void openConnections() {
-        this.lb = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(source)
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
                 .build();
         
         this.lb.initialize();

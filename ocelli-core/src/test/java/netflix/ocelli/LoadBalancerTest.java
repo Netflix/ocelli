@@ -1,5 +1,9 @@
 package netflix.ocelli;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import netflix.ocelli.HostEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -9,8 +13,7 @@ import netflix.ocelli.client.TestClientFactory;
 import netflix.ocelli.client.TestHost;
 import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.metrics.ClientMetrics;
-import netflix.ocelli.metrics.SimpleClientMetricsFactory;
+import netflix.ocelli.metrics.CoreClientMetricsFactory;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -23,10 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
@@ -44,7 +43,7 @@ public class LoadBalancerTest {
 
     private static List<TestHost> servers;
 
-    private DefaultLoadBalancer<TestHost, TestClient, ClientMetrics> selector;
+    private DefaultLoadBalancer<TestHost, TestClient> selector;
 
     @Rule
     public TestName name = new TestName();
@@ -66,12 +65,12 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestHost, TestClient, ClientMetrics>builder()
+        this.selector = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withHostSource(Observable
                     .from(servers)
                     .map(HostEvent.<TestHost>toEvent(EventType.ADD)))
                 .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new SimpleClientMetricsFactory<TestHost>())
+                .withMetricsFactory(new CoreClientMetricsFactory<TestHost>())
                 .build();
         
         this.selector.initialize();

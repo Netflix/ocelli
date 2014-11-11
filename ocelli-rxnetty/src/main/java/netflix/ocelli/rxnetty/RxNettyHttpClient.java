@@ -1,37 +1,43 @@
 package netflix.ocelli.rxnetty;
 
+import io.netty.buffer.ByteBuf;
+import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.client.HttpClientRequest;
+import io.reactivex.netty.protocol.http.client.HttpClientResponse;
+
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import netflix.ocelli.ClientEvent;
-import io.netty.buffer.ByteBuf;
-import io.reactivex.netty.RxNetty;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import io.reactivex.netty.protocol.http.client.HttpClientResponse;
+import netflix.ocelli.HostAddress;
+import netflix.ocelli.metrics.ClientMetricsListener;
 import rx.Observable;
 import rx.Observable.Operator;
 import rx.Subscriber;
-import rx.functions.Action0;
-import rx.functions.Action1;
 
 public class RxNettyHttpClient {
+    private static final Logger LOG = LoggerFactory.getLogger(RxNettyHttpClient.class);
     private final HttpClient<ByteBuf, ByteBuf> client;
-    private final ServerInfo server;
-    private Action1<ClientEvent> events;
+    private final HostAddress server;
+    private final ClientMetricsListener events;
     
-    public RxNettyHttpClient(HttpClient<ByteBuf, ByteBuf> client, ServerInfo server, Action1<ClientEvent> events, Observable<Void> signal) {
+    public RxNettyHttpClient(HttpClient<ByteBuf, ByteBuf> client, HostAddress server, ClientMetricsListener events, Observable<Void> signal) {
         this.client = client;
         this.server = server;
         this.events = events;
     }
 
     public Observable<HttpClientResponse<ByteBuf>> createGet(String uri) {
-        return RxNetty
-            .createHttpGet("http://" + server.getHost() + ":" + server.getPort() + uri)
+        HttpClientRequest<ByteBuf> request = HttpClientRequest.createGet(uri);
+        
+        return client.submit(request)
             .lift(new Operator<HttpClientResponse<ByteBuf>, HttpClientResponse<ByteBuf>>() {
                 @Override
                 public Subscriber<? super HttpClientResponse<ByteBuf>> call(final Subscriber<? super HttpClientResponse<ByteBuf>> sub) {
                     final long start = System.nanoTime();
-                    events.call(ClientEvent.requestStart());
+                    events.onEvent(ClientEvent.REQUEST_START, 0, null, null, null); 
                     return new Subscriber<HttpClientResponse<ByteBuf>>(sub) {
                         @Override
                         public void onCompleted() {
@@ -40,15 +46,16 @@ public class RxNettyHttpClient {
 
                         @Override
                         public void onError(Throwable e) {
+                            LOG.info("Error writing to server '{}' {}", server, e.getMessage());
                             final long end = System.nanoTime();
-                            events.call(ClientEvent.requestFailure(end - start, TimeUnit.NANOSECONDS, e));
+                            events.onEvent(ClientEvent.REQUEST_FAILURE, end - start, TimeUnit.NANOSECONDS, e, null);
                             sub.onError(e);
                         }
 
                         @Override
                         public void onNext(HttpClientResponse<ByteBuf> t) {
                             final long end = System.nanoTime();
-                            events.call(ClientEvent.requestSuccess(end - start, TimeUnit.NANOSECONDS));
+                            events.onEvent(ClientEvent.REQUEST_SUCCESS, end - start, TimeUnit.NANOSECONDS, null, t);
                             sub.onNext(t);
                         }
                     };
@@ -61,7 +68,7 @@ public class RxNettyHttpClient {
         return client;
     }
 
-    public ServerInfo getServer() {
+    public HostAddress getServer() {
         return server;
     }
     

@@ -1,25 +1,25 @@
 package netflix.ocelli.client;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostClientConnector;
+import netflix.ocelli.metrics.ClientMetricsListener;
 import netflix.ocelli.util.RxUtil;
 import netflix.ocelli.util.Stopwatch;
 import rx.Observable;
 import rx.Observer;
-import rx.functions.Action1;
-
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestClientFactory implements HostClientConnector<TestHost, TestClient> {
     private final AtomicInteger counter = new AtomicInteger();
     
     @Override
-    public Observable<TestClient> call(final TestHost host, final Action1<ClientEvent> events, final Observable<Void> signal) {
+    public Observable<TestClient> call(final TestHost host, final ClientMetricsListener events, final Observable<Void> signal) {
         counter.incrementAndGet();
         
         final Stopwatch sw = Stopwatch.createStarted();
-        events.call(ClientEvent.connectStart());
+        events.onEvent(ClientEvent.CONNECT_START, 0, null, null, null);
         return host
                 .connect()
                 .cast(TestClient.class)
@@ -31,7 +31,7 @@ public class TestClientFactory implements HostClientConnector<TestHost, TestClie
 
                     @Override
                     public void onError(Throwable e) {
-                        events.call(ClientEvent.connectFailure(sw.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS, e));
+                        events.onEvent(ClientEvent.CONNECT_FAILURE, sw.getRawElapsed(), TimeUnit.NANOSECONDS, e, null);
                     }
 
                     @Override
@@ -40,7 +40,7 @@ public class TestClientFactory implements HostClientConnector<TestHost, TestClie
                             .doOnCompleted(RxUtil.info("Client " + host + " removed"))
                             .subscribe();
                         
-                        events.call(ClientEvent.connectSuccess(sw.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS));
+                        events.onEvent(ClientEvent.CONNECT_SUCCESS, sw.getRawElapsed(), TimeUnit.NANOSECONDS, null, t);
                     }
                 });
     }

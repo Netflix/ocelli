@@ -1,23 +1,26 @@
 package netflix.ocelli;
 
+import netflix.ocelli.metrics.ClientMetricsListener;
 import rx.functions.Action0;
 import rx.functions.Func2;
 
 /**
- * Factory for creating failure detectors that collect metrics and invoke a callback
- * when a failure occurs
+ * Factory for creating client instance metric listeners for use in calculating 
+ * metrics for load balancing as well as failure detection. 
  * 
  * @author elandau
  *
  * @param <Host>
  */
-public interface MetricsFactory<Host, Metrics> extends Func2<Host, Action0, Metrics> {
+public interface MetricsFactory<Host> extends Func2<Host, Action0, ClientMetricsListener> {
     /**
      * 
      * @param Host - Host being tracked
-     * @param Acton0 - Action that will invoked when the host fails
-     * @return Metrics
+     * @param Acton0 - Action that will invoked when the host has been determined to have failed
+     * @return ClientMetricsListener
      */
     @Override
-    Metrics call(Host host, Action0 failureAction);
+    ClientMetricsListener call(Host host, Action0 failureAction);
+    
+    Class<?> getType();
 }

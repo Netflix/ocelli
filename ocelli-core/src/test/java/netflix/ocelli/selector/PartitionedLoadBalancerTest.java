@@ -1,9 +1,12 @@
 package netflix.ocelli.selector;
 
-import com.google.common.collect.Sets;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 import junit.framework.Assert;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -14,18 +17,18 @@ import netflix.ocelli.client.TestClientMetricsFactory;
 import netflix.ocelli.client.TestHost;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import netflix.ocelli.util.RxUtil;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import com.google.common.collect.Sets;
 
 public class PartitionedLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(PartitionedLoadBalancerTest.class);
@@ -42,14 +45,14 @@ public class PartitionedLoadBalancerTest {
         TestHost h3 = TestHost.create("h3", Connects.immediate(), Behaviors.immediate()).withVip("a").withVip("b");
         TestHost h4 = TestHost.create("h4", Connects.immediate(), Behaviors.immediate()).withVip("b");
         
-        DefaultLoadBalancer<TestHost, TestClient, TestClientMetrics> lb = DefaultLoadBalancer.<TestHost, TestClient, TestClientMetrics>builder()
+        DefaultLoadBalancer<TestHost, TestClient> lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new TestClientMetricsFactory<TestHost>())
                 .build()
                 ;
-        PartitionedLoadBalancer<TestHost, TestClient, TestClientMetrics, String> plb = lb.partition(TestHost.byVip());
+        PartitionedLoadBalancer<TestHost, TestClient, String> plb = lb.partition(TestHost.byVip());
         plb.initialize();
         
         lb.initialize();
@@ -66,9 +69,9 @@ public class PartitionedLoadBalancerTest {
         TimeUnit.SECONDS.sleep(10);
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbB = plb.get("b");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
+        ManagedLoadBalancer<TestHost, TestClient> lbA = plb.get("a");
+        ManagedLoadBalancer<TestHost, TestClient> lbB = plb.get("b");
+        ManagedLoadBalancer<TestHost, TestClient> lbAll = plb.get("*");
         
         Assert.assertNotNull(lbA);
         Assert.assertNotNull(lbB);
@@ -124,14 +127,14 @@ public class PartitionedLoadBalancerTest {
         
         TestHost h2 = TestHost.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
-        DefaultLoadBalancer<TestHost, TestClient, TestClientMetrics> lb = DefaultLoadBalancer.<TestHost, TestClient, TestClientMetrics>builder()
+        DefaultLoadBalancer<TestHost, TestClient> lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withClientConnector(new TestClientFactory())
                 .withMetricsFactory(new TestClientMetricsFactory<TestHost>())
                 .build()
                 ;
-        PartitionedLoadBalancer<TestHost, TestClient, TestClientMetrics, String> plb = lb.partition(TestHost.byVip());
+        PartitionedLoadBalancer<TestHost, TestClient, String> plb = lb.partition(TestHost.byVip());
         plb.initialize();
         lb.initialize();
         lb.events().subscribe(RxUtil.info(""));
@@ -143,8 +146,8 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(HostEvent.create(h2, HostEvent.EventType.ADD));
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbA = plb.get("a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> lbAll = plb.get("*");
+        ManagedLoadBalancer<TestHost, TestClient> lbA = plb.get("a");
+        ManagedLoadBalancer<TestHost, TestClient> lbAll = plb.get("*");
         
         // List all hosts
         Set<TestHost> hostsA = new HashSet<TestHost>(lbA.listAllHosts().toList().toBlocking().first());
@@ -156,7 +159,7 @@ public class PartitionedLoadBalancerTest {
         
         //////////////////////////
         // Step 2: Kill h2 host
-        TestClientMetrics m = lb.getClient(h2).getMetrics();
+        TestClientMetrics m = lb.getClient(h2).getMetrics(TestClientMetrics.class);
         Assert.assertNotNull(m);
         m.shutdown();
         
@@ -177,7 +180,7 @@ public class PartitionedLoadBalancerTest {
         TestHost h2 = TestHost.create("h2", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1c");
         TestHost h3 = TestHost.create("h3", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1d");
         
-        DefaultLoadBalancer<TestHost, TestClient, TestClientMetrics> lb = DefaultLoadBalancer.<TestHost, TestClient, TestClientMetrics>builder()
+        DefaultLoadBalancer<TestHost, TestClient> lb = DefaultLoadBalancer.<TestHost, TestClient>builder()
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withClientConnector(new TestClientFactory())
@@ -185,7 +188,7 @@ public class PartitionedLoadBalancerTest {
                 .build()
                 ;
         
-        PartitionedLoadBalancer<TestHost, TestClient, TestClientMetrics, String> plb = lb.partition(TestHost.byRack());
+        PartitionedLoadBalancer<TestHost, TestClient, String> plb = lb.partition(TestHost.byRack());
         plb.initialize();
         lb.initialize();
         
@@ -193,10 +196,10 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(HostEvent.create(h2, HostEvent.EventType.ADD));
         hostSource.onNext(HostEvent.create(h3, HostEvent.EventType.ADD));
 
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneA = plb.get("us-east-1a");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneB = plb.get("us-east-1b");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneC = plb.get("us-east-1c");
-        LoadBalancer<TestHost, TestClient, TestClientMetrics> zoneD = plb.get("us-east-1d");
+        ManagedLoadBalancer<TestHost, TestClient> zoneA = plb.get("us-east-1a");
+        ManagedLoadBalancer<TestHost, TestClient> zoneB = plb.get("us-east-1b");
+        ManagedLoadBalancer<TestHost, TestClient> zoneC = plb.get("us-east-1c");
+        ManagedLoadBalancer<TestHost, TestClient> zoneD = plb.get("us-east-1d");
         
         RxUtil.onSubscribeChooseNext(zoneA.choose(), zoneB.choose(), zoneC.choose(), zoneD.choose())
             .concatMap(new Func1<Observable<TestClient>, Observable<String>>() {
