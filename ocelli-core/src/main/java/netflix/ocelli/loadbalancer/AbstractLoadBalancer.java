@@ -9,12 +9,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import netflix.ocelli.ClientEvent;
 import netflix.ocelli.HostEvent;
-import netflix.ocelli.ManagedLoadBalancer;
-import netflix.ocelli.ManagedClient;
-import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.HostEvent.EventType;
+import netflix.ocelli.ManagedClient;
+import netflix.ocelli.ManagedLoadBalancer;
+import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.util.RandomBlockingQueue;
 import netflix.ocelli.util.RxUtil;
@@ -34,7 +33,7 @@ import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
-public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>> implements ManagedLoadBalancer<H, C, M> {
+public abstract class AbstractLoadBalancer<H, C> implements ManagedLoadBalancer<H, C> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
     /**
@@ -42,11 +41,11 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
      */
     public class Holder {
         int quaratineCounter = 0;
-        final ManagedClient<H, C, M> client;
+        final ManagedClient<H, C> client;
         final StateMachine<Holder, EventType> sm;
         final CompositeSubscription cs = new CompositeSubscription();
         
-        public Holder(ManagedClient<H, C, M> client, State<Holder, EventType> initial) {
+        public Holder(ManagedClient<H, C> client, State<Holder, EventType> initial) {
             this.client = client;
             this.sm = StateMachine.create(this, initial);
         }
@@ -98,7 +97,7 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     /**
      * Strategy use to calculate weights for active clients
      */
-    protected final WeightingStrategy<H, C, M> weightingStrategy;
+    protected final WeightingStrategy<H, C> weightingStrategy;
 
     /**
      * Strategy used to determine how many hosts should be connected.
@@ -135,7 +134,7 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     /**
      * Array of active and healthy clients that can receive traffic
      */
-    protected CopyOnWriteArrayList<ManagedClient<H, C, M>> activeClients = new CopyOnWriteArrayList<ManagedClient<H, C, M>>();
+    protected CopyOnWriteArrayList<ManagedClient<H, C>> activeClients = new CopyOnWriteArrayList<ManagedClient<H, C>>();
     
     protected PublishSubject<HostEvent<H>> eventStream = PublishSubject.create();
 
@@ -145,7 +144,7 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     
     protected AbstractLoadBalancer(
             String name, 
-            WeightingStrategy<H, C, M> weightingStrategy, 
+            WeightingStrategy<H, C> weightingStrategy, 
             Func1<Integer, Integer> connectedHostCountStrategy, 
             Func1<Integer, Long> quaratineDelayStrategy, 
             Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
@@ -307,7 +306,7 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     @Override
     public Observable<C> choose() {
         return selectionStrategy.call(
-                    weightingStrategy.call(new ArrayList<ManagedClient<H, C, M>>(activeClients)));
+                    weightingStrategy.call(new ArrayList<ManagedClient<H, C>>(activeClients)));
     }
 
     @Override
@@ -331,9 +330,9 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     
     @Override
     public synchronized Observable<H> listActiveHosts() {
-        return Observable.from(activeClients).map(new Func1<ManagedClient<H, C, M>, H>() {
+        return Observable.from(activeClients).map(new Func1<ManagedClient<H, C>, H>() {
             @Override
-            public H call(ManagedClient<H, C, M> context) {
+            public H call(ManagedClient<H, C> context) {
                 return context.getHost();
             }
         });
@@ -341,16 +340,16 @@ public abstract class AbstractLoadBalancer<H, C, M extends Action1<ClientEvent>>
     
     @Override
     public synchronized Observable<C> listActiveClients() {
-        return Observable.from(activeClients).map(new Func1<ManagedClient<H, C, M>, C>() {
+        return Observable.from(activeClients).map(new Func1<ManagedClient<H, C>, C>() {
             @Override
-            public C call(ManagedClient<H, C, M> context) {
+            public C call(ManagedClient<H, C> context) {
                 return context.getClient();
             }
         });
     }
     
     @Override
-    public ManagedClient<H, C, M> getClient(H host) {
+    public ManagedClient<H, C> getClient(H host) {
         Holder holder = hosts.get(host);
         if (holder == null)
             return null;

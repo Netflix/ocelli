@@ -1,12 +1,13 @@
 package netflix.ocelli.client;
 
 import com.google.common.collect.Maps;
+
 import netflix.ocelli.MetricsFactory;
 import rx.functions.Action0;
 
 import java.util.concurrent.ConcurrentMap;
 
-public class TestClientMetricsFactory<Host> implements MetricsFactory<Host, TestClientMetrics> {
+public class TestClientMetricsFactory<Host> implements MetricsFactory<Host> {
     private final ConcurrentMap<Host, TestClientMetrics> instances = Maps.newConcurrentMap();
     
     @Override
@@ -18,6 +19,11 @@ public class TestClientMetricsFactory<Host> implements MetricsFactory<Host, Test
     
     public TestClientMetrics get(Host host) {
         return instances.get(host);
+    }
+
+    @Override
+    public Class<?> getType() {
+        return TestClientMetrics.class;
     }
     
 }

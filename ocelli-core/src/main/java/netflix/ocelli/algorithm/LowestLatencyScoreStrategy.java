@@ -5,19 +5,19 @@ import java.util.List;
 
 import netflix.ocelli.ManagedClient;
 import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.metrics.ClientMetrics;
+import netflix.ocelli.metrics.RequestLatencyMetrics;
 import netflix.ocelli.selectors.ClientsAndWeights;
 
-public class LowestLatencyScoreStrategy<Host, Client, Tracker extends ClientMetrics> implements WeightingStrategy<Host, Client, Tracker> {
+public class LowestLatencyScoreStrategy<H, C> implements WeightingStrategy<H, C> {
     @Override
-    public ClientsAndWeights<Client> call(List<ManagedClient<Host, Client, Tracker>> source) {
-        List<Client>  clients = new ArrayList<Client>(source.size());
+    public ClientsAndWeights<C> call(List<ManagedClient<H, C>> source) {
+        List<C>  clients = new ArrayList<C>(source.size());
         List<Integer> weights = new ArrayList<Integer>();
         Integer min = 0;
-        for (ManagedClient<Host, Client, Tracker> context : source) {
+        for (ManagedClient<H, C> context : source) {
             clients.add(context.getClient());
             
-            int cur = (int) context.getMetrics().getLatencyScore();
+            int cur = (int) context.getMetrics(RequestLatencyMetrics.class).getLatencyScore();
             if (cur < min || min == 0) 
                 min = cur;
             weights.add(cur);
@@ -32,6 +32,6 @@ public class LowestLatencyScoreStrategy<Host, Client, Tracker extends ClientMetr
                 count = 100 * min / weight;
             weights.set(i, count);
         }
-        return new ClientsAndWeights<Client>(clients, null);
+        return new ClientsAndWeights<C>(clients, null);
     }
 }

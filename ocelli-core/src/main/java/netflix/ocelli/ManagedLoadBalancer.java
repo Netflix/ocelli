@@ -1,7 +1,6 @@
 package netflix.ocelli;
 
 import rx.Observable;
-import rx.functions.Action1;
 import rx.functions.Func1;
 
 /**
@@ -10,7 +9,7 @@ import rx.functions.Func1;
  * 
  * @author elandau
  */
-public interface ManagedLoadBalancer<H, C, M extends Action1<ClientEvent>> extends LoadBalancer<C> {
+public interface ManagedLoadBalancer<H, C> extends LoadBalancer<C> {
     /**
      * Return an Observable for the Client for this host
      * 
@@ -24,7 +23,7 @@ public interface ManagedLoadBalancer<H, C, M extends Action1<ClientEvent>> exten
      * @param partitioner
      * @return
      */
-    <K> PartitionedLoadBalancer<H, C, M, K> partition(Func1<H, Observable<K>> partitioner);
+    <K> PartitionedLoadBalancer<H, C, K> partition(Func1<H, Observable<K>> partitioner);
 
     /**
      * @return Stream of all host events
@@ -61,5 +60,5 @@ public interface ManagedLoadBalancer<H, C, M extends Action1<ClientEvent>> exten
      * @param host
      * @return Return the managed client for this host
      */
-    ManagedClient<H, C, M> getClient(H host);
+    ManagedClient<H, C> getClient(H host);
 }

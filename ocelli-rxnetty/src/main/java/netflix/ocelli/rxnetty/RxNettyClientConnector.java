@@ -18,11 +18,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.ClientEvent;
+import netflix.ocelli.HostAddress;
 import netflix.ocelli.HostClientConnector;
+import netflix.ocelli.metrics.ClientMetricsListener;
 import rx.Observable;
-import rx.functions.Action1;
 
-public class RxNettyClientConnector implements HostClientConnector<ServerInfo, RxNettyHttpClient> {
+public class RxNettyClientConnector implements HostClientConnector<HostAddress, RxNettyHttpClient> {
     public static final PipelineConfigurator<HttpClientResponse<ByteBuf>, HttpClientRequest<ByteBuf>> DEFAULT_HTTP_PIPELINE_CONFIGURATOR = 
             PipelineConfigurators.httpClientConfigurator();
 
@@ -30,10 +31,10 @@ public class RxNettyClientConnector implements HostClientConnector<ServerInfo, R
     public static final int DEFAULT_READ_TIMEOUT = 2000;
     public static final boolean DEFAULT_FOLLOW_REDIRECTS = true;
     public static final boolean DEFAULT_CONNECTION_POOLING = true;
-    public static final ScheduledExecutorService DEFAULT_SCHEDULER = Executors.newScheduledThreadPool(10);
-    public static final MaxConnectionsBasedStrategy DEFAULT_MAX_CONNECTIONS_BASED_STRATEGY = new MaxConnectionsBasedStrategy(10);
-    public static final PoolLimitDeterminationStrategy DEFAULT_POOL_LIMIT_STRATEGY = new MaxConnectionsBasedStrategy(50);
-    public static final PoolLimitDeterminationStrategy DEFAULT_HOST_LIMIT_STRATEGY = new MaxConnectionsBasedStrategy(10);
+    public static final ScheduledExecutorService DEFAULT_SCHEDULER = Executors.newScheduledThreadPool(100);
+    public static final MaxConnectionsBasedStrategy DEFAULT_MAX_CONNECTIONS_BASED_STRATEGY = new MaxConnectionsBasedStrategy(1000);
+    public static final PoolLimitDeterminationStrategy DEFAULT_POOL_LIMIT_STRATEGY = new MaxConnectionsBasedStrategy(5000);
+    public static final PoolLimitDeterminationStrategy DEFAULT_HOST_LIMIT_STRATEGY = new MaxConnectionsBasedStrategy(1000);
     public static final long DEFAULT_IDLE_CONNECTION_EVICTION_MILLIS = 60000L;
     
     public static class Builder {
@@ -116,7 +117,11 @@ public class RxNettyClientConnector implements HostClientConnector<ServerInfo, R
     }
     
     @Override
-    public Observable<RxNettyHttpClient> call(final ServerInfo server, Action1<ClientEvent> events, Observable<Void> signal) {
+    public Observable<RxNettyHttpClient> call(final HostAddress server, ClientMetricsListener events, Observable<Void> signal) {
+        events.onEvent(ClientEvent.CONNECT_START, 0, null, null, null); 
+
+        final long startTime = System.nanoTime();
+        
         HttpClientConfig.Builder builder = new HttpClientConfig.Builder()
             .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
             .setFollowRedirect(followRedirect);
@@ -159,9 +164,11 @@ public class RxNettyClientConnector implements HostClientConnector<ServerInfo, R
 //          }
 //      }
         try {
+            events.onEvent(ClientEvent.CONNECT_SUCCESS, System.nanoTime() - startTime, TimeUnit.NANOSECONDS, null, null);
             return Observable.just(new RxNettyHttpClient(clientBuilder.build(), server, events, signal));
         }
         catch (Exception e) {
+            events.onEvent(ClientEvent.CONNECT_FAILURE, System.nanoTime() - startTime, TimeUnit.NANOSECONDS, e, null);
             return Observable.error(e);
         }
     }
