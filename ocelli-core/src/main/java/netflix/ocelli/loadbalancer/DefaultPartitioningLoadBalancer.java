@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetector;
-import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.PartitionedLoadBalancer;
@@ -25,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
-import rx.functions.Func2;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
@@ -33,9 +31,8 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     private static final Logger LOG = LoggerFactory.getLogger(DefaultPartitioningLoadBalancer.class);
     
     public static class Builder<C, M, K> {
-        private Func1<C, Observable<K>> partitioner;
+        private Func1<C, Observable<K>>     partitioner;
         private Observable<MembershipEvent<C>> hostSource;
-        private Func2<K, Observable<MembershipEvent<C>>, ManagedLoadBalancer<C>> factory;
         private WeightingStrategy<C, M>    weightingStrategy = new EqualWeightStrategy<C, M>();
         private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
@@ -43,7 +40,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
         private FailureDetector<C>         failureDetector = Failures.never();
         private ClientConnector<C>         clientConnector = Connectors.immediate();
-        private Func1<C, Observable<M>> metricsConnector;
+        private Func1<C, Observable<M>>    metricsConnector;
         
         private Builder() {
         }
@@ -101,6 +98,8 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         public DefaultPartitioningLoadBalancer<C, M, K> build() {
             assert hostSource != null;
             assert metricsConnector != null;
+            assert partitioner != null;
+            
             return new DefaultPartitioningLoadBalancer<C, M, K>(this);
         }
     }
@@ -111,7 +110,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
 
     private final CompositeSubscription cs = new CompositeSubscription();
     private final Func1<C, Observable<K>> partitioner;
-    private final Func2<K, Observable<MembershipEvent<C>>, ManagedLoadBalancer<C>> factory;
     private final Observable<MembershipEvent<C>> hostSource;
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
     private final WeightingStrategy<C, M> weightingStrategy;
@@ -136,7 +134,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     private DefaultPartitioningLoadBalancer(Builder<C, M, K> builder) {
         this.partitioner            = builder.partitioner;
         this.hostSource             = builder.hostSource;
-        this.factory                = builder.factory;
         this.failureDetector        = builder.failureDetector;
         this.clientConnector        = builder.clientConnector;
         this.selectionStrategy      = builder.selectionStrategy;
@@ -175,7 +172,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         Holder holder = partitions.get(id);
         if (null == holder) {
             PublishSubject<MembershipEvent<C>> subject = PublishSubject.create();
-            Holder newHolder = new Holder(factory.call(id, subject), subject);
+            Holder newHolder = new Holder(createPartition(id, subject), subject);
             holder = partitions.putIfAbsent(id, newHolder);
             if (holder == null) {
                 holder = newHolder;
@@ -194,7 +191,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         return Observable.from(partitions.keySet());
     }
     
-    protected LoadBalancer<C> createPartition(K id) {
+    private ManagedLoadBalancer<C> createPartition(K id, Observable<MembershipEvent<C>> hostSource) {
         LOG.info("Creating partition : " + id);
         DefaultLoadBalancer<C, M> lb =  DefaultLoadBalancer.<C, M>builder()
                 .withName(getName() + "_" + id)
