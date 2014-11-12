@@ -1,4 +1,4 @@
-package netflix.ocelli.failures;
+package netflix.ocelli.functions;
 
 import netflix.ocelli.FailureDetectorFactory;
 import rx.Observable;

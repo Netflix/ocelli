@@ -15,10 +15,10 @@ import netflix.ocelli.client.ResponseObserver;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
 import netflix.ocelli.client.TrackingOperation;
-import netflix.ocelli.retrys.Delays;
-import netflix.ocelli.retrys.Retrys;
+import netflix.ocelli.functions.Delays;
+import netflix.ocelli.functions.Functions;
+import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.util.CountDownAction;
-import netflix.ocelli.util.Functions;
 import netflix.ocelli.util.RxUtil;
 
 import org.junit.After;

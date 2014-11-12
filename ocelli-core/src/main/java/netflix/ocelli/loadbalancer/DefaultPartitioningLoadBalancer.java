@@ -12,12 +12,12 @@ import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
-import netflix.ocelli.connectors.Connectors;
-import netflix.ocelli.failures.Failures;
-import netflix.ocelli.retrys.Delays;
+import netflix.ocelli.functions.Connectors;
+import netflix.ocelli.functions.Delays;
+import netflix.ocelli.functions.Failures;
+import netflix.ocelli.functions.Functions;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
-import netflix.ocelli.util.Functions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

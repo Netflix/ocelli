@@ -1,4 +1,4 @@
-package netflix.ocelli.connectors;
+package netflix.ocelli.functions;
 
 import netflix.ocelli.ClientConnector;
 import rx.Observable;

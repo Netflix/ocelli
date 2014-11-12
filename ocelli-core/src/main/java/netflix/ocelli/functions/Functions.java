@@ -1,4 +1,4 @@
-package netflix.ocelli.util;
+package netflix.ocelli.functions;
 
 import rx.functions.Func1;
 
