@@ -1,4 +1,4 @@
-package netflix.ocelli.retrys;
+package netflix.ocelli.functions;
 
 import java.util.concurrent.TimeUnit;
 

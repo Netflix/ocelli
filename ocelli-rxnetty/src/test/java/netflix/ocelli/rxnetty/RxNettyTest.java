@@ -15,8 +15,8 @@ import netflix.ocelli.HostAddress;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.algorithm.LinearWeightingStrategy;
+import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.retrys.Retrys;
 
 import org.junit.Test;
 import org.slf4j.Logger;

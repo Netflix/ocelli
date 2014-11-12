@@ -12,8 +12,8 @@ import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TrackingOperation;
+import netflix.ocelli.functions.Functions;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.util.Functions;
 
 import org.junit.After;
 import org.junit.BeforeClass;
