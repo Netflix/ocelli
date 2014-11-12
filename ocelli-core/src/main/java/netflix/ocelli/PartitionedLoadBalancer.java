@@ -31,16 +31,11 @@ import rx.Observable;
  *      
  * @param partitioner   Function that converts a Host into an Observable of partition Ids
  */
-public interface PartitionedLoadBalancer<H, C, K> {
+public interface PartitionedLoadBalancer<C, K> {
     /**
      * @return Return the LoadBalancer for the specified partition key
      */
-    public ManagedLoadBalancer<H, C> get(K key);
-
-    /**
-     * @return Stream of events for this partitioned load balancer
-     */
-    Observable<HostEvent<H>> events();
+    public ManagedLoadBalancer<C> get(K key);
 
     /**
      * @return List all found partition keys.  Note that partition keys are derived from the partitioner only

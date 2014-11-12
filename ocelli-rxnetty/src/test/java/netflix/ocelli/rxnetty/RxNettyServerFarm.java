@@ -12,9 +12,10 @@ import io.reactivex.netty.protocol.http.server.RequestHandler;
 import rx.Observable;
 
 public class RxNettyServerFarm {
-
+    private static int SERVER_COUNT = 50;
+    
     public static void main(String[] args) throws InterruptedException {
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < SERVER_COUNT; i++) {
             HttpServer<ByteBuf, ByteBuf> server = createServer(8080+i);
             server.start();
         }

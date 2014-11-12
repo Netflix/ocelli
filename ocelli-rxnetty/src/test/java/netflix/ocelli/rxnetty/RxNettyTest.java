@@ -2,6 +2,8 @@ package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.protocol.http.client.FlatResponseOperator;
+import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.ResponseHolder;
 
 import java.nio.charset.Charset;
@@ -10,9 +12,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.HostAddress;
-import netflix.ocelli.HostEvent;
-import netflix.ocelli.HostEvent.EventType;
-import netflix.ocelli.ManagedLoadBalancer;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import netflix.ocelli.retrys.Retrys;
 
@@ -32,8 +34,8 @@ public class RxNettyTest {
 //    @ClassRule
 //    public static NettyServerFarmResource servers = new NettyServerFarmResource(100);
     
-    public static int OPS_PER_SECOND = 2000;
-    public static int SERVER_COUNT = 50;
+    public static int OPS_PER_SECOND = 1000;
+    public static int SERVER_COUNT = 5;
     public static long interval = 1000000 / OPS_PER_SECOND;
     
     @Test
@@ -43,10 +45,19 @@ public class RxNettyTest {
             si.add(new HostAddress().setHost("localhost").setPort(8080+i));
         }
         
-        final ManagedLoadBalancer<HostAddress, RxNettyHttpClient> lb = 
-                DefaultLoadBalancer.<HostAddress, RxNettyHttpClient>builder()
-                .withHostSource(Observable.from(si).map(HostEvent.<HostAddress>toEvent(EventType.ADD)))
-                .withClientConnector(RxNettyClientConnector.builder().build())
+        final DefaultLoadBalancer<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics> lb = 
+                DefaultLoadBalancer.<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics>builder()
+                .withMembershipSource(Observable
+                        .from(si)
+                        .flatMap(RxNettyClientFactory.builder().build())
+                        .map(MembershipEvent.<HttpClient<ByteBuf, ByteBuf>>toEvent(EventType.ADD)))
+                .withMetricsConnector(new RxNettyMetricsConnector())
+                .withWeightingStrategy(new LinearWeightingStrategy<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics>(new Func1<HttpClientMetrics, Integer>() {
+                    @Override
+                    public Integer call(HttpClientMetrics t1) {
+                        return t1.getPendingRequests();
+                    }
+                }))
                 .build();
 
         lb.initialize();
@@ -59,11 +70,12 @@ public class RxNettyTest {
                 public void call(Long t1) {
                     lb
                     .choose()
-                    .concatMap(new Func1<RxNettyHttpClient, Observable<String>>() {
+                    .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<String>>() {
                         @Override
-                        public Observable<String> call(RxNettyHttpClient client) {
-                            return client
-                                .createGet("/hello")
+                        public Observable<String> call(HttpClient<ByteBuf, ByteBuf> client) {
+                            HttpClientRequest<ByteBuf> request = HttpClientRequest.createGet("/hello");
+                            
+                            return client.submit(request)
                                 .lift(FlatResponseOperator.<ByteBuf>flatResponse())
                                 .map(new Func1<ResponseHolder<ByteBuf>, String>() {
                                     @Override

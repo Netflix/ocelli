@@ -13,7 +13,7 @@ public class TrackingOperation implements Func1<TestClient, Observable<String>> 
     
     private final String response;
     
-    private List<TestHost> servers = new ArrayList<TestHost>();
+    private List<TestClient> servers = new ArrayList<TestClient>();
     
     public TrackingOperation(String response) {
         this.response = response;
@@ -21,7 +21,7 @@ public class TrackingOperation implements Func1<TestClient, Observable<String>> 
     
     @Override
     public Observable<String> call(final TestClient client) {
-        servers.add(client.getHost());
+        servers.add(client);
         return client.execute(new Func1<TestClient, Observable<String>>() {
             @Override
             public Observable<String> call(TestClient t1) {
@@ -30,7 +30,7 @@ public class TrackingOperation implements Func1<TestClient, Observable<String>> 
         });
     }
     
-    public List<TestHost> getServers() {
+    public List<TestClient> getServers() {
         return servers;
     }
 }

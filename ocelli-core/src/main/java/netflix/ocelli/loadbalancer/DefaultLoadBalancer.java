@@ -1,31 +1,43 @@
 package netflix.ocelli.loadbalancer;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import netflix.ocelli.HostClientConnector;
-import netflix.ocelli.HostEvent;
-import netflix.ocelli.HostEvent.EventType;
-import netflix.ocelli.ManagedClientFactory;
+import netflix.ocelli.ClientAndMetrics;
+import netflix.ocelli.ClientConnector;
+import netflix.ocelli.FailureDetector;
 import netflix.ocelli.ManagedLoadBalancer;
-import netflix.ocelli.MetricsFactory;
-import netflix.ocelli.PartitionedLoadBalancer;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
-import netflix.ocelli.metrics.CoreClientMetricsFactory;
+import netflix.ocelli.connectors.Connectors;
+import netflix.ocelli.failures.Failures;
+import netflix.ocelli.retrys.Delays;
 import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.selectors.Delays;
 import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
 import netflix.ocelli.util.Functions;
+import netflix.ocelli.util.RandomBlockingQueue;
+import netflix.ocelli.util.RxUtil;
+import netflix.ocelli.util.StateMachine;
+import netflix.ocelli.util.StateMachine.State;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
 import rx.functions.Action1;
 import rx.functions.Func1;
-import rx.functions.Func2;
+import rx.subscriptions.CompositeSubscription;
+import rx.subscriptions.SerialSubscription;
 
 /**
  * The ClientSelector keeps track of all existing hosts and returns a single host for each
@@ -33,13 +45,11 @@ import rx.functions.Func2;
  * 
  * @author elandau
  *
- * @param <H>
  * @param <C>
  * @param <Tracker>
  * 
- * TODO: Host quarantine 
  */
-public class DefaultLoadBalancer<H, C> extends AbstractLoadBalancer<H, C> {
+public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
@@ -47,123 +57,262 @@ public class DefaultLoadBalancer<H, C> extends AbstractLoadBalancer<H, C> {
      * Da Builder 
      * @author elandau
      *
-     * @param <H>
+     * @param <C>
      * @param <C>
      * @param <Tracker>
      */
-    public static class Builder<H, C> {
-        private Observable<HostEvent<H>>   hostSource;
-        private WeightingStrategy<H, C>    weightingStrategy = new EqualWeightStrategy<H, C>();
-        private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
-        private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-        private String                     name = "<unnamed>";
+    public static class Builder<C, M> {
+        private String                      name = "<unnamed>";
+        private Observable<MembershipEvent<C>>   hostSource;
+        private WeightingStrategy<C, M>     weightingStrategy = new EqualWeightStrategy<C, M>();
+        private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
+        private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private HostClientConnector<H, C>  connector;
-        private List<MetricsFactory<H>>    metricsFactories = new ArrayList<MetricsFactory<H>>();
-        private ManagedClientFactory<H, C> clientFactory;
+        private FailureDetector<C>          failureDetector = Failures.never();
+        private ClientConnector<C>          clientConnector = Connectors.immediate();
+        private Func1<C, Observable<M>>     metricsMapper;
         
         private Builder() {
-            metricsFactories.add(new CoreClientMetricsFactory<H>());
         }
         
-        public Builder<H, C> withName(String name) {
+        public Builder<C, M> withName(String name) {
             this.name = name;
             return this;
         }
         
-        public Builder<H, C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
+        /**
+         * Strategy used to determine the delay time in msec based on the quarantine 
+         * count.  The count is incremented by one for each failed connect.
+         */
+        public Builder<C, M> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
             this.quaratineDelayStrategy = quaratineDelayStrategy;
             return this;
         }
         
-        public Builder<H, C> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
+        /**
+         * Strategy used to determine how many hosts should be connected.
+         * This strategy is invoked whenever a host is added or removed from the pool
+         */
+        public Builder<C, M> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
             this.connectedHostCountStrategy = connectedHostCountStrategy;
             return this;
         }
         
-        public Builder<H, C> withHostSource(Observable<HostEvent<H>> hostSource) {
+        /**
+         * Source for host membership events
+         */
+        public Builder<C, M> withMembershipSource(Observable<MembershipEvent<C>> hostSource) {
             this.hostSource = hostSource;
             return this;
         }
         
-        public Builder<H, C> withClientConnector(HostClientConnector<H, C> connector) {
-            this.connector = connector;
-            return this;
-        }
-        
-        public Builder<H, C> withMetricsFactory(MetricsFactory<H> metricsFactory) {
-            this.metricsFactories.add(metricsFactory);
-            return this;
-        }
-        
-        public Builder<H, C> withWeightingStrategy(WeightingStrategy<H, C> algorithm) {
+        /**
+         * Strategy use to calculate weights for active clients
+         */
+        public Builder<C, M> withWeightingStrategy(WeightingStrategy<C, M> algorithm) {
             this.weightingStrategy = algorithm;
             return this;
         }
         
-        public Builder<H, C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
+        public Builder<C, M> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
             this.selectionStrategy = selectionStrategy;
             return this;
         }
         
-        Builder<H, C> withClientFactory(ManagedClientFactory<H, C> factory) {
-            this.clientFactory = factory;
+        public Builder<C, M> withFailureDetector(FailureDetector<C> failureDetector) {
+            this.failureDetector = failureDetector;
             return this;
         }
         
-        public DefaultLoadBalancer<H, C> build() {
+        public Builder<C, M> withClientConnector(ClientConnector<C> clientConnector) {
+            this.clientConnector = clientConnector;
+            return this;
+        }
+        
+        public Builder<C, M> withMetricsConnector(Func1<C, Observable<M>> metricsMapper) {
+            this.metricsMapper = metricsMapper;
+            return this;
+        }
+        
+        public DefaultLoadBalancer<C, M> build() {
             assert hostSource != null;
-            if (this.clientFactory == null) {
-                assert connector != null;
-
-                this.clientFactory = new ManagedClientFactory<H, C>(connector, metricsFactories);
-            }
+            assert metricsMapper != null;
             
-            return new DefaultLoadBalancer<H, C>(this);
+            return new DefaultLoadBalancer<C, M>(this);
         }
     }
     
-    public static <H, C> Builder<H, C> builder() {
-        return new Builder<H, C>();
+    public static <C, M> Builder<C, M> builder() {
+        return new Builder<C, M>();
     }
     
+    private final Observable<MembershipEvent<C>> hostSource;
+    private final WeightingStrategy<C, M> weightingStrategy;
+    private final FailureDetector<C> failureDetector;
+    private final ClientConnector<C> clientConnector;
+    private final Func1<Integer, Integer> connectedHostCountStrategy;
+    private final Func1<Integer, Long> quaratineDelayStrategy;
+    private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
+    private final Func1<C, Observable<M>> metricsMapper;
+    
+    private final String name;
+
     /**
-     * Externally provided factory for creating a Client from a Host
+     * Composite subscription to keep track of all Subscriptions to be unsubscribed at
+     * shutdown
      */
-    private final ManagedClientFactory<H, C> clientFactory;
+    private final CompositeSubscription cs = new CompositeSubscription();
     
     /**
-     * Source for host membership events
+     * Map of ALL existing hosts, connected or not
      */
-    private final Observable<HostEvent<H>> hostSource;
+    private final ConcurrentMap<C, Holder> clients = new ConcurrentHashMap<C, Holder>();
     
-    private DefaultLoadBalancer(Builder<H, C> builder) {
-        super(
-                builder.name, 
-                builder.weightingStrategy, 
-                builder.connectedHostCountStrategy, 
-                builder.quaratineDelayStrategy, 
-                builder.selectionStrategy);
-        
-        this.clientFactory = builder.clientFactory;
-        this.hostSource = builder.hostSource;
+    /**
+     * Queue of idle hosts that are not initialized to receive traffic
+     */
+    private final RandomBlockingQueue<Holder> idleClients = new RandomBlockingQueue<Holder>();
+    
+    /**
+     * Map of ALL currently acquired clients.  This map contains both connected as well as connecting hosts.
+     */
+    private final Set<Holder> acquiredClients = new HashSet<Holder>();
+    
+    /**
+     * Array of active and healthy clients that can receive traffic
+     */
+    private final CopyOnWriteArrayList<ClientAndMetrics<C, M>> activeClients = new CopyOnWriteArrayList<ClientAndMetrics<C, M>>();
+    
+    private State<Holder, EventType> IDLE         = State.create("IDLE");
+    private State<Holder, EventType> CONNECTING   = State.create("CONNECTING");
+    private State<Holder, EventType> CONNECTED    = State.create("CONNECTED");
+    private State<Holder, EventType> QUARANTINED  = State.create("QUARANTINED");
+    private State<Holder, EventType> REMOVED      = State.create("REMOVED");
+
+    private DefaultLoadBalancer(Builder<C, M> builder) {
+        this.weightingStrategy          = builder.weightingStrategy;
+        this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
+        this.quaratineDelayStrategy     = builder.quaratineDelayStrategy;
+        this.selectionStrategy          = builder.selectionStrategy;
+        this.name                       = builder.name;
+        this.failureDetector            = builder.failureDetector;
+        this.clientConnector            = builder.clientConnector;
+        this.hostSource                 = builder.hostSource;
+        this.metricsMapper              = builder.metricsMapper;
     }
 
     public void initialize() {
-        super.initialize();
         
+        IDLE
+        .onEnter(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(Holder holder) {
+                LOG.info("Client is now idle");
+                
+                idleClients.add(holder);
+
+                // Determine if a new host should be created based on the configured strategy
+                int idealCount = connectedHostCountStrategy.call(clients.size());
+                if (idealCount > acquiredClients.size()) {
+                    acquireNextIdleHost()  
+                        .first()
+                        .subscribe(new Action1<Holder>() {
+                            @Override
+                            public void call(Holder holder) {
+                                holder.sm.call(EventType.CONNECT);
+                            }
+                        });
+                }
+                return Observable.empty();
+            }
+        })
+        .transition(EventType.CONNECT, CONNECTING)
+        .transition(EventType.FAILED, QUARANTINED)
+        .transition(EventType.CONNECTED, CONNECTED)
+        ;
+    
+    CONNECTING
+        .onEnter(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(final Holder holder) {
+                LOG.info("Client is connecting");
+                acquiredClients.add(holder);
+                holder.connect();
+                return Observable.empty();
+            }
+        })
+        .transition(EventType.CONNECTED, CONNECTED)
+        .transition(EventType.FAILED, QUARANTINED)
+        .transition(EventType.REMOVE, REMOVED)
+        ;
+    
+    CONNECTED
+        .onEnter(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(Holder holder) {
+                LOG.info("Client is now connected");
+                activeClients.add(holder);
+                return Observable.empty();
+            }
+        })
+        .onExit(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(Holder holder) {
+                activeClients.remove(holder);
+                return Observable.empty();
+            }
+        })
+        .ignore(EventType.CONNECTED)
+        .ignore(EventType.CONNECT)
+        .transition(EventType.FAILED, QUARANTINED)
+        .transition(EventType.REMOVE, REMOVED)
+        .transition(EventType.STOP, IDLE)
+        ;
+    
+    QUARANTINED
+        .onEnter(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(final Holder holder) {
+                LOG.info("Client is being quaratined");
+                acquiredClients.remove(holder);
+                
+                return Observable
+                        .just(EventType.UNQUARANTINE)
+                        .delay(quaratineDelayStrategy.call(holder.getQuaratineCounter()), TimeUnit.MILLISECONDS)
+                        .doOnNext(RxUtil.info("Next:")); 
+            }
+        })
+        .ignore(EventType.FAILED)
+        .transition(EventType.UNQUARANTINE, IDLE)
+        .transition(EventType.REMOVE, REMOVED)
+        .transition(EventType.CONNECTED, CONNECTED)
+        ;
+    
+    REMOVED
+        .onEnter(new Func1<Holder, Observable<EventType>>() {
+            @Override
+            public Observable<EventType> call(Holder holder) {
+                LOG.info("Client is being removed");
+                activeClients.remove(holder);
+                acquiredClients.add(holder);
+                idleClients.remove(holder);
+                clients.remove(holder.client);
+                cs.remove(holder.cs);
+                return Observable.empty();
+            }
+        })
+        ;
         cs.add(hostSource
-            .subscribe(new Action1<HostEvent<H>>() {
+            .subscribe(new Action1<MembershipEvent<C>>() {
                 @Override
-                public void call(HostEvent<H> event) {
-                    eventStream.onNext(event);
+                public void call(MembershipEvent<C> event) {
                     LOG.info("{} :  Got event {}", getName(), event);
-                    Holder holder = hosts.get(event.getHost());
+                    Holder holder = clients.get(event.getClient());
                     if (holder == null) {
                         if (event.getType().equals(EventType.ADD)) {
-                            final Holder newHolder = new Holder(clientFactory.create(event.getHost()), IDLE);
-                            if (null == hosts.putIfAbsent(event.getHost(), newHolder)) {
-                                cs.add(newHolder.start());
+                            final Holder newHolder = new Holder(event.getClient(), IDLE);
+                            if (null == clients.putIfAbsent(event.getClient(), newHolder)) {
+                                newHolder.initialize();
                             }
                         }
                     }
@@ -173,29 +322,131 @@ public class DefaultLoadBalancer<H, C> extends AbstractLoadBalancer<H, C> {
                 }
             }));
     }
-
-    @Override
-    public <I> PartitionedLoadBalancer<H, C, I> partition(Func1<H, Observable<I>> partitioner) {
-        return DefaultPartitioningLoadBalancer.<H, C, I>builder()
-                .withHostSource(eventStream)
-                .withPartitioner(partitioner)
-                .withLoadBalancerFactory(new Func2<I,Observable<HostEvent<H>>, ManagedLoadBalancer<H, C>>() {
+    
+    /**
+     * Holder the client state within the context of this LoadBalancer
+     */
+    public class Holder implements ClientAndMetrics<C, M> {
+        final AtomicInteger quaratineCounter = new AtomicInteger();
+        final C client;
+        volatile M metrics;
+        final StateMachine<Holder, EventType> sm;
+        final CompositeSubscription cs = new CompositeSubscription();
+        final SerialSubscription connectSubscription = new SerialSubscription();
+        
+        public Holder(C client, State<Holder, EventType> initial) {
+            this.client = client;
+            this.sm = StateMachine.create(this, initial);
+        }
+        
+        public void initialize() {
+            this.cs.add(sm.start().subscribe());
+            this.cs.add(connectSubscription);
+            this.cs.add(metricsMapper.call(client).subscribe(new Action1<M>() {
+                @Override
+                public void call(M t1) {
+                    metrics = t1;
+                }
+            }));
+            this.cs.add(failureDetector.call(client).subscribe(new Action1<Throwable>() {
+                @Override
+                public void call(Throwable t1) {
+                    sm.call(EventType.FAILED);
+                    quaratineCounter.incrementAndGet();
+                }
+            }));
+        }
+        
+        public void connect() {
+            connectSubscription.set(clientConnector.call(client).subscribe(
+                new Action1<C>() {
                     @Override
-                    public ManagedLoadBalancer<H, C> call(I id, Observable<HostEvent<H>> hostSource) {
-                        LOG.info("Creating partition : " + id);
-                        DefaultLoadBalancer<H, C> lb =  DefaultLoadBalancer.<H, C>builder()
-                                .withName(getName() + "_" + id)
-                                .withClientFactory(clientFactory)
-                                .withHostSource(hostSource)
-                                .withQuaratineStrategy(quaratineDelayStrategy)
-                                .withSelectionStrategy(selectionStrategy)
-                                .withWeightingStrategy(weightingStrategy)
-                                .build();
-                        lb.initialize();
-                        return lb;
+                    public void call(C client) {
+                        sm.call(EventType.CONNECTED);
+                        quaratineCounter.set(0);
                     }
-                })
-                .build();
+                },
+                new Action1<Throwable>() {
+                    @Override
+                    public void call(Throwable t1) {
+                        sm.call(EventType.FAILED);
+                        quaratineCounter.incrementAndGet();
+                    }
+                }));
+        }
+        
+        public int getQuaratineCounter() {
+            return quaratineCounter.get();
+        }
+
+        public void shutdown() {
+            cs.unsubscribe();
+        }
+        
+        public String toString() {
+            return "Holder[" + name + "-" + client + "]";
+        }
+
+        @Override
+        public C getClient() {
+            return client;
+        }
+
+        @Override
+        public M getMetrics() {
+            return metrics;
+        }
+    }
+    
+    public void shutdown() {
+        cs.unsubscribe();
+    }
+    
+    /**
+     * @return Return the next idle host or empty() if none available
+     */
+    private Observable<Holder> acquireNextIdleHost() {
+        return Observable.create(new OnSubscribe<Holder>() {
+            @Override
+            public void call(Subscriber<? super Holder> s) {
+                try {
+                    Holder holder = idleClients.poll();
+                    if (holder != null)
+                        s.onNext(holder);
+                    s.onCompleted();
+                }
+                catch (Exception e) {
+                    s.onError(e);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Acquire the most recent list of hosts
+     */
+    @Override
+    public Observable<C> choose() {
+        return selectionStrategy.call(
+                    weightingStrategy.call(new ArrayList<ClientAndMetrics<C, M>>(activeClients)));
     }
 
+    @Override
+    public Observable<C> listAllClients() {
+        return Observable.from(new HashSet<C>(clients.keySet()));
+    }
+    
+    @Override
+    public Observable<C> listActiveClients() {
+        return Observable.from(activeClients).map(new Func1<ClientAndMetrics<C,M>, C>() {
+            @Override
+            public C call(ClientAndMetrics<C, M> t1) {
+                return t1.getClient();
+            }
+        });
+    }
+    
+    public String getName() {
+        return name;
+    }
 }

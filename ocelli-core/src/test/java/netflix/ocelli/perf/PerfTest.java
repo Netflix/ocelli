@@ -6,17 +6,13 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import netflix.ocelli.HostEvent;
-import netflix.ocelli.HostEvent.EventType;
-import netflix.ocelli.algorithm.LowestLatencyScoreStrategy;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
-import netflix.ocelli.client.TestClientFactory;
-import netflix.ocelli.client.TestHost;
 import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.metrics.CoreClientMetricsFactory;
 import netflix.ocelli.util.Functions;
 
 import org.junit.After;
@@ -27,31 +23,32 @@ import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.functions.Action1;
+import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 public class PerfTest {
     private static final Logger LOG = LoggerFactory.getLogger(PerfTest.class);
     
     private static final int NUM_HOSTS = 1000;
-    private static Observable<HostEvent<TestHost>> source;
+    private static Observable<MembershipEvent<TestClient>> source;
     private static final Random RANDOM = new Random();
     
-    private DefaultLoadBalancer<TestHost, TestClient> selector;
+    private DefaultLoadBalancer<TestClient, TestClient> selector;
     
     @BeforeClass
     public static void setup() {
-        List<TestHost> hosts = new ArrayList<TestHost>();
+        List<TestClient> hosts = new ArrayList<TestClient>();
         for (int i = 0; i < NUM_HOSTS-1; i++) {
 //            hosts.add(TestHost.create("host-"+i, Connects.immediate(), Behaviors.delay(100 + (int)(100 * RANDOM.nextDouble()), TimeUnit.MILLISECONDS)));
 //          hosts.add(TestHost.create("host-"+i, Connects.immediate(), Behaviors.proportionalToLoad(100, 10, TimeUnit.MILLISECONDS)));
-            hosts.add(TestHost.create("host-"+i, Connects.immediate(), Behaviors.immediate()));
+            hosts.add(TestClient.create("host-"+i, Connects.immediate(), Behaviors.immediate()));
         }
         
 //        hosts.add(TestHost.create("degrading", Connects.immediate(), Behaviors.degradation(100, 50, TimeUnit.MILLISECONDS)));
         
         source = Observable
             .from(hosts)
-            .map(HostEvent.<TestHost>toEvent(EventType.ADD));
+            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
     }
     
     @After
@@ -63,11 +60,15 @@ public class PerfTest {
     
     @Test
     public void perf() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestHost, TestClient>builder()
-                .withHostSource(source)
-                .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new CoreClientMetricsFactory<TestHost>())
+        this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
+                .withMembershipSource(source)
                 .withConnectedHostCountStrategy(Functions.sqrt())
+                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
+                    @Override
+                    public Observable<TestClient> call(TestClient t1) {
+                        return Observable.just(t1);
+                    }
+                })
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
@@ -101,12 +102,16 @@ public class PerfTest {
     
     @Test
     public void perf2() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestHost, TestClient>builder()
-                .withHostSource(source)
-                .withClientConnector(new TestClientFactory())
-                .withMetricsFactory(new CoreClientMetricsFactory<TestHost>())
-                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
+        this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
+                .withMembershipSource(source)
+//                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
                 .withConnectedHostCountStrategy(Functions.sqrt())
+                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
+                    @Override
+                    public Observable<TestClient> call(TestClient t1) {
+                        return Observable.just(t1);
+                    }
+                })
                 .build();
         
         this.selector.initialize();

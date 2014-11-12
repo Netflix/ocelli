@@ -10,8 +10,8 @@ import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 import netflix.ocelli.HostAddress;
-import netflix.ocelli.HostEvent;
-import netflix.ocelli.HostEvent.EventType;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
 
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
@@ -68,7 +68,7 @@ public class NettyServerFarmResource extends ExternalResource {
         return server;
     }
     
-    public Observable<HostEvent<HostAddress>> hostEvents() {
-        return Observable.from(servers.keySet()).map(HostEvent.<HostAddress>toEvent(EventType.ADD));
+    public Observable<MembershipEvent<HostAddress>> hostEvents() {
+        return Observable.from(servers.keySet()).map(MembershipEvent.<HostAddress>toEvent(EventType.ADD));
     }
 }

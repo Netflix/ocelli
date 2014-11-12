@@ -3,7 +3,7 @@ package netflix.ocelli.algorithm;
 import java.util.ArrayList;
 import java.util.List;
 
-import netflix.ocelli.ManagedClient;
+import netflix.ocelli.ClientAndMetrics;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
 
@@ -12,17 +12,17 @@ import netflix.ocelli.selectors.ClientsAndWeights;
  * @author elandau
  *
  * @param <Host>
- * @param <Client>
+ * @param <C>
  * @param <Metrics>
  */
-public class EqualWeightStrategy<Host, Client> implements WeightingStrategy<Host, Client> {
+public class EqualWeightStrategy<C, M> implements WeightingStrategy<C, M> {
 
     @Override
-    public ClientsAndWeights<Client> call(List<ManagedClient<Host, Client>> t1) {
-        List<Client> clients = new ArrayList<Client>(t1.size());
-        for (ManagedClient<Host, Client> context : t1) {
+    public ClientsAndWeights<C> call(List<ClientAndMetrics<C,M>> t1) {
+        List<C> clients = new ArrayList<C>(t1.size());
+        for (ClientAndMetrics<C,M> context : t1) {
             clients.add(context.getClient());
         }
-        return new ClientsAndWeights<Client>(clients, null);
+        return new ClientsAndWeights<C>(clients, null);
     }
 }

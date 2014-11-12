@@ -1,7 +1,6 @@
 package netflix.ocelli;
 
 import rx.Observable;
-import rx.functions.Func1;
 
 /**
  * A concrete ClientSelector keeps track of all available hosts and returns 
@@ -9,37 +8,12 @@ import rx.functions.Func1;
  * 
  * @author elandau
  */
-public interface ManagedLoadBalancer<H, C> extends LoadBalancer<C> {
-    /**
-     * Return an Observable for the Client for this host
-     * 
-     * @param host
-     * @return
-     */
-    Observable<C> choose(H host);
-    
-    /**
-     * Partition the load balancer using the provided partitioner function.
-     * @param partitioner
-     * @return
-     */
-    <K> PartitionedLoadBalancer<H, C, K> partition(Func1<H, Observable<K>> partitioner);
-
-    /**
-     * @return Stream of all host events
-     */
-    Observable<HostEvent<H>> events();
-    
+public interface ManagedLoadBalancer<C> extends LoadBalancer<C> {
     /**
      * @return Observable of all hosts (active or not)
      */
-    Observable<H> listAllHosts();
+    Observable<C> listAllClients();
 
-    /**
-     * @return Return all active hosts ready to serve traffic
-     */
-    Observable<H> listActiveHosts();
-    
     /**
      * @return All clients ready to serve traffic
      */
@@ -55,10 +29,4 @@ public interface ManagedLoadBalancer<H, C> extends LoadBalancer<C> {
      * Perform cleanup and unregister
      */
     void shutdown();
-
-    /**
-     * @param host
-     * @return Return the managed client for this host
-     */
-    ManagedClient<H, C> getClient(H host);
 }
