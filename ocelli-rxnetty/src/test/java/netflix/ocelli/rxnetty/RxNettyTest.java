@@ -17,6 +17,7 @@ import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,7 @@ public class RxNettyTest {
     public static long interval = 1000000 / OPS_PER_SECOND;
     
     @Test
+    @Ignore
     public void stressTest() throws InterruptedException {
         List<HostAddress> si = Lists.newArrayList();
         for (int i = 0; i < SERVER_COUNT; i++) {

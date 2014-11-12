@@ -1,6 +1,9 @@
 package netflix.ocelli.retry;
 
-import java.util.Random;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -9,6 +12,8 @@ import org.junit.runners.model.Statement;
 public class RetryFailedTestRule implements TestRule {
     private int attemptNumber;
 
+    @Target({ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
     public @interface Retry {
         int value();
     }
@@ -24,7 +29,6 @@ public class RetryFailedTestRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
-                Random prng = new Random();
                 Throwable caughtThrowable = null;
 
                 for (attemptNumber = 0; attemptNumber < retryCount; ++attemptNumber) {
@@ -39,9 +43,6 @@ public class RetryFailedTestRule implements TestRule {
 
                         System.err.println(description.getDisplayName() + ": attempt number " + attemptNumber + " failed:");
                         System.err.println(t.toString());
-
-                        // sleep a bit to minimize failures due to tests with shared fixtures running at the same time
-                        Thread.sleep(prng.nextInt(12000));
                     }
                 }
 
