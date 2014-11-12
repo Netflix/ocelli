@@ -107,114 +107,114 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     public void initialize() {
         
         IDLE
-        .onEnter(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(Holder holder) {
-                LOG.info("Client is now idle");
-                
-                idleClients.add(holder);
-
-                // Determine if a new host should be created based on the configured strategy
-                int idealCount = connectedHostCountStrategy.call(clients.size());
-                if (idealCount > acquiredClients.size()) {
-                    acquireNextIdleHost()  
-                        .first()
-                        .subscribe(new Action1<Holder>() {
-                            @Override
-                            public void call(Holder holder) {
-                                holder.sm.call(EventType.CONNECT);
-                            }
-                        });
+            .onEnter(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(Holder holder) {
+                    LOG.info("{} - {} is idle", name, holder.getClient());
+                    
+                    idleClients.add(holder);
+    
+                    // Determine if a new host should be created based on the configured strategy
+                    int idealCount = connectedHostCountStrategy.call(clients.size());
+                    if (idealCount > acquiredClients.size()) {
+                        acquireNextIdleHost()  
+                            .first()
+                            .subscribe(new Action1<Holder>() {
+                                @Override
+                                public void call(Holder holder) {
+                                    holder.sm.call(EventType.CONNECT);
+                                }
+                            });
+                    }
+                    return Observable.empty();
                 }
-                return Observable.empty();
-            }
-        })
-        .transition(EventType.CONNECT, CONNECTING)
-        .transition(EventType.FAILED, QUARANTINED)
-        .transition(EventType.CONNECTED, CONNECTED)
-        ;
-    
-    CONNECTING
-        .onEnter(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(final Holder holder) {
-                LOG.info("Client is connecting");
-                acquiredClients.add(holder);
-                holder.connect();
-                return Observable.empty();
-            }
-        })
-        .transition(EventType.CONNECTED, CONNECTED)
-        .transition(EventType.FAILED, QUARANTINED)
-        .transition(EventType.REMOVE, REMOVED)
-        ;
-    
-    CONNECTED
-        .onEnter(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(Holder holder) {
-                LOG.info("Client is now connected");
-                activeClients.add(holder);
-                return Observable.empty();
-            }
-        })
-        .onExit(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(Holder holder) {
-                activeClients.remove(holder);
-                return Observable.empty();
-            }
-        })
-        .ignore(EventType.CONNECTED)
-        .ignore(EventType.CONNECT)
-        .transition(EventType.FAILED, QUARANTINED)
-        .transition(EventType.REMOVE, REMOVED)
-        .transition(EventType.STOP, IDLE)
-        ;
-    
-    QUARANTINED
-        .onEnter(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(final Holder holder) {
-                LOG.info("Client is being quaratined");
-                acquiredClients.remove(holder);
-                
-                return Observable
-                        .just(EventType.UNQUARANTINE)
-                        .delay(quaratineDelayStrategy.call(holder.getQuaratineCounter()), TimeUnit.MILLISECONDS)
-                        .doOnNext(RxUtil.info("Next:")); 
-            }
-        })
-        .ignore(EventType.FAILED)
-        .transition(EventType.UNQUARANTINE, IDLE)
-        .transition(EventType.REMOVE, REMOVED)
-        .transition(EventType.CONNECTED, CONNECTED)
-        ;
-    
-    REMOVED
-        .onEnter(new Func1<Holder, Observable<EventType>>() {
-            @Override
-            public Observable<EventType> call(Holder holder) {
-                LOG.info("Client is being removed");
-                activeClients.remove(holder);
-                acquiredClients.add(holder);
-                idleClients.remove(holder);
-                clients.remove(holder.client);
-                cs.remove(holder.cs);
-                return Observable.empty();
-            }
+            })
+            .transition(EventType.CONNECT, CONNECTING)
+            .transition(EventType.FAILED, QUARANTINED)
+            .transition(EventType.CONNECTED, CONNECTED)
+            ;
+        
+        CONNECTING
+            .onEnter(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(final Holder holder) {
+                    LOG.info("{} - {} is connecting", name, holder.getClient());
+                    acquiredClients.add(holder);
+                    holder.connect();
+                    return Observable.empty();
+                }
+            })
+            .transition(EventType.CONNECTED, CONNECTED)
+            .transition(EventType.FAILED, QUARANTINED)
+            .transition(EventType.REMOVE, REMOVED)
+            ;
+        
+        CONNECTED
+            .onEnter(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(Holder holder) {
+                    LOG.info("{} - {} is connected", name, holder.getClient());
+                    activeClients.add(holder);
+                    return Observable.empty();
+                }
+            })
+            .onExit(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(Holder holder) {
+                    activeClients.remove(holder);
+                    return Observable.empty();
+                }
+            })
+            .ignore(EventType.CONNECTED)
+            .ignore(EventType.CONNECT)
+            .transition(EventType.FAILED, QUARANTINED)
+            .transition(EventType.REMOVE, REMOVED)
+            .transition(EventType.STOP, IDLE)
+            ;
+        
+        QUARANTINED
+            .onEnter(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(final Holder holder) {
+                    LOG.info("{} - {} is quaratined ({})", name, holder.getClient(), holder.quaratineCounter);
+                    acquiredClients.remove(holder);
+                    
+                    return Observable
+                            .just(EventType.UNQUARANTINE)
+                            .delay(quaratineDelayStrategy.call(holder.getQuaratineCounter()), TimeUnit.MILLISECONDS)
+                            .doOnNext(RxUtil.info("Next:")); 
+                }
+            })
+            .ignore(EventType.FAILED)
+            .transition(EventType.UNQUARANTINE, IDLE)
+            .transition(EventType.REMOVE, REMOVED)
+            .transition(EventType.CONNECTED, CONNECTED)
+            ;
+        
+        REMOVED
+            .onEnter(new Func1<Holder, Observable<EventType>>() {
+                @Override
+                public Observable<EventType> call(Holder holder) {
+                    LOG.info("{} - {} is removed", name, holder.getClient());
+                    activeClients.remove(holder);
+                    acquiredClients.add(holder);
+                    idleClients.remove(holder);
+                    clients.remove(holder.client);
+                    cs.remove(holder.cs);
+                    return Observable.empty();
+                }
         })
         ;
         cs.add(hostSource
             .subscribe(new Action1<MembershipEvent<C>>() {
                 @Override
                 public void call(MembershipEvent<C> event) {
-                    LOG.info("{} :  Got event {}", getName(), event);
                     Holder holder = clients.get(event.getClient());
                     if (holder == null) {
                         if (event.getType().equals(EventType.ADD)) {
                             final Holder newHolder = new Holder(event.getClient(), IDLE);
                             if (null == clients.putIfAbsent(event.getClient(), newHolder)) {
+                                LOG.trace("{} - {} is added", name, newHolder.getClient());
                                 newHolder.initialize();
                             }
                         }

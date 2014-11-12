@@ -1,4 +1,4 @@
-package netflix.ocelli;
+package netflix.ocelli.rxnetty;
 
 import java.net.URI;
 import java.net.URISyntaxException;

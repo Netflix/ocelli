@@ -2,7 +2,6 @@ package netflix.ocelli.rxnetty;
 
 import io.reactivex.netty.client.ClientMetricsEvent;
 import io.reactivex.netty.metrics.MetricEventsListener;
-import io.reactivex.netty.protocol.http.client.HttpClientMetricsEvent;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
