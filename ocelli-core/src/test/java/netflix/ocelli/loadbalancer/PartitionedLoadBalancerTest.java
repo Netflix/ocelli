@@ -2,13 +2,13 @@ package netflix.ocelli.loadbalancer;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
+import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.util.RxUtil;
 
@@ -30,6 +30,8 @@ public class PartitionedLoadBalancerTest {
     @Rule
     public TestName name = new TestName();
     
+    private ManualFailureDetector failureDetector = new ManualFailureDetector();
+    
     @Test
     public void testVip() throws InterruptedException {
         PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
@@ -44,6 +46,7 @@ public class PartitionedLoadBalancerTest {
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byVip())
                 .withMetricsFactory(TestClient.metricsFactory())
+                .withFailureDetector(failureDetector)
                 .build()
                 ;
         lb.initialize();
@@ -56,8 +59,6 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h4, MembershipEvent.EventType.ADD));
-        
-        TimeUnit.SECONDS.sleep(10);
         
         // Get a LoadBalancer for each partition
         ManagedLoadBalancer<TestClient> lbA = lb.get("a");
@@ -122,6 +123,7 @@ public class PartitionedLoadBalancerTest {
                 .withMetricsFactory(TestClient.metricsFactory())
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
+                .withFailureDetector(failureDetector)
                 .withPartitioner(TestClient.byVip())
                 .build()
                 ;
@@ -147,9 +149,7 @@ public class PartitionedLoadBalancerTest {
         
         //////////////////////////
         // Step 2: Kill h2 host
-//        TestHostMetrics m = lb.getClient(h2).getMetrics(TestHostMetrics.class);
-//        Assert.assertNotNull(m);
-//        m.shutdown();
+        failureDetector.get(h2).onNext(new Throwable("manual failure"));
         
         // List all hosts
         hostsA = new HashSet<TestClient>(lbA.listActiveClients().toList().toBlocking().first());

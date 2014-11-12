@@ -14,7 +14,10 @@ public class ManualFailureDetector implements FailureDetectorFactory<TestClient>
     @Override
     public Observable<Throwable> call(TestClient client) {
         PublishSubject<Throwable> subject = PublishSubject.create();
-        clients.putIfAbsent(client, subject);
+        PublishSubject<Throwable> prev = clients.putIfAbsent(client, subject);
+        if (prev != null) {
+            subject = prev;
+        }
         return subject;
     }
     
