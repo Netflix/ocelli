@@ -6,9 +6,9 @@ import com.google.common.collect.Maps;
 
 import rx.Observable;
 import rx.subjects.PublishSubject;
-import netflix.ocelli.FailureDetector;
+import netflix.ocelli.FailureDetectorFactory;
 
-public class ManualFailureDetector implements FailureDetector<TestClient> {
+public class ManualFailureDetector implements FailureDetectorFactory<TestClient> {
     private ConcurrentMap<TestClient, PublishSubject<Throwable>> clients = Maps.newConcurrentMap();
     
     @Override

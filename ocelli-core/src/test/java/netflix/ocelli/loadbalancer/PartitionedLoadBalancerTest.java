@@ -7,12 +7,9 @@ import java.util.concurrent.TimeUnit;
 import junit.framework.Assert;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.loadbalancer.DefaultPartitioningLoadBalancer;
 import netflix.ocelli.util.RxUtil;
 
 import org.junit.Rule;
@@ -46,12 +43,7 @@ public class PartitionedLoadBalancerTest {
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byVip())
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withMetricsFactory(TestClient.metricsFactory())
                 .build()
                 ;
         lb.initialize();
@@ -127,12 +119,7 @@ public class PartitionedLoadBalancerTest {
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
         DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withMetricsFactory(TestClient.metricsFactory())
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byVip())
@@ -185,12 +172,7 @@ public class PartitionedLoadBalancerTest {
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byRack())
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withMetricsFactory(TestClient.metricsFactory())
                 .build()
                 ;
         

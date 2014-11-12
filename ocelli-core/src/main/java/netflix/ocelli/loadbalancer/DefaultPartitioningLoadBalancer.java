@@ -5,9 +5,10 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.ClientConnector;
-import netflix.ocelli.FailureDetector;
+import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
@@ -38,9 +39,9 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private String                     name = "<unnamed>";
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetector<C>         failureDetector = Failures.never();
+        private FailureDetectorFactory<C>  failureDetector = Failures.never();
         private ClientConnector<C>         clientConnector = Connectors.immediate();
-        private Func1<C, Observable<M>>    metricsConnector;
+        private MetricsFactory<C, M>       metricsFactory;
         
         private Builder() {
         }
@@ -80,7 +81,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
             return this;
         }
         
-        public Builder<C, M, K> withFailureDetector(FailureDetector<C> failureDetector) {
+        public Builder<C, M, K> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
             this.failureDetector = failureDetector;
             return this;
         }
@@ -90,14 +91,14 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
             return this;
         }
         
-        public Builder<C, M, K> withMetricsConnector(Func1<C, Observable<M>> metricsConnector) {
-            this.metricsConnector = metricsConnector;
+        public Builder<C, M, K> withMetricsFactory(MetricsFactory<C,M> metricsFactory) {
+            this.metricsFactory = metricsFactory;
             return this;
         }
         
         public DefaultPartitioningLoadBalancer<C, M, K> build() {
             assert hostSource != null;
-            assert metricsConnector != null;
+            assert metricsFactory != null;
             assert partitioner != null;
             
             return new DefaultPartitioningLoadBalancer<C, M, K>(this);
@@ -113,13 +114,13 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     private final Observable<MembershipEvent<C>> hostSource;
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
     private final WeightingStrategy<C, M> weightingStrategy;
-    private final FailureDetector<C> failureDetector;
+    private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
     private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
     private final String name;
-    private Func1<C, Observable<M>> metricsConnector;
+    private final MetricsFactory<C, M> metricsFactory;
     
     private final class Holder {
         final PublishSubject<MembershipEvent<C>> hostStream;
@@ -141,7 +142,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         this.quaratineDelayStrategy = builder.quaratineDelayStrategy;
         this.name                   = builder.name;
         this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
-        this.metricsConnector       = builder.metricsConnector;
+        this.metricsFactory         = builder.metricsFactory;
     }
     
     @Override
@@ -199,10 +200,10 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
                 .withQuaratineStrategy(quaratineDelayStrategy)
                 .withSelectionStrategy(selectionStrategy)
                 .withWeightingStrategy(weightingStrategy)
-                .withConnectedHostCountStrategy(connectedHostCountStrategy)
+                .withActiveClientCountStrategy(connectedHostCountStrategy)
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)
-                .withMetricsConnector(metricsConnector)
+                .withMetricsFactory(metricsFactory)
                 .build();
         lb.initialize();
         return lb;

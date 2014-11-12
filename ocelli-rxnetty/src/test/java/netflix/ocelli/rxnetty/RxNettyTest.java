@@ -51,7 +51,7 @@ public class RxNettyTest {
                         .from(si)
                         .flatMap(RxNettyClientFactory.builder().build())
                         .map(MembershipEvent.<HttpClient<ByteBuf, ByteBuf>>toEvent(EventType.ADD)))
-                .withMetricsConnector(new RxNettyMetricsConnector())
+                .withMetricsFactory(new RxNettyMetricsConnector())
                 .withWeightingStrategy(new LinearWeightingStrategy<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics>(new Func1<HttpClientMetrics, Integer>() {
                     @Override
                     public Integer call(HttpClientMetrics t1) {
