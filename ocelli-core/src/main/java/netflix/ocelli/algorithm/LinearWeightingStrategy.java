@@ -3,28 +3,27 @@ package netflix.ocelli.algorithm;
 import java.util.ArrayList;
 import java.util.List;
 
-import netflix.ocelli.ClientAndMetrics;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import rx.functions.Func1;
 
-public class LinearWeightingStrategy<C, M> implements WeightingStrategy<C, M> {
+public class LinearWeightingStrategy<C> implements WeightingStrategy<C> {
     
-    private Func1<M, Integer> func;
+    private Func1<C, Integer> func;
 
-    public LinearWeightingStrategy(Func1<M, Integer> func) {
+    public LinearWeightingStrategy(Func1<C, Integer> func) {
         this.func = func;
     }
     
     @Override
-    public ClientsAndWeights<C> call(List<ClientAndMetrics<C,M>> source) {
+    public ClientsAndWeights<C> call(List<C> source) {
         List<C>  clients = new ArrayList<C>(source.size());
         List<Integer> weights = new ArrayList<Integer>(source.size());
         
         if (source.size() > 0) {
-            for (ClientAndMetrics<C, M> context : source) {
-                clients.add(context.getClient());
-                weights.add(func.call(context.getMetrics()));
+            for (C context : source) {
+                clients.add(context);
+                weights.add(func.call(context));
             }
     
             int sum = 0;

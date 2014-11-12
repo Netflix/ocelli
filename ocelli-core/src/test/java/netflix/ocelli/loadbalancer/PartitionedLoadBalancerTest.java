@@ -45,7 +45,6 @@ public class PartitionedLoadBalancerTest {
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byVip())
-                .withMetricsFactory(TestClient.metricsFactory())
                 .withFailureDetector(failureDetector)
                 .build()
                 ;
@@ -120,7 +119,6 @@ public class PartitionedLoadBalancerTest {
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
         DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
-                .withMetricsFactory(TestClient.metricsFactory())
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withFailureDetector(failureDetector)
@@ -172,7 +170,6 @@ public class PartitionedLoadBalancerTest {
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
                 .withPartitioner(TestClient.byRack())
-                .withMetricsFactory(TestClient.metricsFactory())
                 .build()
                 ;
         

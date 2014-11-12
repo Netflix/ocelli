@@ -41,8 +41,8 @@ public class DefaultLoadBalancerTest {
     private static final int NUM_HOSTS = 10;
     private static Observable<MembershipEvent<TestClient>> source;
     
-    private DefaultLoadBalancer.Builder<TestClient, TestClient> builder;
-    private DefaultLoadBalancer<TestClient, TestClient> lb;
+    private DefaultLoadBalancer.Builder<TestClient> builder;
+    private DefaultLoadBalancer<TestClient> lb;
     private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
@@ -64,15 +64,14 @@ public class DefaultLoadBalancerTest {
     
     @Before 
     public void before() {
-        builder = DefaultLoadBalancer.<TestClient, TestClient>builder()
+        builder = DefaultLoadBalancer.<TestClient>builder()
             .withName("Test-" + testName.getMethodName())
             .withMembershipSource(hostEvents)
             .withActiveClientCountStrategy(Functions.identity())
             .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
             .withFailureDetector(failureDetector)
             .withClientConnector(clientConnector)
-            .withMetricsFactory(TestClient.metricsFactory())
-            .withWeightingStrategy(new LinearWeightingStrategy<TestClient, TestClient>(TestClient.byPendingRequestCount()));
+            .withWeightingStrategy(new LinearWeightingStrategy<TestClient>(TestClient.byPendingRequestCount()));
     }
     
     @After
