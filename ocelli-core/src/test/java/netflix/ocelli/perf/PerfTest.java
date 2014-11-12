@@ -17,6 +17,7 @@ import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 
 import org.junit.After;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,7 @@ public class PerfTest {
     }
     
     @Test
+    @Ignore
     public void perf() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
                 .withMembershipSource(source)
@@ -91,11 +93,10 @@ public class PerfTest {
                         });
                 }
             });
-        
-        TimeUnit.SECONDS.sleep(100);
     }
     
     @Test
+    @Ignore
     public void perf2() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
                 .withMembershipSource(source)
@@ -141,6 +142,5 @@ public class PerfTest {
                 previous = current;
             }
         });
-        TimeUnit.SECONDS.sleep(100);
     }
 }
