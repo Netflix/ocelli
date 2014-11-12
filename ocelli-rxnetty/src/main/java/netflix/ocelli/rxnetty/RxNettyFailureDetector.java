@@ -9,9 +9,9 @@ import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.client.ClientMetricsEvent;
 import io.reactivex.netty.metrics.MetricEventsListener;
 import io.reactivex.netty.protocol.http.client.HttpClient;
-import netflix.ocelli.FailureDetector;
+import netflix.ocelli.FailureDetectorFactory;
 
-public class RxNettyFailureDetector implements FailureDetector<HttpClient<ByteBuf, ByteBuf>>{
+public class RxNettyFailureDetector implements FailureDetectorFactory<HttpClient<ByteBuf, ByteBuf>>{
 
     @Override
     public Observable<Throwable> call(final HttpClient<ByteBuf, ByteBuf> client) {

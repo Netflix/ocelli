@@ -11,10 +11,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import netflix.ocelli.ClientAndMetrics;
 import netflix.ocelli.ClientConnector;
-import netflix.ocelli.FailureDetector;
+import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
 import netflix.ocelli.connectors.Connectors;
@@ -68,13 +69,17 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
         private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetector<C>          failureDetector = Failures.never();
+        private FailureDetectorFactory<C>          failureDetector = Failures.never();
         private ClientConnector<C>          clientConnector = Connectors.immediate();
         private Func1<C, Observable<M>>     metricsMapper;
         
         private Builder() {
         }
         
+        /**
+         * Arbitrary name assigned to the connection pool, mostly for debugging purposes
+         * @param name
+         */
         public Builder<C, M> withName(String name) {
             this.name = name;
             return this;
@@ -82,7 +87,8 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
         
         /**
          * Strategy used to determine the delay time in msec based on the quarantine 
-         * count.  The count is incremented by one for each failed connect.
+         * count.  The count is incremented by one for each failure detections and reset
+         * once the host is back to normal.
          */
         public Builder<C, M> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
             this.quaratineDelayStrategy = quaratineDelayStrategy;
@@ -90,11 +96,11 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
         }
         
         /**
-         * Strategy used to determine how many hosts should be connected.
+         * Strategy used to determine how many hosts should be active.
          * This strategy is invoked whenever a host is added or removed from the pool
          */
-        public Builder<C, M> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
-            this.connectedHostCountStrategy = connectedHostCountStrategy;
+        public Builder<C, M> withActiveClientCountStrategy(Func1<Integer, Integer> activeClientCountStrategy) {
+            this.connectedHostCountStrategy = activeClientCountStrategy;
             return this;
         }
         
@@ -114,22 +120,44 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
             return this;
         }
         
+        /**
+         * Strategy used to select hosts from the calculated weights.  
+         * @param selectionStrategy
+         */
         public Builder<C, M> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
             this.selectionStrategy = selectionStrategy;
             return this;
         }
         
-        public Builder<C, M> withFailureDetector(FailureDetector<C> failureDetector) {
+        /**
+         * The failure detector returns an Observable that will emit a Throwable for each 
+         * failure of the client.  The load balancer will quaratine the client in response.
+         * @param failureDetector
+         */
+        public Builder<C, M> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
             this.failureDetector = failureDetector;
             return this;
         }
         
+        /**
+         * The connector can be used to prime a client prior to activating it in the connection
+         * pool.  
+         * @param clientConnector
+         */
         public Builder<C, M> withClientConnector(ClientConnector<C> clientConnector) {
             this.clientConnector = clientConnector;
             return this;
         }
         
-        public Builder<C, M> withMetricsConnector(Func1<C, Observable<M>> metricsMapper) {
+        /**
+         * Factory for creating and associating the metrics used for weighting with a client.
+         * Note that for robust client interface C and M may be the same client type and the 
+         * factory will simply return an Observable.just(client);
+         * 
+         * @param metricsMapper
+         * @return
+         */
+        public Builder<C, M> withMetricsFactory(MetricsFactory<C, M> metricsMapper) {
             this.metricsMapper = metricsMapper;
             return this;
         }
@@ -148,7 +176,7 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     
     private final Observable<MembershipEvent<C>> hostSource;
     private final WeightingStrategy<C, M> weightingStrategy;
-    private final FailureDetector<C> failureDetector;
+    private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
@@ -448,5 +476,9 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     
     public String getName() {
         return name;
+    }
+    
+    public String toString() {
+        return "DefaultLoadBalancer[" + name + "]";
     }
 }

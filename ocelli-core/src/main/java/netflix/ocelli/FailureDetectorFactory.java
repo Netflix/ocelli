@@ -13,7 +13,7 @@ import rx.functions.Func1;
  *
  * @param <C>
  */
-public interface FailureDetector<C> extends Func1<C, Observable<Throwable>>{
+public interface FailureDetectorFactory<C> extends Func1<C, Observable<Throwable>>{
     @Override
     public Observable<Throwable> call(C client);
 }

@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
-import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
 public class DefaultLoadBalancerTest {
@@ -68,16 +67,11 @@ public class DefaultLoadBalancerTest {
         builder = DefaultLoadBalancer.<TestClient, TestClient>builder()
             .withName("Test-" + testName.getMethodName())
             .withMembershipSource(hostEvents)
-            .withConnectedHostCountStrategy(Functions.identity())
+            .withActiveClientCountStrategy(Functions.identity())
             .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
             .withFailureDetector(failureDetector)
             .withClientConnector(clientConnector)
-            .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                @Override
-                public Observable<TestClient> call(TestClient t1) {
-                    return Observable.just(t1);
-                }
-            })
+            .withMetricsFactory(TestClient.metricsFactory())
             .withWeightingStrategy(new LinearWeightingStrategy<TestClient, TestClient>(TestClient.byPendingRequestCount()));
     }
     

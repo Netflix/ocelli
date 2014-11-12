@@ -2,12 +2,12 @@ package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.protocol.http.client.HttpClient;
+import netflix.ocelli.MetricsFactory;
 import rx.Observable;
 import rx.Subscription;
 import rx.functions.Action0;
-import rx.functions.Func1;
 
-public class RxNettyMetricsConnector implements Func1<HttpClient<ByteBuf, ByteBuf>, Observable<HttpClientMetrics>> {
+public class RxNettyMetricsConnector implements MetricsFactory<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics> {
 
     @Override
     public Observable<HttpClientMetrics> call(HttpClient<ByteBuf, ByteBuf> t1) {

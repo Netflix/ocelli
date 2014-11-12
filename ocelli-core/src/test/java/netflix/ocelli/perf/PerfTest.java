@@ -62,13 +62,8 @@ public class PerfTest {
     public void perf() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
                 .withMembershipSource(source)
-                .withConnectedHostCountStrategy(Functions.sqrt())
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withActiveClientCountStrategy(Functions.sqrt())
+                .withMetricsFactory(TestClient.metricsFactory())
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
@@ -105,13 +100,8 @@ public class PerfTest {
         this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
                 .withMembershipSource(source)
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
-                .withConnectedHostCountStrategy(Functions.sqrt())
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withActiveClientCountStrategy(Functions.sqrt())
+                .withMetricsFactory(TestClient.metricsFactory())
                 .build();
         
         this.selector.initialize();

@@ -64,12 +64,7 @@ public class LoadBalancerTest {
     @Before 
     public void before() throws InterruptedException {
         this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
-                .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
-                    @Override
-                    public Observable<TestClient> call(TestClient t1) {
-                        return Observable.just(t1);
-                    }
-                })
+                .withMetricsFactory(TestClient.metricsFactory())
                 .withMembershipSource(Observable
                     .from(servers)
                     .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))

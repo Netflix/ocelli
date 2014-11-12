@@ -1,11 +1,11 @@
 package netflix.ocelli.failures;
 
-import netflix.ocelli.FailureDetector;
+import netflix.ocelli.FailureDetectorFactory;
 import rx.Observable;
 
 public class Failures {
-    public static <C> FailureDetector<C> never() {
-        return new FailureDetector<C>() {
+    public static <C> FailureDetectorFactory<C> never() {
+        return new FailureDetectorFactory<C>() {
             @Override
             public Observable<Throwable> call(C client) {
                 return Observable.never();
@@ -13,8 +13,8 @@ public class Failures {
         };
     }
     
-    public static <C> FailureDetector<C> always(final Throwable t) {
-        return new FailureDetector<C>() {
+    public static <C> FailureDetectorFactory<C> always(final Throwable t) {
+        return new FailureDetectorFactory<C>() {
             @Override
             public Observable<Throwable> call(C client) {
                 return Observable.error(t);
