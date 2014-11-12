@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import rx.Observable;
 import rx.functions.Func1;
 
-public class RxNettyClientFactory implements Func1<HostAddress, Observable<HttpClient<ByteBuf, ByteBuf>>> {
+public class RxNettyClientFactory implements Func1<HostAddress, Observable<RxNettyHttpClientAndMetrics>> {
     public static final PipelineConfigurator<HttpClientResponse<ByteBuf>, HttpClientRequest<ByteBuf>> DEFAULT_HTTP_PIPELINE_CONFIGURATOR = 
             PipelineConfigurators.httpClientConfigurator();
 
@@ -115,7 +115,7 @@ public class RxNettyClientFactory implements Func1<HostAddress, Observable<HttpC
     }
     
     @Override
-    public Observable<HttpClient<ByteBuf, ByteBuf>> call(final HostAddress server) {
+    public Observable<RxNettyHttpClientAndMetrics> call(final HostAddress server) {
         final long startTime = System.nanoTime();
         
         HttpClientConfig.Builder builder = new HttpClientConfig.Builder()
@@ -160,7 +160,7 @@ public class RxNettyClientFactory implements Func1<HostAddress, Observable<HttpC
 //          }
 //      }
         try {
-            return Observable.just(clientBuilder.build());
+            return Observable.just(new RxNettyHttpClientAndMetrics(server.getHostPort(), clientBuilder.build()));
         }
         catch (Exception e) {
             return Observable.error(e);

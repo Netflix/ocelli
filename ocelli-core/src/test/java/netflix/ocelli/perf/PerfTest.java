@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.functions.Action1;
-import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 public class PerfTest {
@@ -34,7 +33,7 @@ public class PerfTest {
     private static Observable<MembershipEvent<TestClient>> source;
     private static final Random RANDOM = new Random();
     
-    private DefaultLoadBalancer<TestClient, TestClient> selector;
+    private DefaultLoadBalancer<TestClient> selector;
     
     @BeforeClass
     public static void setup() {
@@ -62,10 +61,9 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
+        this.selector = DefaultLoadBalancer.<TestClient>builder()
                 .withMembershipSource(source)
                 .withActiveClientCountStrategy(Functions.sqrt())
-                .withMetricsFactory(TestClient.metricsFactory())
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
@@ -98,11 +96,10 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
+        this.selector = DefaultLoadBalancer.<TestClient>builder()
                 .withMembershipSource(source)
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
                 .withActiveClientCountStrategy(Functions.sqrt())
-                .withMetricsFactory(TestClient.metricsFactory())
                 .build();
         
         this.selector.initialize();

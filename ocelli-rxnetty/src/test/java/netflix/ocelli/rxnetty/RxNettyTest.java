@@ -46,16 +46,15 @@ public class RxNettyTest {
             si.add(new HostAddress().setHost("localhost").setPort(8080+i));
         }
         
-        final DefaultLoadBalancer<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics> lb = 
-                DefaultLoadBalancer.<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics>builder()
+        final DefaultLoadBalancer<RxNettyHttpClientAndMetrics> lb = 
+                DefaultLoadBalancer.<RxNettyHttpClientAndMetrics>builder()
                 .withMembershipSource(Observable
                         .from(si)
                         .flatMap(RxNettyClientFactory.builder().build())
-                        .map(MembershipEvent.<HttpClient<ByteBuf, ByteBuf>>toEvent(EventType.ADD)))
-                .withMetricsFactory(new RxNettyMetricsConnector())
-                .withWeightingStrategy(new LinearWeightingStrategy<HttpClient<ByteBuf, ByteBuf>, HttpClientMetrics>(new Func1<HttpClientMetrics, Integer>() {
+                        .map(MembershipEvent.<RxNettyHttpClientAndMetrics>toEvent(EventType.ADD)))
+                .withWeightingStrategy(new LinearWeightingStrategy<RxNettyHttpClientAndMetrics>(new Func1<RxNettyHttpClientAndMetrics, Integer>() {
                     @Override
-                    public Integer call(HttpClientMetrics t1) {
+                    public Integer call(RxNettyHttpClientAndMetrics t1) {
                         return t1.getPendingRequests();
                     }
                 }))
@@ -71,6 +70,12 @@ public class RxNettyTest {
                 public void call(Long t1) {
                     lb
                     .choose()
+                    .map(new Func1<RxNettyHttpClientAndMetrics, HttpClient<ByteBuf, ByteBuf>>() {
+                        @Override
+                        public HttpClient<ByteBuf, ByteBuf> call(RxNettyHttpClientAndMetrics t1) {
+                            return t1.getClient();
+                        }
+                    })
                     .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<String>>() {
                         @Override
                         public Observable<String> call(HttpClient<ByteBuf, ByteBuf> client) {

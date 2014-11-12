@@ -40,7 +40,7 @@ public class LoadBalancerTest {
 
     private static List<TestClient> servers;
 
-    private DefaultLoadBalancer<TestClient, TestClient> selector;
+    private DefaultLoadBalancer<TestClient> selector;
 
     @Rule
     public TestName name = new TestName();
@@ -62,8 +62,7 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient, TestClient>builder()
-                .withMetricsFactory(TestClient.metricsFactory())
+        this.selector = DefaultLoadBalancer.<TestClient>builder()
                 .withMembershipSource(Observable
                     .from(servers)
                     .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))
