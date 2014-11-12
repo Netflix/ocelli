@@ -45,6 +45,7 @@ public class PartitionedLoadBalancerTest {
         DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
+                .withPartitioner(TestClient.byVip())
                 .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
                     @Override
                     public Observable<TestClient> call(TestClient t1) {
@@ -134,6 +135,7 @@ public class PartitionedLoadBalancerTest {
                 })
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
+                .withPartitioner(TestClient.byVip())
                 .build()
                 ;
         lb.initialize();
@@ -182,6 +184,7 @@ public class PartitionedLoadBalancerTest {
         DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
                 .withName(name.getMethodName())
                 .withHostSource(hostSource)
+                .withPartitioner(TestClient.byRack())
                 .withMetricsConnector(new Func1<TestClient, Observable<TestClient>>() {
                     @Override
                     public Observable<TestClient> call(TestClient t1) {

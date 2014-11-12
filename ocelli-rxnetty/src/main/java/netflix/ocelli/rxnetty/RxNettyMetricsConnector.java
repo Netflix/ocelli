@@ -13,12 +13,14 @@ public class RxNettyMetricsConnector implements Func1<HttpClient<ByteBuf, ByteBu
     public Observable<HttpClientMetrics> call(HttpClient<ByteBuf, ByteBuf> t1) {
         final HttpClientMetrics metrics = new HttpClientMetrics();
         final Subscription s = t1.subscribe(metrics);
-        return Observable.just(metrics).concatWith(Observable.<HttpClientMetrics>never())
-                    .doOnUnsubscribe(new Action0() {
-                        @Override
-                        public void call() {
-                            s.unsubscribe();
-                        }
-                    });
+        return Observable
+                .just(metrics)
+                .concatWith(Observable.<HttpClientMetrics>never())
+                .doOnUnsubscribe(new Action0() {
+                    @Override
+                    public void call() {
+                        s.unsubscribe();
+                    }
+                });
     }
 }
