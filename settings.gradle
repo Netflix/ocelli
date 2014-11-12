@@ -1,4 +1,4 @@
 rootProject.name='ocelli'
 include 'ocelli-core'
-include 'ocelli-eureka1'
-include 'ocelli-rxnetty'
+//include 'ocelli-eureka1'
+//include 'ocelli-rxnetty'
