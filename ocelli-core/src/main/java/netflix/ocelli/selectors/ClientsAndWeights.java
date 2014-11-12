@@ -26,4 +26,10 @@ public class ClientsAndWeights<Client> {
     public int getTotalWeights() {
         return weights.get(weights.size()-1);
     }
+
+    @Override
+    public String toString() {
+        return "ClientsAndWeights [clients=" + clients + ", weights=" + weights
+                + "]";
+    }
 }

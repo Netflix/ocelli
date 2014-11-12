@@ -22,6 +22,13 @@ public class RoundRobinWeightSelector implements WeightSelector {
     
     @Override
     public Integer call(List<Integer> weights, Integer count) {
-        return Collections.binarySearch(weights, position.incrementAndGet() % count);
+        int next = position.incrementAndGet() % count;
+        int pos = Collections.binarySearch(weights, next);
+        if (pos >= 0) {
+            return pos+1;
+        }
+        else {
+            return -(pos) - 1;
+        }
     }
 }

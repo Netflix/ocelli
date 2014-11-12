@@ -24,7 +24,10 @@ targetCompatibility = JavaVersion.VERSION_1_6
 dependencies {
     compile project(':ocelli-core')
 
-    compile "com.netflix.eureka:eureka-client:1.1.143"
+    compile ("com.netflix.eureka:eureka-client:1.1.143") {
+        exclude module: 'rxjava-core'
+    }
+
     testCompile 'junit:junit:4.10'
 }
 
