@@ -63,13 +63,13 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
      * @param <Tracker>
      */
     public static class Builder<C, M> {
-        private String                      name = "<unnamed>";
         private Observable<MembershipEvent<C>>   hostSource;
+        private String                      name = "<unnamed>";
         private WeightingStrategy<C, M>     weightingStrategy = new EqualWeightStrategy<C, M>();
         private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetectorFactory<C>          failureDetector = Failures.never();
+        private FailureDetectorFactory<C>   failureDetector = Failures.never();
         private ClientConnector<C>          clientConnector = Connectors.immediate();
         private Func1<C, Observable<M>>     metricsMapper;
         

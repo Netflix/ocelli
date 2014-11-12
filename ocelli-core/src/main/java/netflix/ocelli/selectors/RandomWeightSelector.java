@@ -21,6 +21,14 @@ public class RandomWeightSelector implements WeightSelector {
     
     @Override
     public Integer call(List<Integer> weights, Integer count) {
-        return Collections.binarySearch(weights, random.nextInt(count));
+        int next = random.nextInt(count);
+        int pos = Collections.binarySearch(weights, next);
+        if (pos >= 0) {
+            return pos+1;
+        }
+        else {
+            return -(pos) - 1;
+        }
+
     }
 }
