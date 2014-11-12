@@ -1,5 +1,27 @@
 package netflix.ocelli.loadbalancer;
 
+import netflix.ocelli.ClientAndMetrics;
+import netflix.ocelli.ClientConnector;
+import netflix.ocelli.FailureDetectorFactory;
+import netflix.ocelli.ManagedLoadBalancer;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.WeightingStrategy;
+import netflix.ocelli.selectors.ClientsAndWeights;
+import netflix.ocelli.util.RandomBlockingQueue;
+import netflix.ocelli.util.RxUtil;
+import netflix.ocelli.util.StateMachine;
+import netflix.ocelli.util.StateMachine.State;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
+import rx.functions.Action1;
+import rx.functions.Func1;
+import rx.subscriptions.CompositeSubscription;
+import rx.subscriptions.SerialSubscription;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -9,37 +31,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import netflix.ocelli.ClientAndMetrics;
-import netflix.ocelli.ClientConnector;
-import netflix.ocelli.FailureDetectorFactory;
-import netflix.ocelli.ManagedLoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MetricsFactory;
-import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.algorithm.EqualWeightStrategy;
-import netflix.ocelli.functions.Connectors;
-import netflix.ocelli.functions.Delays;
-import netflix.ocelli.functions.Failures;
-import netflix.ocelli.functions.Functions;
-import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
-import netflix.ocelli.util.RandomBlockingQueue;
-import netflix.ocelli.util.RxUtil;
-import netflix.ocelli.util.StateMachine;
-import netflix.ocelli.util.StateMachine.State;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import rx.Observable;
-import rx.Observable.OnSubscribe;
-import rx.Subscriber;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.subscriptions.CompositeSubscription;
-import rx.subscriptions.SerialSubscription;
-
 /**
  * The ClientSelector keeps track of all existing hosts and returns a single host for each
  * call to acquire().
@@ -47,133 +38,16 @@ import rx.subscriptions.SerialSubscription;
  * @author elandau
  *
  * @param <C>
- * @param <Tracker>
- * 
+ *
  */
 public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
-    
-    /**
-     * Da Builder 
-     * @author elandau
-     *
-     * @param <C>
-     * @param <C>
-     * @param <Tracker>
-     */
-    public static class Builder<C, M> {
-        private Observable<MembershipEvent<C>>   hostSource;
-        private String                      name = "<unnamed>";
-        private WeightingStrategy<C, M>     weightingStrategy = new EqualWeightStrategy<C, M>();
-        private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
-        private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-        private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetectorFactory<C>   failureDetector = Failures.never();
-        private ClientConnector<C>          clientConnector = Connectors.immediate();
-        private Func1<C, Observable<M>>     metricsMapper;
-        
-        private Builder() {
-        }
-        
-        /**
-         * Arbitrary name assigned to the connection pool, mostly for debugging purposes
-         * @param name
-         */
-        public Builder<C, M> withName(String name) {
-            this.name = name;
-            return this;
-        }
-        
-        /**
-         * Strategy used to determine the delay time in msec based on the quarantine 
-         * count.  The count is incremented by one for each failure detections and reset
-         * once the host is back to normal.
-         */
-        public Builder<C, M> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
-            this.quaratineDelayStrategy = quaratineDelayStrategy;
-            return this;
-        }
-        
-        /**
-         * Strategy used to determine how many hosts should be active.
-         * This strategy is invoked whenever a host is added or removed from the pool
-         */
-        public Builder<C, M> withActiveClientCountStrategy(Func1<Integer, Integer> activeClientCountStrategy) {
-            this.connectedHostCountStrategy = activeClientCountStrategy;
-            return this;
-        }
-        
-        /**
-         * Source for host membership events
-         */
-        public Builder<C, M> withMembershipSource(Observable<MembershipEvent<C>> hostSource) {
-            this.hostSource = hostSource;
-            return this;
-        }
-        
-        /**
-         * Strategy use to calculate weights for active clients
-         */
-        public Builder<C, M> withWeightingStrategy(WeightingStrategy<C, M> algorithm) {
-            this.weightingStrategy = algorithm;
-            return this;
-        }
-        
-        /**
-         * Strategy used to select hosts from the calculated weights.  
-         * @param selectionStrategy
-         */
-        public Builder<C, M> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
-            this.selectionStrategy = selectionStrategy;
-            return this;
-        }
-        
-        /**
-         * The failure detector returns an Observable that will emit a Throwable for each 
-         * failure of the client.  The load balancer will quaratine the client in response.
-         * @param failureDetector
-         */
-        public Builder<C, M> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
-            this.failureDetector = failureDetector;
-            return this;
-        }
-        
-        /**
-         * The connector can be used to prime a client prior to activating it in the connection
-         * pool.  
-         * @param clientConnector
-         */
-        public Builder<C, M> withClientConnector(ClientConnector<C> clientConnector) {
-            this.clientConnector = clientConnector;
-            return this;
-        }
-        
-        /**
-         * Factory for creating and associating the metrics used for weighting with a client.
-         * Note that for robust client interface C and M may be the same client type and the 
-         * factory will simply return an Observable.just(client);
-         * 
-         * @param metricsMapper
-         * @return
-         */
-        public Builder<C, M> withMetricsFactory(MetricsFactory<C, M> metricsMapper) {
-            this.metricsMapper = metricsMapper;
-            return this;
-        }
-        
-        public DefaultLoadBalancer<C, M> build() {
-            assert hostSource != null;
-            assert metricsMapper != null;
-            
-            return new DefaultLoadBalancer<C, M>(this);
-        }
+
+    public static <C, M> LoadBalancerBuilder<C, M> builder() {
+        return new LoadBalancerBuilder<C, M>();
     }
-    
-    public static <C, M> Builder<C, M> builder() {
-        return new Builder<C, M>();
-    }
-    
+
     private final Observable<MembershipEvent<C>> hostSource;
     private final WeightingStrategy<C, M> weightingStrategy;
     private final FailureDetectorFactory<C> failureDetector;
@@ -217,7 +91,8 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     private State<Holder, EventType> QUARANTINED  = State.create("QUARANTINED");
     private State<Holder, EventType> REMOVED      = State.create("REMOVED");
 
-    private DefaultLoadBalancer(Builder<C, M> builder) {
+    DefaultLoadBalancer(LoadBalancerBuilder<C, M> builder) {
+
         this.weightingStrategy          = builder.weightingStrategy;
         this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
         this.quaratineDelayStrategy     = builder.quaratineDelayStrategy;

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 apply plugin: 'osgi'
 apply plugin: 'groovy'
 
@@ -24,7 +23,7 @@ targetCompatibility = JavaVersion.VERSION_1_6
 dependencies {
     compile project(':ocelli-core')
 
-    compile ("com.netflix.eureka:eureka-client:1.1.143") {
+    compile ("com.netflix.rx.eureka:rx-eureka-client:2.0.0-RC1") {
         exclude module: 'rxjava-core'
     }
 

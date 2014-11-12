@@ -1,9 +1,5 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
@@ -18,15 +14,17 @@ import netflix.ocelli.functions.Failures;
 import netflix.ocelli.functions.Functions;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoadBalancer<C, K> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultPartitioningLoadBalancer.class);
@@ -197,7 +195,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         DefaultLoadBalancer<C, M> lb =  DefaultLoadBalancer.<C, M>builder()
                 .withName(getName() + "_" + id)
                 .withMembershipSource(hostSource)
-                .withQuaratineStrategy(quaratineDelayStrategy)
+                .withQuarantineStrategy(quaratineDelayStrategy)
                 .withSelectionStrategy(selectionStrategy)
                 .withWeightingStrategy(weightingStrategy)
                 .withActiveClientCountStrategy(connectedHostCountStrategy)

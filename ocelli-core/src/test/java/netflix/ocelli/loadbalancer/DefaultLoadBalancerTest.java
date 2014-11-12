@@ -1,9 +1,5 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.algorithm.LinearWeightingStrategy;
@@ -20,7 +16,6 @@ import netflix.ocelli.functions.Functions;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.util.CountDownAction;
 import netflix.ocelli.util.RxUtil;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,9 +26,12 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.subjects.PublishSubject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class DefaultLoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);
@@ -41,7 +39,7 @@ public class DefaultLoadBalancerTest {
     private static final int NUM_HOSTS = 10;
     private static Observable<MembershipEvent<TestClient>> source;
     
-    private DefaultLoadBalancer.Builder<TestClient, TestClient> builder;
+    private LoadBalancerBuilder<TestClient, TestClient> builder;
     private DefaultLoadBalancer<TestClient, TestClient> lb;
     private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
@@ -68,7 +66,7 @@ public class DefaultLoadBalancerTest {
             .withName("Test-" + testName.getMethodName())
             .withMembershipSource(hostEvents)
             .withActiveClientCountStrategy(Functions.identity())
-            .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
             .withFailureDetector(failureDetector)
             .withClientConnector(clientConnector)
             .withMetricsFactory(TestClient.metricsFactory())
