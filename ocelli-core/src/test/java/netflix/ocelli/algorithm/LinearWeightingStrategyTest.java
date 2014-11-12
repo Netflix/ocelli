@@ -4,6 +4,8 @@ import java.util.List;
 
 import junit.framework.Assert;
 import netflix.ocelli.ClientAndMetrics;
+import netflix.ocelli.retry.RetryFailedTestRule;
+import netflix.ocelli.retry.RetryFailedTestRule.Retry;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.selectors.RandomWeightSelector;
 import netflix.ocelli.selectors.RoundRobinWeightSelector;
@@ -11,6 +13,7 @@ import netflix.ocelli.selectors.WeightSelector;
 import netflix.ocelli.selectors.WeightedSelectionStrategy;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
@@ -42,6 +45,9 @@ public class LinearWeightingStrategyTest {
     
     LinearWeightingStrategy<Integer, Integer> strategy;
 
+    @Rule
+    public RetryFailedTestRule retryRule = new RetryFailedTestRule();
+    
     @Before 
     public void before() {
         strategy = new LinearWeightingStrategy<Integer, Integer>(Functions.<Integer>identity());
@@ -62,6 +68,7 @@ public class LinearWeightingStrategyTest {
     }
     
     @Test
+    @Retry(5)
     public void testOneClient() {
         ClientsAndWeights<Integer> result = strategy.call(create(10));
         
@@ -77,6 +84,7 @@ public class LinearWeightingStrategyTest {
     }
     
     @Test
+    @Retry(5)
     public void testEqualsWeights() {
         ClientsAndWeights<Integer> result = strategy.call(create(1,1,1,1));
         
@@ -92,6 +100,7 @@ public class LinearWeightingStrategyTest {
     }
     
     @Test
+    @Retry(5)
     public void testDifferentWeights() {
         ClientsAndWeights<Integer> result = strategy.call(create(1,2,3,4));
         
