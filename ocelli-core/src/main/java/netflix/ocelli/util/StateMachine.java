@@ -95,7 +95,7 @@ public class StateMachine<T, E> implements Action1<E> {
                 sub.add(events.collect(context, new Action2<T, E>() {
                         @Override
                         public void call(T context, E event) {
-                            LOG.info("{} : {}({})", context, state, event);
+                            LOG.trace("{} : {}({})", context, state, event);
                             final State<T, E> next = state.next(event);
                             if (next != null) {
                                 state.exit(context);
@@ -103,7 +103,7 @@ public class StateMachine<T, E> implements Action1<E> {
                                 next.enter(context).subscribe(StateMachine.this);
                             }
                             else if (!state.ignore.contains(event)) {
-                                LOG.info("Unexpected event {} in state {} for {} ", event, state, context);
+                                LOG.warn("Unexpected event {} in state {} for {} ", event, state, context);
                             }
                         }
                     })
