@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import netflix.ocelli.HostEvent;
-import netflix.ocelli.HostEvent.EventType;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
 import rx.Observable;
 import rx.functions.Func1;
 
@@ -73,7 +73,7 @@ public class EurekaHostSource {
             return this;
         }
         
-        public Observable<HostEvent<InstanceInfo>> build() {
+        public Observable<MembershipEvent<InstanceInfo>> build() {
             return new EurekaHostSource(this).asObservable();
         }
     }
@@ -90,17 +90,17 @@ public class EurekaHostSource {
         this.refreshInterval = builder.refreshInterval;
     }
     
-    private Observable<HostEvent<InstanceInfo>> asObservable() {
+    private Observable<MembershipEvent<InstanceInfo>> asObservable() {
         return Observable.interval(refreshInterval, TimeUnit.MILLISECONDS)
             .map(source)
-            .flatMap(new Func1<List<InstanceInfo>, Observable<HostEvent<InstanceInfo>>>() {
+            .flatMap(new Func1<List<InstanceInfo>, Observable<MembershipEvent<InstanceInfo>>>() {
                 private volatile Set<InstanceInfo> last;
                 
                 @Override
-                public Observable<HostEvent<InstanceInfo>> call(List<InstanceInfo> current) {
+                public Observable<MembershipEvent<InstanceInfo>> call(List<InstanceInfo> current) {
                     if (last == null) {
                         last = Sets.newHashSet(current);
-                        return Observable.from(last).map(HostEvent.<InstanceInfo>toEvent(EventType.ADD));
+                        return Observable.from(last).map(MembershipEvent.<InstanceInfo>toEvent(EventType.ADD));
                     }
                     else {
                         Set<InstanceInfo> next = Sets.newHashSet(current);
@@ -109,10 +109,10 @@ public class EurekaHostSource {
                         last = next;
                         return Observable
                                     .from(removedInstances)
-                                    .map(HostEvent.<InstanceInfo>toEvent(EventType.REMOVE))
+                                    .map(MembershipEvent.<InstanceInfo>toEvent(EventType.REMOVE))
                                .concatWith(Observable
                                     .from(newInstances)
-                                    .map(HostEvent.<InstanceInfo>toEvent(EventType.ADD)));
+                                    .map(MembershipEvent.<InstanceInfo>toEvent(EventType.ADD)));
                     }
                 }
             });

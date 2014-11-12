@@ -18,7 +18,7 @@ public class Operations {
                         .map(new Func1<Long, String>() {
                             @Override
                             public String call(Long t1) {
-                                return server.getHost() + "-ok";
+                                return server + "-ok";
                             }                        
                         });
             }
