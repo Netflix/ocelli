@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
-import rx.functions.Func1;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
@@ -71,7 +70,6 @@ public class LoadBalancerTest {
                 .build();
         
         this.selector.initialize();
-        TimeUnit.SECONDS.sleep(1);
         
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
