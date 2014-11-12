@@ -4,7 +4,6 @@ import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.algorithm.EqualWeightStrategy;
@@ -32,14 +31,13 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     public static class Builder<C, M, K> {
         private Func1<C, Observable<K>>     partitioner;
         private Observable<MembershipEvent<C>> hostSource;
-        private WeightingStrategy<C, M>    weightingStrategy = new EqualWeightStrategy<C, M>();
+        private WeightingStrategy<C>       weightingStrategy = new EqualWeightStrategy<C>();
         private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
         private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private String                     name = "<unnamed>";
         private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
         private FailureDetectorFactory<C>  failureDetector = Failures.never();
         private ClientConnector<C>         clientConnector = Connectors.immediate();
-        private MetricsFactory<C, M>       metricsFactory;
         
         private Builder() {
         }
@@ -69,7 +67,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
             return this;
         }
         
-        public Builder<C, M, K> withWeightingStrategy(WeightingStrategy<C, M> algorithm) {
+        public Builder<C, M, K> withWeightingStrategy(WeightingStrategy<C> algorithm) {
             this.weightingStrategy = algorithm;
             return this;
         }
@@ -89,14 +87,8 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
             return this;
         }
         
-        public Builder<C, M, K> withMetricsFactory(MetricsFactory<C,M> metricsFactory) {
-            this.metricsFactory = metricsFactory;
-            return this;
-        }
-        
         public DefaultPartitioningLoadBalancer<C, M, K> build() {
             assert hostSource != null;
-            assert metricsFactory != null;
             assert partitioner != null;
             
             return new DefaultPartitioningLoadBalancer<C, M, K>(this);
@@ -111,14 +103,13 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     private final Func1<C, Observable<K>> partitioner;
     private final Observable<MembershipEvent<C>> hostSource;
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
-    private final WeightingStrategy<C, M> weightingStrategy;
+    private final WeightingStrategy<C> weightingStrategy;
     private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
     private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
     private final String name;
-    private final MetricsFactory<C, M> metricsFactory;
     
     private final class Holder {
         final PublishSubject<MembershipEvent<C>> hostStream;
@@ -140,7 +131,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         this.quaratineDelayStrategy = builder.quaratineDelayStrategy;
         this.name                   = builder.name;
         this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
-        this.metricsFactory         = builder.metricsFactory;
     }
     
     @Override
@@ -192,7 +182,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     
     private ManagedLoadBalancer<C> createPartition(K id, Observable<MembershipEvent<C>> hostSource) {
         LOG.info("Creating partition : " + id);
-        DefaultLoadBalancer<C, M> lb =  DefaultLoadBalancer.<C, M>builder()
+        DefaultLoadBalancer<C> lb =  DefaultLoadBalancer.<C>builder()
                 .withName(getName() + "_" + id)
                 .withMembershipSource(hostSource)
                 .withQuarantineStrategy(quaratineDelayStrategy)
@@ -201,7 +191,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
                 .withActiveClientCountStrategy(connectedHostCountStrategy)
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)
-                .withMetricsFactory(metricsFactory)
                 .build();
         lb.initialize();
         return lb;

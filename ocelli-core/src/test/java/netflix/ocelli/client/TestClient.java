@@ -4,7 +4,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 
-import netflix.ocelli.MetricsFactory;
 import netflix.ocelli.util.RxUtil;
 import rx.Observable;
 import rx.functions.Func1;
@@ -18,14 +17,6 @@ public class TestClient {
     private final Set<String> vips = new HashSet<String>();
     private String rack;
     
-    public static MetricsFactory<TestClient, TestClient> metricsFactory() {
-        return new MetricsFactory<TestClient, TestClient>() {
-            @Override
-            public Observable<TestClient> call(TestClient t1) {
-                return Observable.just(t1);
-            }
-        };
-    }
     public static Func1<TestClient, Observable<String>> byVip() {
         return new Func1<TestClient, Observable<String>>() {
             @Override

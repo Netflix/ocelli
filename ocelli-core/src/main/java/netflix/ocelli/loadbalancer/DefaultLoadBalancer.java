@@ -1,27 +1,5 @@
 package netflix.ocelli.loadbalancer;
 
-import netflix.ocelli.ClientAndMetrics;
-import netflix.ocelli.ClientConnector;
-import netflix.ocelli.FailureDetectorFactory;
-import netflix.ocelli.ManagedLoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.util.RandomBlockingQueue;
-import netflix.ocelli.util.RxUtil;
-import netflix.ocelli.util.StateMachine;
-import netflix.ocelli.util.StateMachine.State;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import rx.Observable;
-import rx.Observable.OnSubscribe;
-import rx.Subscriber;
-import rx.functions.Action1;
-import rx.functions.Func1;
-import rx.subscriptions.CompositeSubscription;
-import rx.subscriptions.SerialSubscription;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,6 +9,35 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import netflix.ocelli.ClientConnector;
+import netflix.ocelli.FailureDetectorFactory;
+import netflix.ocelli.ManagedLoadBalancer;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.WeightingStrategy;
+import netflix.ocelli.algorithm.EqualWeightStrategy;
+import netflix.ocelli.functions.Connectors;
+import netflix.ocelli.functions.Delays;
+import netflix.ocelli.functions.Failures;
+import netflix.ocelli.functions.Functions;
+import netflix.ocelli.selectors.ClientsAndWeights;
+import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
+import netflix.ocelli.util.RandomBlockingQueue;
+import netflix.ocelli.util.RxUtil;
+import netflix.ocelli.util.StateMachine;
+import netflix.ocelli.util.StateMachine.State;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
+import rx.functions.Action1;
+import rx.functions.Func1;
+import rx.subscriptions.CompositeSubscription;
+import rx.subscriptions.SerialSubscription;
+
 /**
  * The ClientSelector keeps track of all existing hosts and returns a single host for each
  * call to acquire().
@@ -38,24 +45,125 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author elandau
  *
  * @param <C>
- *
+ * @param <Tracker>
+ * 
  */
-public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
+public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
-
-    public static <C, M> LoadBalancerBuilder<C, M> builder() {
-        return new LoadBalancerBuilder<C, M>();
+    
+    /**
+     * Da Builder 
+     * @author elandau
+     *
+     * @param <C>
+     * @param <C>
+     * @param <Tracker>
+     */
+    public static class Builder<C> {
+        private Observable<MembershipEvent<C>>   hostSource;
+        private String                      name = "<unnamed>";
+        private WeightingStrategy<C>        weightingStrategy = new EqualWeightStrategy<C>();
+        private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
+        private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
+        private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
+        private FailureDetectorFactory<C>   failureDetector = Failures.never();
+        private ClientConnector<C>          clientConnector = Connectors.immediate();
+        
+        private Builder() {
+        }
+        
+        /**
+         * Arbitrary name assigned to the connection pool, mostly for debugging purposes
+         * @param name
+         */
+        public Builder<C> withName(String name) {
+            this.name = name;
+            return this;
+        }
+        
+        /**
+         * Strategy used to determine the delay time in msec based on the quarantine 
+         * count.  The count is incremented by one for each failure detections and reset
+         * once the host is back to normal.
+         */
+        public Builder<C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
+            this.quaratineDelayStrategy = quaratineDelayStrategy;
+            return this;
+        }
+        
+        /**
+         * Strategy used to determine how many hosts should be active.
+         * This strategy is invoked whenever a host is added or removed from the pool
+         */
+        public Builder<C> withActiveClientCountStrategy(Func1<Integer, Integer> activeClientCountStrategy) {
+            this.connectedHostCountStrategy = activeClientCountStrategy;
+            return this;
+        }
+        
+        /**
+         * Source for host membership events
+         */
+        public Builder<C> withMembershipSource(Observable<MembershipEvent<C>> hostSource) {
+            this.hostSource = hostSource;
+            return this;
+        }
+        
+        /**
+         * Strategy use to calculate weights for active clients
+         */
+        public Builder<C> withWeightingStrategy(WeightingStrategy<C> algorithm) {
+            this.weightingStrategy = algorithm;
+            return this;
+        }
+        
+        /**
+         * Strategy used to select hosts from the calculated weights.  
+         * @param selectionStrategy
+         */
+        public Builder<C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
+            this.selectionStrategy = selectionStrategy;
+            return this;
+        }
+        
+        /**
+         * The failure detector returns an Observable that will emit a Throwable for each 
+         * failure of the client.  The load balancer will quaratine the client in response.
+         * @param failureDetector
+         */
+        public Builder<C> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
+            this.failureDetector = failureDetector;
+            return this;
+        }
+        
+        /**
+         * The connector can be used to prime a client prior to activating it in the connection
+         * pool.  
+         * @param clientConnector
+         */
+        public Builder<C> withClientConnector(ClientConnector<C> clientConnector) {
+            this.clientConnector = clientConnector;
+            return this;
+        }
+        
+        public DefaultLoadBalancer<C> build() {
+            assert hostSource != null;
+            
+            return new DefaultLoadBalancer<C>(this);
+        }
     }
-
+    
+    public static <C> Builder<C> builder() {
+        return new Builder<C>();
+    }
+    
     private final Observable<MembershipEvent<C>> hostSource;
-    private final WeightingStrategy<C, M> weightingStrategy;
+    private final WeightingStrategy<C> weightingStrategy;
     private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
     private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
-    private final Func1<C, Observable<M>> metricsMapper;
     
     private final String name;
 
@@ -83,7 +191,7 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     /**
      * Array of active and healthy clients that can receive traffic
      */
-    private final CopyOnWriteArrayList<ClientAndMetrics<C, M>> activeClients = new CopyOnWriteArrayList<ClientAndMetrics<C, M>>();
+    private final CopyOnWriteArrayList<C> activeClients = new CopyOnWriteArrayList<C>();
     
     private State<Holder, EventType> IDLE         = State.create("IDLE");
     private State<Holder, EventType> CONNECTING   = State.create("CONNECTING");
@@ -91,8 +199,7 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     private State<Holder, EventType> QUARANTINED  = State.create("QUARANTINED");
     private State<Holder, EventType> REMOVED      = State.create("REMOVED");
 
-    DefaultLoadBalancer(LoadBalancerBuilder<C, M> builder) {
-
+    private DefaultLoadBalancer(Builder<C> builder) {
         this.weightingStrategy          = builder.weightingStrategy;
         this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
         this.quaratineDelayStrategy     = builder.quaratineDelayStrategy;
@@ -101,7 +208,6 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
         this.failureDetector            = builder.failureDetector;
         this.clientConnector            = builder.clientConnector;
         this.hostSource                 = builder.hostSource;
-        this.metricsMapper              = builder.metricsMapper;
     }
 
     public void initialize() {
@@ -154,14 +260,14 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
                 @Override
                 public Observable<EventType> call(Holder holder) {
                     LOG.info("{} - {} is connected", name, holder.getClient());
-                    activeClients.add(holder);
+                    activeClients.add(holder.client);
                     return Observable.empty();
                 }
             })
             .onExit(new Func1<Holder, Observable<EventType>>() {
                 @Override
                 public Observable<EventType> call(Holder holder) {
-                    activeClients.remove(holder);
+                    activeClients.remove(holder.client);
                     return Observable.empty();
                 }
             })
@@ -229,10 +335,9 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     /**
      * Holder the client state within the context of this LoadBalancer
      */
-    public class Holder implements ClientAndMetrics<C, M> {
+    public class Holder {
         final AtomicInteger quaratineCounter = new AtomicInteger();
         final C client;
-        volatile M metrics;
         final StateMachine<Holder, EventType> sm;
         final CompositeSubscription cs = new CompositeSubscription();
         final SerialSubscription connectSubscription = new SerialSubscription();
@@ -245,12 +350,6 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
         public void initialize() {
             this.cs.add(sm.start().subscribe());
             this.cs.add(connectSubscription);
-            this.cs.add(metricsMapper.call(client).subscribe(new Action1<M>() {
-                @Override
-                public void call(M t1) {
-                    metrics = t1;
-                }
-            }));
             this.cs.add(failureDetector.call(client).subscribe(new Action1<Throwable>() {
                 @Override
                 public void call(Throwable t1) {
@@ -290,14 +389,8 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
             return "Holder[" + name + "-" + client + "]";
         }
 
-        @Override
         public C getClient() {
             return client;
-        }
-
-        @Override
-        public M getMetrics() {
-            return metrics;
         }
     }
     
@@ -331,7 +424,7 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     @Override
     public Observable<C> choose() {
         return selectionStrategy.call(
-                    weightingStrategy.call(new ArrayList<ClientAndMetrics<C, M>>(activeClients)));
+                    weightingStrategy.call(new ArrayList<C>(activeClients)));
     }
 
     @Override
@@ -341,12 +434,7 @@ public class DefaultLoadBalancer<C, M> implements ManagedLoadBalancer<C> {
     
     @Override
     public Observable<C> listActiveClients() {
-        return Observable.from(activeClients).map(new Func1<ClientAndMetrics<C,M>, C>() {
-            @Override
-            public C call(ClientAndMetrics<C, M> t1) {
-                return t1.getClient();
-            }
-        });
+        return Observable.from(activeClients);
     }
     
     public String getName() {
