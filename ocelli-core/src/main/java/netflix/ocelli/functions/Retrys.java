@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 import rx.Observable;
 import rx.functions.Func1;
 
-public class Retrys {
+public abstract class Retrys {
     public static Func1<Observable<? extends Throwable>, Observable<?>> exponentialBackoff(final int maxRetrys, final long timeslice, final TimeUnit units) {
         return new Func1<Observable<? extends Throwable>, Observable<?>>() {
             @Override

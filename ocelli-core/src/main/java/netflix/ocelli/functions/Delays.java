@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 import rx.functions.Func1;
 
-public class Delays {
+public abstract class Delays {
     public static Func1<Integer, Long> fixed(final long delay, final TimeUnit units) {
         return new Func1<Integer, Long>() {
             @Override
