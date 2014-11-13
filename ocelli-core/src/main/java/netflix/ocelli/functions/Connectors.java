@@ -3,7 +3,7 @@ package netflix.ocelli.functions;
 import netflix.ocelli.ClientConnector;
 import rx.Observable;
 
-public class Connectors {
+public abstract class Connectors {
     public static <C> ClientConnector<C> never() {
         return new ClientConnector<C>() {
             @Override

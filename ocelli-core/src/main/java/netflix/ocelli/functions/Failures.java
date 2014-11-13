@@ -3,7 +3,7 @@ package netflix.ocelli.functions;
 import netflix.ocelli.FailureDetectorFactory;
 import rx.Observable;
 
-public class Failures {
+public abstract class Failures {
     public static <C> FailureDetectorFactory<C> never() {
         return new FailureDetectorFactory<C>() {
             @Override
