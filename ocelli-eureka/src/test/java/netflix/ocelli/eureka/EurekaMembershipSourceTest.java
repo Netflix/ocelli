@@ -1,12 +1,12 @@
 package netflix.ocelli.eureka;
 
-import com.netflix.rx.eureka.client.EurekaClient;
-import com.netflix.rx.eureka.interests.ChangeNotification;
-import com.netflix.rx.eureka.interests.Interest;
-import com.netflix.rx.eureka.interests.Interests;
-import com.netflix.rx.eureka.registry.InstanceInfo;
-import com.netflix.rx.eureka.registry.ServicePort;
-import com.netflix.rx.eureka.registry.datacenter.BasicDataCenterInfo;
+import com.netflix.eureka2.client.EurekaClient;
+import com.netflix.eureka2.interests.ChangeNotification;
+import com.netflix.eureka2.interests.Interest;
+import com.netflix.eureka2.interests.Interests;
+import com.netflix.eureka2.registry.InstanceInfo;
+import com.netflix.eureka2.registry.ServicePort;
+import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
 import netflix.ocelli.MembershipEvent;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +31,7 @@ public class EurekaMembershipSourceTest {
     private EurekaClient clientMock;
     private EurekaMembershipSource membershipSource;
 
-    private static final HashSet<ServicePort> ports = new HashSet<>(Arrays.asList(new ServicePort(8000, false)));
+    private static final HashSet<ServicePort> ports = new HashSet<ServicePort>(Arrays.asList(new ServicePort(8000, false)));
 
     public static final InstanceInfo INSTANCE_1 = new InstanceInfo.Builder()
             .withId("id_serviceA")

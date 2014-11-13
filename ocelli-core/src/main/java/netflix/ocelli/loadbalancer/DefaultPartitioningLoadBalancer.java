@@ -185,7 +185,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         DefaultLoadBalancer<C> lb =  DefaultLoadBalancer.<C>builder()
                 .withName(getName() + "_" + id)
                 .withMembershipSource(hostSource)
-                .withQuarantineStrategy(quaratineDelayStrategy)
                 .withSelectionStrategy(selectionStrategy)
                 .withWeightingStrategy(weightingStrategy)
                 .withActiveClientCountStrategy(connectedHostCountStrategy)

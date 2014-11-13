@@ -1,13 +1,13 @@
 package netflix.ocelli.eureka;
 
-import com.netflix.rx.eureka.client.Eureka;
-import com.netflix.rx.eureka.client.EurekaClient;
-import com.netflix.rx.eureka.client.resolver.ServerResolver;
-import com.netflix.rx.eureka.interests.ChangeNotification;
-import com.netflix.rx.eureka.interests.Interest;
-import com.netflix.rx.eureka.interests.Interests;
-import com.netflix.rx.eureka.registry.InstanceInfo;
-import com.netflix.rx.eureka.registry.ServicePort;
+import com.netflix.eureka2.client.Eureka;
+import com.netflix.eureka2.client.EurekaClient;
+import com.netflix.eureka2.client.resolver.ServerResolver;
+import com.netflix.eureka2.interests.ChangeNotification;
+import com.netflix.eureka2.interests.Interest;
+import com.netflix.eureka2.interests.Interests;
+import com.netflix.eureka2.registry.InstanceInfo;
+import com.netflix.eureka2.registry.ServicePort;
 import netflix.ocelli.MembershipEvent;
 import rx.Observable;
 import rx.functions.Func1;
@@ -50,12 +50,12 @@ public class EurekaMembershipSource {
                              Host host = instanceInfoToHost.call(notification.getData());
                              switch (notification.getKind()) {
                                  case Add:
-                                     return Observable.just(new MembershipEvent<>(ADD, host));
+                                     return Observable.just(new MembershipEvent<Host>(ADD, host));
                                  case Delete:
-                                     return Observable.just(new MembershipEvent<>(REMOVE, host));
+                                     return Observable.just(new MembershipEvent<Host>(REMOVE, host));
                                  case Modify:
-                                     return Observable.just(new MembershipEvent<>(REMOVE, host),
-                                                            new MembershipEvent<>(ADD, host));
+                                     return Observable.just(new MembershipEvent<Host>(REMOVE, host),
+                                                            new MembershipEvent<Host>(ADD, host));
                                  default:
                                      return Observable.empty();
                              }
