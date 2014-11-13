@@ -60,8 +60,6 @@ public class RxNettyTest {
                     }
                 }))
                 .build();
-
-        lb.initialize();
         
         final AtomicLong counter = new AtomicLong();
         
