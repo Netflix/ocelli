@@ -62,13 +62,11 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient>builder()
+        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withMembershipSource(Observable
                     .from(servers)
                     .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))
                 .build();
-        
-        this.selector.initialize();
         
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }

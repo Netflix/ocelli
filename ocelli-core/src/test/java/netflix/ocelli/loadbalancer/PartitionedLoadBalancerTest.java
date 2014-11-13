@@ -6,6 +6,7 @@ import java.util.Set;
 import junit.framework.Assert;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.Ocelli;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -41,14 +42,13 @@ public class PartitionedLoadBalancerTest {
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withVip("a").withVip("b");
         TestClient h4 = TestClient.create("h4", Connects.immediate(), Behaviors.immediate()).withVip("b");
         
-        DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withName(name.getMethodName())
-                .withHostSource(hostSource)
-                .withPartitioner(TestClient.byVip())
+                .withMembershipSource(hostSource)
                 .withFailureDetector(failureDetector)
+                .withPartitioner(TestClient.byVip())
                 .build()
                 ;
-        lb.initialize();
 
         //////////////////////////
         // Step 1: Add 4 hosts
@@ -60,9 +60,9 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(MembershipEvent.create(h4, MembershipEvent.EventType.ADD));
         
         // Get a LoadBalancer for each partition
-        ManagedLoadBalancer<TestClient> lbA = lb.get("a");
-        ManagedLoadBalancer<TestClient> lbB = lb.get("b");
-        ManagedLoadBalancer<TestClient> lbAll = lb.get("*");
+        ManagedLoadBalancer<TestClient> lbA = (ManagedLoadBalancer<TestClient>) lb.get("a");
+        ManagedLoadBalancer<TestClient> lbB = (ManagedLoadBalancer<TestClient>) lb.get("b");
+        ManagedLoadBalancer<TestClient> lbAll = (ManagedLoadBalancer<TestClient>) lb.get("*");
         
         Assert.assertNotNull(lbA);
         Assert.assertNotNull(lbB);
@@ -118,14 +118,13 @@ public class PartitionedLoadBalancerTest {
         
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
-        DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withName(name.getMethodName())
-                .withHostSource(hostSource)
+                .withMembershipSource(hostSource)
                 .withFailureDetector(failureDetector)
                 .withPartitioner(TestClient.byVip())
                 .build()
                 ;
-        lb.initialize();
 
         //////////////////////////
         // Step 1: Add 4 hosts
@@ -134,8 +133,8 @@ public class PartitionedLoadBalancerTest {
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
         
         // Get a LoadBalancer for each partition
-        ManagedLoadBalancer<TestClient> lbA = lb.get("a");
-        ManagedLoadBalancer<TestClient> lbAll = lb.get("*");
+        ManagedLoadBalancer<TestClient> lbA = (ManagedLoadBalancer<TestClient>) lb.get("a");
+        ManagedLoadBalancer<TestClient> lbAll = (ManagedLoadBalancer<TestClient>) lb.get("*");
         
         // List all hosts
         Set<TestClient> hostsA = new HashSet<TestClient>(lbA.listAllClients().toList().toBlocking().first());
@@ -166,23 +165,21 @@ public class PartitionedLoadBalancerTest {
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1c");
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1d");
         
-        DefaultPartitioningLoadBalancer<TestClient, TestClient, String> lb = DefaultPartitioningLoadBalancer.<TestClient, TestClient, String>builder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withName(name.getMethodName())
-                .withHostSource(hostSource)
+                .withMembershipSource(hostSource)
                 .withPartitioner(TestClient.byRack())
                 .build()
                 ;
-        
-        lb.initialize();
         
         hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.ADD));
 
-        ManagedLoadBalancer<TestClient> zoneA = lb.get("us-east-1a");
-        ManagedLoadBalancer<TestClient> zoneB = lb.get("us-east-1b");
-        ManagedLoadBalancer<TestClient> zoneC = lb.get("us-east-1c");
-        ManagedLoadBalancer<TestClient> zoneD = lb.get("us-east-1d");
+        ManagedLoadBalancer<TestClient> zoneA = (ManagedLoadBalancer<TestClient>) lb.get("us-east-1a");
+        ManagedLoadBalancer<TestClient> zoneB = (ManagedLoadBalancer<TestClient>) lb.get("us-east-1b");
+        ManagedLoadBalancer<TestClient> zoneC = (ManagedLoadBalancer<TestClient>) lb.get("us-east-1c");
+        ManagedLoadBalancer<TestClient> zoneD = (ManagedLoadBalancer<TestClient>) lb.get("us-east-1d");
         
         RxUtil.onSubscribeChooseNext(zoneA.choose(), zoneB.choose(), zoneC.choose(), zoneD.choose())
             .concatMap(new Func1<Observable<TestClient>, Observable<String>>() {

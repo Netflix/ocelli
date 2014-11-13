@@ -2,21 +2,15 @@ package netflix.ocelli.loadbalancer;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
-import netflix.ocelli.ManagedLoadBalancer;
+import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.Ocelli;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.algorithm.EqualWeightStrategy;
-import netflix.ocelli.functions.Connectors;
-import netflix.ocelli.functions.Delays;
-import netflix.ocelli.functions.Failures;
-import netflix.ocelli.functions.Functions;
 import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,80 +21,9 @@ import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
-public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoadBalancer<C, K> {
+public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBalancer<C, K> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultPartitioningLoadBalancer.class);
     
-    public static class Builder<C, M, K> {
-        private Func1<C, Observable<K>>     partitioner;
-        private Observable<MembershipEvent<C>> hostSource;
-        private WeightingStrategy<C>       weightingStrategy = new EqualWeightStrategy<C>();
-        private Func1<Integer, Integer>    connectedHostCountStrategy = Functions.identity();
-        private Func1<Integer, Long>       quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-        private String                     name = "<unnamed>";
-        private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetectorFactory<C>  failureDetector = Failures.never();
-        private ClientConnector<C>         clientConnector = Connectors.immediate();
-        
-        private Builder() {
-        }
-        
-        public Builder<C, M, K> withHostSource(Observable<MembershipEvent<C>> hosts) {
-            this.hostSource = hosts;
-            return this;
-        }
-        
-        public Builder<C, M, K> withPartitioner(Func1<C, Observable<K>> partitioner) {
-            this.partitioner = partitioner;
-            return this;
-        }
-        
-        public Builder<C, M, K> withName(String name) {
-            this.name = name;
-            return this;
-        }
-        
-        public Builder<C, M, K> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
-            this.quaratineDelayStrategy = quaratineDelayStrategy;
-            return this;
-        }
-        
-        public Builder<C, M, K> withConnectedHostCountStrategy(Func1<Integer, Integer> connectedHostCountStrategy) {
-            this.connectedHostCountStrategy = connectedHostCountStrategy;
-            return this;
-        }
-        
-        public Builder<C, M, K> withWeightingStrategy(WeightingStrategy<C> algorithm) {
-            this.weightingStrategy = algorithm;
-            return this;
-        }
-        
-        public Builder<C, M, K> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
-            this.selectionStrategy = selectionStrategy;
-            return this;
-        }
-        
-        public Builder<C, M, K> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
-            this.failureDetector = failureDetector;
-            return this;
-        }
-        
-        public Builder<C, M, K> withClientConnector(ClientConnector<C> clientConnector) {
-            this.clientConnector = clientConnector;
-            return this;
-        }
-        
-        public DefaultPartitioningLoadBalancer<C, M, K> build() {
-            assert hostSource != null;
-            assert partitioner != null;
-            
-            return new DefaultPartitioningLoadBalancer<C, M, K>(this);
-        }
-    }
-    
-    public static <C, M, K> Builder<C, M, K> builder() {
-        return new Builder<C, M, K>();
-    }
-
     private final CompositeSubscription cs = new CompositeSubscription();
     private final Func1<C, Observable<K>> partitioner;
     private final Observable<MembershipEvent<C>> hostSource;
@@ -115,28 +38,39 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     
     private final class Holder {
         final PublishSubject<MembershipEvent<C>> hostStream;
-        final ManagedLoadBalancer<C> loadBalancer;
+        final LoadBalancer<C> loadBalancer;
         
-        public Holder(ManagedLoadBalancer<C> loadBalancer, PublishSubject<MembershipEvent<C>> hostStream) {
+        public Holder(LoadBalancer<C> loadBalancer, PublishSubject<MembershipEvent<C>> hostStream) {
             this.loadBalancer = loadBalancer;
             this.hostStream = hostStream;
         }
     }
     
-    private DefaultPartitioningLoadBalancer(Builder<C, M, K> builder) {
-        this.partitioner            = builder.partitioner;
-        this.hostSource             = builder.hostSource;
-        this.failureDetector        = builder.failureDetector;
-        this.clientConnector        = builder.clientConnector;
-        this.selectionStrategy      = builder.selectionStrategy;
-        this.weightingStrategy      = builder.weightingStrategy;
-        this.quaratineDelayStrategy = builder.quaratineDelayStrategy;
-        this.name                   = builder.name;
-        this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
+    public DefaultPartitioningLoadBalancer(
+            String name,
+            Observable<MembershipEvent<C>> hostSource,
+            ClientConnector<C> clientConnector,
+            FailureDetectorFactory<C> failureDetector,
+            Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy,
+            Func1<Integer, Long> quaratineDelayStrategy,
+            Func1<Integer, Integer> connectedHostCountStrategy,
+            WeightingStrategy<C> weightingStrategy,
+            Func1<C, Observable<K>> partitioner) {
+        
+        this.partitioner            = partitioner;
+        this.hostSource             = hostSource;
+        this.failureDetector        = failureDetector;
+        this.clientConnector        = clientConnector;
+        this.selectionStrategy      = selectionStrategy;
+        this.weightingStrategy      = weightingStrategy;
+        this.quaratineDelayStrategy = quaratineDelayStrategy;
+        this.name                   = name;
+        this.connectedHostCountStrategy = connectedHostCountStrategy;
+        
+        initialize();
     }
-    
-    @Override
-    public void initialize() {
+
+    private void initialize() {
         cs.add(hostSource
             .subscribe(new Action1<MembershipEvent<C>>() {
                 @Override
@@ -173,7 +107,7 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
     }
     
     @Override
-    public ManagedLoadBalancer<C> get(K id) {
+    public LoadBalancer<C> get(K id) {
         return getOrCreateHolder(id).loadBalancer;
     }
 
@@ -182,9 +116,9 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
         return Observable.from(partitions.keySet());
     }
     
-    private ManagedLoadBalancer<C> createPartition(K id, Observable<MembershipEvent<C>> hostSource) {
+    private LoadBalancer<C> createPartition(K id, Observable<MembershipEvent<C>> hostSource) {
         LOG.info("Creating partition : " + id);
-        DefaultLoadBalancer<C> lb =  DefaultLoadBalancer.<C>builder()
+        LoadBalancer<C> lb =  Ocelli.<C>newDefaultLoadBalancerBuilder()
                 .withName(getName() + "_" + id)
                 .withMembershipSource(hostSource)
                 .withQuaratineStrategy(quaratineDelayStrategy)
@@ -194,7 +128,6 @@ public class DefaultPartitioningLoadBalancer<C, M, K> implements PartitionedLoad
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)
                 .build();
-        lb.initialize();
         return lb;
     }
 

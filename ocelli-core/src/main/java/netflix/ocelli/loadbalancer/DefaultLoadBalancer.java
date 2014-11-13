@@ -15,13 +15,7 @@ import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.algorithm.EqualWeightStrategy;
-import netflix.ocelli.functions.Connectors;
-import netflix.ocelli.functions.Delays;
-import netflix.ocelli.functions.Failures;
-import netflix.ocelli.functions.Functions;
 import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
 import netflix.ocelli.util.RandomBlockingQueue;
 import netflix.ocelli.util.RxUtil;
 import netflix.ocelli.util.StateMachine;
@@ -51,111 +45,6 @@ import rx.subscriptions.SerialSubscription;
 public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
-    
-    /**
-     * Da Builder 
-     * @author elandau
-     *
-     * @param <C>
-     * @param <C>
-     * @param <Tracker>
-     */
-    public static class Builder<C> {
-        private Observable<MembershipEvent<C>>   hostSource;
-        private String                      name = "<unnamed>";
-        private WeightingStrategy<C>        weightingStrategy = new EqualWeightStrategy<C>();
-        private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
-        private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-        private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
-        private FailureDetectorFactory<C>   failureDetector = Failures.never();
-        private ClientConnector<C>          clientConnector = Connectors.immediate();
-        
-        private Builder() {
-        }
-        
-        /**
-         * Arbitrary name assigned to the connection pool, mostly for debugging purposes
-         * @param name
-         */
-        public Builder<C> withName(String name) {
-            this.name = name;
-            return this;
-        }
-        
-        /**
-         * Strategy used to determine the delay time in msec based on the quarantine 
-         * count.  The count is incremented by one for each failure detections and reset
-         * once the host is back to normal.
-         */
-        public Builder<C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
-            this.quaratineDelayStrategy = quaratineDelayStrategy;
-            return this;
-        }
-        
-        /**
-         * Strategy used to determine how many hosts should be active.
-         * This strategy is invoked whenever a host is added or removed from the pool
-         */
-        public Builder<C> withActiveClientCountStrategy(Func1<Integer, Integer> activeClientCountStrategy) {
-            this.connectedHostCountStrategy = activeClientCountStrategy;
-            return this;
-        }
-        
-        /**
-         * Source for host membership events
-         */
-        public Builder<C> withMembershipSource(Observable<MembershipEvent<C>> hostSource) {
-            this.hostSource = hostSource;
-            return this;
-        }
-        
-        /**
-         * Strategy use to calculate weights for active clients
-         */
-        public Builder<C> withWeightingStrategy(WeightingStrategy<C> algorithm) {
-            this.weightingStrategy = algorithm;
-            return this;
-        }
-        
-        /**
-         * Strategy used to select hosts from the calculated weights.  
-         * @param selectionStrategy
-         */
-        public Builder<C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
-            this.selectionStrategy = selectionStrategy;
-            return this;
-        }
-        
-        /**
-         * The failure detector returns an Observable that will emit a Throwable for each 
-         * failure of the client.  The load balancer will quaratine the client in response.
-         * @param failureDetector
-         */
-        public Builder<C> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
-            this.failureDetector = failureDetector;
-            return this;
-        }
-        
-        /**
-         * The connector can be used to prime a client prior to activating it in the connection
-         * pool.  
-         * @param clientConnector
-         */
-        public Builder<C> withClientConnector(ClientConnector<C> clientConnector) {
-            this.clientConnector = clientConnector;
-            return this;
-        }
-        
-        public DefaultLoadBalancer<C> build() {
-            assert hostSource != null;
-            
-            return new DefaultLoadBalancer<C>(this);
-        }
-    }
-    
-    public static <C> Builder<C> builder() {
-        return new Builder<C>();
-    }
     
     private final Observable<MembershipEvent<C>> hostSource;
     private final WeightingStrategy<C> weightingStrategy;
@@ -199,18 +88,28 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     private State<Holder, EventType> QUARANTINED  = State.create("QUARANTINED");
     private State<Holder, EventType> REMOVED      = State.create("REMOVED");
 
-    private DefaultLoadBalancer(Builder<C> builder) {
-        this.weightingStrategy          = builder.weightingStrategy;
-        this.connectedHostCountStrategy = builder.connectedHostCountStrategy;
-        this.quaratineDelayStrategy     = builder.quaratineDelayStrategy;
-        this.selectionStrategy          = builder.selectionStrategy;
-        this.name                       = builder.name;
-        this.failureDetector            = builder.failureDetector;
-        this.clientConnector            = builder.clientConnector;
-        this.hostSource                 = builder.hostSource;
+    public DefaultLoadBalancer(
+            String name, 
+            Observable<MembershipEvent<C>> hostSource, 
+            ClientConnector<C> clientConnector, 
+            FailureDetectorFactory<C> failureDetector, 
+            Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy, 
+            Func1<Integer, Long> quaratineDelayStrategy, 
+            Func1<Integer, Integer> connectedHostCountStrategy, 
+            WeightingStrategy<C> weightingStrategy) {
+        this.weightingStrategy          = weightingStrategy;
+        this.connectedHostCountStrategy = connectedHostCountStrategy;
+        this.quaratineDelayStrategy     = quaratineDelayStrategy;
+        this.selectionStrategy          = selectionStrategy;
+        this.name                       = name;
+        this.failureDetector            = failureDetector;
+        this.clientConnector            = clientConnector;
+        this.hostSource                 = hostSource;
+        
+        initialize();
     }
 
-    public void initialize() {
+    private void initialize() {
         
         IDLE
             .onEnter(new Func1<Holder, Observable<EventType>>() {

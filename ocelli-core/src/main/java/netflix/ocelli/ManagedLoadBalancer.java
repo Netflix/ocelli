@@ -18,15 +18,4 @@ public interface ManagedLoadBalancer<C> extends LoadBalancer<C> {
      * @return All clients ready to serve traffic
      */
     Observable<C> listActiveClients();
-    
-    /**
-     * Must be called so that the load balancer will register the stream
-     * of host events
-     */
-    void initialize();
-
-    /**
-     * Perform cleanup and unregister
-     */
-    void shutdown();
 }

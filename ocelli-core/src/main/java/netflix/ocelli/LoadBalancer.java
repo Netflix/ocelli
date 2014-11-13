@@ -11,4 +11,9 @@ public interface LoadBalancer<C> {
      * @return Observable that when subscribed to will emit a single C and complete
      */
     Observable<C> choose();
+
+    /**
+     * Perform cleanup and unregister
+     */
+    void shutdown();
 }
