@@ -11,11 +11,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.Ocelli;
 import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.functions.Retrys;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -46,8 +47,8 @@ public class RxNettyTest {
             si.add(new HostAddress().setHost("localhost").setPort(8080+i));
         }
         
-        final DefaultLoadBalancer<RxNettyHttpClientAndMetrics> lb = 
-                DefaultLoadBalancer.<RxNettyHttpClientAndMetrics>builder()
+        final LoadBalancer<RxNettyHttpClientAndMetrics> lb = 
+                Ocelli.<RxNettyHttpClientAndMetrics>newDefaultLoadBalancerBuilder()
                 .withMembershipSource(Observable
                         .from(si)
                         .flatMap(RxNettyClientFactory.builder().build())
@@ -59,8 +60,6 @@ public class RxNettyTest {
                     }
                 }))
                 .build();
-
-        lb.initialize();
         
         final AtomicLong counter = new AtomicLong();
         

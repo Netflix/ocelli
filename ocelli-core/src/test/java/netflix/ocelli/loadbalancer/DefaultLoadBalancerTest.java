@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.LoadBalancerBuilder;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.Ocelli;
 import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -41,7 +43,7 @@ public class DefaultLoadBalancerTest {
     private static final int NUM_HOSTS = 10;
     private static Observable<MembershipEvent<TestClient>> source;
     
-    private DefaultLoadBalancer.Builder<TestClient> builder;
+    private LoadBalancerBuilder<TestClient> builder;
     private DefaultLoadBalancer<TestClient> lb;
     private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
@@ -64,7 +66,7 @@ public class DefaultLoadBalancerTest {
     
     @Before 
     public void before() {
-        builder = DefaultLoadBalancer.<TestClient>builder()
+        builder = Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
             .withName("Test-" + testName.getMethodName())
             .withMembershipSource(hostEvents)
             .withActiveClientCountStrategy(Functions.identity())
@@ -85,8 +87,7 @@ public class DefaultLoadBalancerTest {
     public void openConnectionImmediately() throws Throwable {
         TestClient client = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         CountDownAction<TestClient> counter = new CountDownAction<TestClient>(1);
         clientConnector.get(client).stream().subscribe(counter);
@@ -110,8 +111,7 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromSource() {
         TestClient client = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         hostEvents.onNext(MembershipEvent.create(client, MembershipEvent.EventType.ADD));
         Assert.assertEquals(1, (int)this.lb.listActiveClients().count().toBlocking().first());
@@ -124,8 +124,7 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromFailure() {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         Assert.assertEquals(1, (int)this.lb.listActiveClients().count().toBlocking().first());
@@ -142,8 +141,7 @@ public class DefaultLoadBalancerTest {
     public void oneBadConnectHost() throws InterruptedException {
         TestClient h1 = TestClient.create("h1", Connects.failure(1, TimeUnit.SECONDS), Behaviors.immediate());
         
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
     }
@@ -153,8 +151,7 @@ public class DefaultLoadBalancerTest {
     public void oneBadResponseHost() throws Throwable {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.failure(1, TimeUnit.SECONDS));
 
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         
@@ -174,8 +171,7 @@ public class DefaultLoadBalancerTest {
     public void failFirstResponse() throws Throwable {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.failFirst(1));
         
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         
@@ -205,8 +201,7 @@ public class DefaultLoadBalancerTest {
     @Test
     @Ignore
     public void openConnections() {
-        this.lb = builder.build();
-        this.lb.initialize();
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         
         Assert.assertEquals(0L,  (long)this.lb.listActiveClients().count().toBlocking().single());
 //        Assert.assertEquals(10L, (long)this.selector.prime(10).count().toBlocking().single());
