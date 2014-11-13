@@ -1,10 +1,8 @@
 package netflix.ocelli;
 
-import netflix.ocelli.client.TestClient;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import rx.Observable;
 import rx.functions.Func1;
-import rx.subjects.PublishSubject;
 
 public interface LoadBalancerBuilder<C> {
     /**
