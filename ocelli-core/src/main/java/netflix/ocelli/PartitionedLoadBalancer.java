@@ -35,7 +35,7 @@ public interface PartitionedLoadBalancer<C, K> {
     /**
      * @return Return the LoadBalancer for the specified partition key
      */
-    public ManagedLoadBalancer<C> get(K key);
+    public LoadBalancer<C> get(K key);
 
     /**
      * @return List all found partition keys.  Note that partition keys are derived from the partitioner only

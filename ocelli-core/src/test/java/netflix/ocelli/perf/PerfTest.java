@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.Ocelli;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -61,7 +62,7 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient>builder()
+        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withMembershipSource(source)
                 .withActiveClientCountStrategy(Functions.sqrt())
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
@@ -96,7 +97,7 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        this.selector = DefaultLoadBalancer.<TestClient>builder()
+        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
                 .withMembershipSource(source)
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
                 .withActiveClientCountStrategy(Functions.sqrt())
