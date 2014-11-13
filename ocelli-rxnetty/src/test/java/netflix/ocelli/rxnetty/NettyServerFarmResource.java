@@ -1,7 +1,6 @@
 package netflix.ocelli.rxnetty;
 
-import java.util.HashMap;
-
+import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.pipeline.PipelineConfigurators;
@@ -9,22 +8,21 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+import netflix.ocelli.Host;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Maps;
-
 import rx.Observable;
+
+import java.util.HashMap;
 
 public class NettyServerFarmResource extends ExternalResource {
     private static final Logger LOG = LoggerFactory.getLogger(NettyServerFarmResource.class);
         
     private final int count;
-    private final HashMap<HostAddress, HttpServer<ByteBuf, ByteBuf>> servers = Maps.newHashMap();
+    private final HashMap<Host, HttpServer<ByteBuf, ByteBuf>> servers = Maps.newHashMap();
     
     public NettyServerFarmResource(int count) {
         this.count = count;
@@ -38,9 +36,7 @@ public class NettyServerFarmResource extends ExternalResource {
             
             LOG.info("Starting server: localhost:" + server.getServerPort());
             servers.put(
-                new HostAddress()
-                    .setHost("localhost")
-                    .setPort(server.getServerPort()),
+                new Host("localhost", server.getServerPort()),
                 server);
         }
     }
@@ -51,23 +47,22 @@ public class NettyServerFarmResource extends ExternalResource {
             try {
                 server.shutdown();
             } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         }
     }
     
     public HttpServer<ByteBuf, ByteBuf> createServer() {
-        HttpServer<ByteBuf, ByteBuf> server = RxNetty.newHttpServerBuilder(0, new RequestHandler<ByteBuf, ByteBuf>() {
+        return RxNetty.newHttpServerBuilder(0, new RequestHandler<ByteBuf, ByteBuf>() {
             @Override
             public Observable<Void> handle(HttpServerRequest<ByteBuf> request, final HttpServerResponse<ByteBuf> response) {
                 response.writeString("Welcome!!");
                 return response.close(false);
             }
         }).pipelineConfigurator(PipelineConfigurators.<ByteBuf, ByteBuf>httpServerConfigurator()).build();
-
-        return server;
     }
     
-    public Observable<MembershipEvent<HostAddress>> hostEvents() {
-        return Observable.from(servers.keySet()).map(MembershipEvent.<HostAddress>toEvent(EventType.ADD));
+    public Observable<MembershipEvent<Host>> hostEvents() {
+        return Observable.from(servers.keySet()).map(MembershipEvent.<Host>toEvent(EventType.ADD));
     }
 }

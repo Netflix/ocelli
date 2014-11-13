@@ -1,7 +1,5 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.LoadBalancer;
@@ -20,6 +18,8 @@ import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
 import rx.Observable;
 import rx.functions.Func1;
 
+import java.util.concurrent.TimeUnit;
+
 public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
     private Observable<MembershipEvent<C>>   hostSource;
     private String                      name = "<unnamed>";
@@ -29,7 +29,11 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
     private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
     private FailureDetectorFactory<C>   failureDetector = Failures.never();
     private ClientConnector<C>          clientConnector = Connectors.immediate();
-    
+
+    public DefaultLoadBalancerBuilder(Observable<MembershipEvent<C>> hostSource) {
+        this.hostSource = hostSource;
+    }
+
     /**
      * Arbitrary name assigned to the connection pool, mostly for debugging purposes
      * @param name
@@ -44,7 +48,7 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
      * count.  The count is incremented by one for each failure detections and reset
      * once the host is back to normal.
      */
-    public LoadBalancerBuilder<C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
+    public LoadBalancerBuilder<C> withQuarantineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
         this.quaratineDelayStrategy = quaratineDelayStrategy;
         return this;
     }

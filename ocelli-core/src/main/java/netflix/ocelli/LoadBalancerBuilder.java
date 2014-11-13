@@ -16,7 +16,7 @@ public interface LoadBalancerBuilder<C> {
      * count.  The count is incremented by one for each failure detections and reset
      * once the host is back to normal.
      */
-    LoadBalancerBuilder<C> withQuaratineStrategy(Func1<Integer, Long> quaratineDelayStrategy);
+    LoadBalancerBuilder<C> withQuarantineStrategy(Func1<Integer, Long> quaratineDelayStrategy);
     
     /**
      * Strategy used to determine how many hosts should be active.

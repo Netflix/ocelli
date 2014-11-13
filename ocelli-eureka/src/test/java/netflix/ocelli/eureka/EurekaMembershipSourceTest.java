@@ -7,6 +7,7 @@ import com.netflix.eureka2.interests.Interests;
 import com.netflix.eureka2.registry.InstanceInfo;
 import com.netflix.eureka2.registry.ServicePort;
 import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
+import netflix.ocelli.Host;
 import netflix.ocelli.MembershipEvent;
 import org.junit.Before;
 import org.junit.Test;
@@ -66,7 +67,7 @@ public class EurekaMembershipSourceTest {
     public void testVipBasedInterest() throws Exception {
         Interest<InstanceInfo> interest = Interests.forVips("test-vip");
         Mockito.when(clientMock.forInterest(interest)).thenReturn(Observable.just(ADD_INSTANCE_1, ADD_INSTANCE_2));
-        List<MembershipEvent<EurekaMembershipSource.Host>> instances = membershipSource.forInterest(interest)
+        List<MembershipEvent<Host>> instances = membershipSource.forInterest(interest)
                                                                                        .toList().toBlocking()
                                                                                        .toFuture()
                                                                                        .get(1, TimeUnit.MINUTES);

@@ -20,8 +20,7 @@ apply plugin: 'groovy'
 
 dependencies {
     compile project(':ocelli-core')
-    compile "com.netflix.rxnetty:rx-netty:0.3.18"
-    compile "com.netflix.rxnetty:rx-netty-contexts:0.3.18"
+    compile 'io.reactivex:rxnetty:0.4.0'
     testCompile 'junit:junit:4.10'
 }
 

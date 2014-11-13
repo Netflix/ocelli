@@ -1,13 +1,7 @@
 package netflix.ocelli.perf;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.Ocelli;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -15,25 +9,27 @@ import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.functions.Functions;
 import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class PerfTest {
     private static final Logger LOG = LoggerFactory.getLogger(PerfTest.class);
     
     private static final int NUM_HOSTS = 1000;
     private static Observable<MembershipEvent<TestClient>> source;
-    private static final Random RANDOM = new Random();
-    
+
     private DefaultLoadBalancer<TestClient> selector;
     
     @BeforeClass
@@ -62,8 +58,7 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
-                .withMembershipSource(source)
+        this.selector = (DefaultLoadBalancer<TestClient>) LoadBalancers.newBuilder(source)
                 .withActiveClientCountStrategy(Functions.sqrt())
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
@@ -96,8 +91,7 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
-                .withMembershipSource(source)
+        this.selector = (DefaultLoadBalancer<TestClient>) LoadBalancers.<TestClient>newBuilder(source)
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
                 .withActiveClientCountStrategy(Functions.sqrt())
                 .build();
