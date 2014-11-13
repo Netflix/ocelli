@@ -1,42 +1,30 @@
 package netflix.ocelli.rxnetty;
 
-import java.util.concurrent.TimeUnit;
-
+import io.reactivex.netty.metrics.HttpClientMetricEventsListener;
+import netflix.ocelli.FailureDetectorFactory;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
-import io.netty.buffer.ByteBuf;
-import io.reactivex.netty.client.ClientMetricsEvent;
-import io.reactivex.netty.metrics.MetricEventsListener;
-import io.reactivex.netty.protocol.http.client.HttpClient;
-import netflix.ocelli.FailureDetectorFactory;
 
-public class RxNettyFailureDetector implements FailureDetectorFactory<HttpClient<ByteBuf, ByteBuf>>{
+import java.util.concurrent.TimeUnit;
+
+/**
+ * A failure detector for RxNetty that detects failures which determine host health.
+ */
+public class RxNettyFailureDetector<I, O> implements FailureDetectorFactory<HttpClientHolder<I, O>>{
 
     @Override
-    public Observable<Throwable> call(final HttpClient<ByteBuf, ByteBuf> client) {
+    public Observable<Throwable> call(final HttpClientHolder<I, O> holder) {
         return Observable.create(new OnSubscribe<Throwable>() {
             @Override
             public void call(final Subscriber<? super Throwable> sub) {
-                client.subscribe(new MetricEventsListener<ClientMetricsEvent<?>>() {
+                holder.getClient().subscribe(new HttpClientMetricEventsListener() {
                     @Override
-                    public void onEvent(ClientMetricsEvent<?> event,
-                            long duration, TimeUnit timeUnit,
-                            Throwable throwable, Object value) {
-                        if (event.isError())
-                            sub.onNext(throwable);
-                    }
-
-                    @Override
-                    public void onCompleted() {
-                    }
-
-                    @Override
-                    public void onSubscribe() {
+                    protected void onConnectFailed(long duration, TimeUnit timeUnit, Throwable throwable) {
+                        sub.onNext(throwable);
                     }
                 });
             }
         });
     }
-
 }

@@ -1,14 +1,5 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
@@ -20,10 +11,8 @@ import netflix.ocelli.util.RandomBlockingQueue;
 import netflix.ocelli.util.RxUtil;
 import netflix.ocelli.util.StateMachine;
 import netflix.ocelli.util.StateMachine.State;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
@@ -32,6 +21,15 @@ import rx.functions.Func1;
 import rx.subscriptions.CompositeSubscription;
 import rx.subscriptions.SerialSubscription;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * The ClientSelector keeps track of all existing hosts and returns a single host for each
  * call to acquire().
@@ -39,8 +37,7 @@ import rx.subscriptions.SerialSubscription;
  * @author elandau
  *
  * @param <C>
- * @param <Tracker>
- * 
+ *
  */
 public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     
@@ -322,8 +319,11 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
      */
     @Override
     public Observable<C> choose() {
+        if (activeClients.isEmpty()) {
+            return Observable.error(new IllegalArgumentException("No servers available in the load balancer: " + name));
+        }
         return selectionStrategy.call(
-                    weightingStrategy.call(new ArrayList<C>(activeClients)));
+                weightingStrategy.call(new ArrayList<C>(activeClients)));
     }
 
     @Override

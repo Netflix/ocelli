@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class RxNettyTest {
-    private static final Logger LOG = LoggerFactory.getLogger(RxNettyTest.class);
+public class RxNettyStressTest {
+    private static final Logger LOG = LoggerFactory.getLogger(RxNettyStressTest.class);
     
 //    @ClassRule
 //    public static NettyServerFarmResource servers = new NettyServerFarmResource(100);
