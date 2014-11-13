@@ -23,6 +23,7 @@ import rx.subscriptions.SerialSubscription;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -320,7 +321,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     @Override
     public Observable<C> choose() {
         if (activeClients.isEmpty()) {
-            return Observable.error(new IllegalArgumentException("No servers available in the load balancer: " + name));
+            return Observable.error(new NoSuchElementException("No servers available in the load balancer: " + name));
         }
         return selectionStrategy.call(
                 weightingStrategy.call(new ArrayList<C>(activeClients)));
