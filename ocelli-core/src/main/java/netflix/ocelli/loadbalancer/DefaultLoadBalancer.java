@@ -105,9 +105,11 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
         this.failureDetector            = failureDetector;
         this.clientConnector            = clientConnector;
         this.hostSource                 = hostSource;
+        
+        initialize();
     }
 
-    public void initialize() {
+    private void initialize() {
         
         IDLE
             .onEnter(new Func1<Holder, Observable<EventType>>() {

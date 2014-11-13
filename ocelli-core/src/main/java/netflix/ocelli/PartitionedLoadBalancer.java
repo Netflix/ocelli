@@ -45,10 +45,5 @@ public interface PartitionedLoadBalancer<C, K> {
     /**
      * 
      */
-    public void initialize();
-    
-    /**
-     * 
-     */
     public void shutdown();
 }

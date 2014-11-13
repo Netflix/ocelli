@@ -68,7 +68,6 @@ public class PerfTest {
 //                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
                 .build();
         
-        this.selector.initialize();
 //        this.selector.prime(10).toBlocking().last();
 
         Observable.range(1, 10)
@@ -103,8 +102,6 @@ public class PerfTest {
                 .withActiveClientCountStrategy(Functions.sqrt())
                 .build();
         
-        this.selector.initialize();
-
         final AtomicLong messageCount = new AtomicLong(0);
         
         Observable.range(1, 400)

@@ -12,7 +12,8 @@ public interface LoadBalancer<C> {
      */
     Observable<C> choose();
 
-    void initialize();
-    
+    /**
+     * Perform cleanup and unregister
+     */
     void shutdown();
 }

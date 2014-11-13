@@ -66,10 +66,11 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
         this.quaratineDelayStrategy = quaratineDelayStrategy;
         this.name                   = name;
         this.connectedHostCountStrategy = connectedHostCountStrategy;
+        
+        initialize();
     }
 
-    @Override
-    public void initialize() {
+    private void initialize() {
         cs.add(hostSource
             .subscribe(new Action1<MembershipEvent<C>>() {
                 @Override
@@ -127,7 +128,6 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)
                 .build();
-        lb.initialize();
         return lb;
     }
 

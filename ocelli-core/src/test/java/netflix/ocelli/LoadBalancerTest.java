@@ -68,8 +68,6 @@ public class LoadBalancerTest {
                     .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))
                 .build();
         
-        this.selector.initialize();
-        
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
     

@@ -49,7 +49,6 @@ public class PartitionedLoadBalancerTest {
                 .withPartitioner(TestClient.byVip())
                 .build()
                 ;
-        lb.initialize();
 
         //////////////////////////
         // Step 1: Add 4 hosts
@@ -126,7 +125,6 @@ public class PartitionedLoadBalancerTest {
                 .withPartitioner(TestClient.byVip())
                 .build()
                 ;
-        lb.initialize();
 
         //////////////////////////
         // Step 1: Add 4 hosts
@@ -173,8 +171,6 @@ public class PartitionedLoadBalancerTest {
                 .withPartitioner(TestClient.byRack())
                 .build()
                 ;
-        
-        lb.initialize();
         
         hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
