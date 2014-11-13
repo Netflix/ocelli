@@ -1,25 +1,23 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.Ocelli;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBalancer<C, K> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultPartitioningLoadBalancer.class);
@@ -118,17 +116,15 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
     
     private LoadBalancer<C> createPartition(K id, Observable<MembershipEvent<C>> hostSource) {
         LOG.info("Creating partition : " + id);
-        LoadBalancer<C> lb =  Ocelli.<C>newDefaultLoadBalancerBuilder()
+        return LoadBalancers.newBuilder(hostSource)
                 .withName(getName() + "_" + id)
-                .withMembershipSource(hostSource)
-                .withQuaratineStrategy(quaratineDelayStrategy)
+                .withQuarantineStrategy(quaratineDelayStrategy)
                 .withSelectionStrategy(selectionStrategy)
                 .withWeightingStrategy(weightingStrategy)
                 .withActiveClientCountStrategy(connectedHostCountStrategy)
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)
                 .build();
-        return lb;
     }
 
     private String getName() {

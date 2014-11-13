@@ -1,17 +1,11 @@
 package netflix.ocelli;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ResponseObserver;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TrackingOperation;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -21,8 +15,11 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class LoadBalancerTest {
     private static final Logger LOG = LoggerFactory.getLogger(LoadBalancerTest.class);
@@ -40,7 +37,7 @@ public class LoadBalancerTest {
 
     private static List<TestClient> servers;
 
-    private DefaultLoadBalancer<TestClient> selector;
+    private LoadBalancer<TestClient> selector;
 
     @Rule
     public TestName name = new TestName();
@@ -62,12 +59,9 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = (DefaultLoadBalancer<TestClient>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
-                .withMembershipSource(Observable
-                    .from(servers)
-                    .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))
-                .build();
-        
+        this.selector = LoadBalancers.fromHostSource(Observable.from(servers)
+                                                               .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)));
+
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
     

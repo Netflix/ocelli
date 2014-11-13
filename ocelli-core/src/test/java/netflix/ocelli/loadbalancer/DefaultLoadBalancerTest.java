@@ -1,13 +1,9 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.LoadBalancerBuilder;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.Ocelli;
 import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -22,7 +18,6 @@ import netflix.ocelli.functions.Functions;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.util.CountDownAction;
 import netflix.ocelli.util.RxUtil;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,15 +26,15 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.subjects.PublishSubject;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 public class DefaultLoadBalancerTest {
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancerTest.class);
-    
+
     private static final int NUM_HOSTS = 10;
     private static Observable<MembershipEvent<TestClient>> source;
     
@@ -66,11 +61,10 @@ public class DefaultLoadBalancerTest {
     
     @Before 
     public void before() {
-        builder = Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
+        builder = LoadBalancers.newBuilder(hostEvents)
             .withName("Test-" + testName.getMethodName())
-            .withMembershipSource(hostEvents)
             .withActiveClientCountStrategy(Functions.identity())
-            .withQuaratineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
             .withFailureDetector(failureDetector)
             .withClientConnector(clientConnector)
             .withWeightingStrategy(new LinearWeightingStrategy<TestClient>(TestClient.byPendingRequestCount()));

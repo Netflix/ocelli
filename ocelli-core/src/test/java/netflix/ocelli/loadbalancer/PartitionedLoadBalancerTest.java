@@ -1,33 +1,27 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.HashSet;
-import java.util.Set;
-
+import com.google.common.collect.Sets;
 import junit.framework.Assert;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.Ocelli;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.util.RxUtil;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
-import com.google.common.collect.Sets;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PartitionedLoadBalancerTest {
-    private static final Logger LOG = LoggerFactory.getLogger(PartitionedLoadBalancerTest.class);
-    
+
     @Rule
     public TestName name = new TestName();
     
@@ -42,9 +36,9 @@ public class PartitionedLoadBalancerTest {
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withVip("a").withVip("b");
         TestClient h4 = TestClient.create("h4", Connects.immediate(), Behaviors.immediate()).withVip("b");
         
-        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) LoadBalancers
+                .newBuilder(hostSource)
                 .withName(name.getMethodName())
-                .withMembershipSource(hostSource)
                 .withFailureDetector(failureDetector)
                 .withPartitioner(TestClient.byVip())
                 .build()
@@ -118,9 +112,9 @@ public class PartitionedLoadBalancerTest {
         
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
-        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) LoadBalancers
+                .<TestClient>newBuilder(hostSource)
                 .withName(name.getMethodName())
-                .withMembershipSource(hostSource)
                 .withFailureDetector(failureDetector)
                 .withPartitioner(TestClient.byVip())
                 .build()
@@ -165,9 +159,9 @@ public class PartitionedLoadBalancerTest {
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1c");
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1d");
         
-        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) Ocelli.<TestClient>newDefaultLoadBalancerBuilder()
+        DefaultPartitioningLoadBalancer<TestClient, String> lb = (DefaultPartitioningLoadBalancer<TestClient, String>) LoadBalancers
+                .newBuilder(hostSource)
                 .withName(name.getMethodName())
-                .withMembershipSource(hostSource)
                 .withPartitioner(TestClient.byRack())
                 .build()
                 ;
@@ -198,7 +192,6 @@ public class PartitionedLoadBalancerTest {
             .doOnError(RxUtil.error("Got error: "))
             .retry()
             .subscribe();
-            ;
     }
     
     @Test
