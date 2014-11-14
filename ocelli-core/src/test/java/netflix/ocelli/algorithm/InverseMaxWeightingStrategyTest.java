@@ -17,16 +17,15 @@ import rx.functions.Func1;
 
 import com.google.common.collect.Lists;
 
-public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
-    
-    LinearWeightingStrategy<IntClientAndMetrics> strategy;
+public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
+    InverseMaxWeightingStrategy<IntClientAndMetrics> strategy;
 
     @Rule
     public RetryFailedTestRule retryRule = new RetryFailedTestRule();
     
     @Before 
     public void before() {
-        strategy = new LinearWeightingStrategy<IntClientAndMetrics>(new Func1<IntClientAndMetrics, Integer>() {
+        strategy = new InverseMaxWeightingStrategy<IntClientAndMetrics>(new Func1<IntClientAndMetrics, Integer>() {
             @Override
             public Integer call(IntClientAndMetrics t1) {
                 return t1.getMetrics();
@@ -53,7 +52,7 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testOneClient() {
         ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create(10));
         
-        Assert.assertEquals(Lists.newArrayList(10), getWeights(result));
+        Assert.assertEquals(Lists.newArrayList(1), getWeights(result));
         
         List<Integer> counts;
         counts = roundToNearest(select(result, new RandomWeightSelector(), 1000), 100);
@@ -85,14 +84,15 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testDifferentWeights() {
         ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create(1,2,3,4));
         
-        Assert.assertEquals(Lists.newArrayList(1,3,6,10), getWeights(result));
+        Assert.assertEquals(Lists.newArrayList(4,7,9,10), getWeights(result));
         
         List<Integer> counts;
         counts = roundToNearest(select(result, new RandomWeightSelector(), 4000), 100);
-        Assert.assertEquals(Lists.newArrayList(400, 800, 1200, 1600), counts);
+        Assert.assertEquals(Lists.newArrayList(1600, 1200, 800, 400), counts);
         
         counts = select(result, new RoundRobinWeightSelector(), 4000);
-        Assert.assertEquals(Lists.newArrayList(400, 800, 1200, 1600), counts);
+        Assert.assertEquals(Lists.newArrayList(1600, 1200, 800, 400), counts);
 
     }
+    
 }
