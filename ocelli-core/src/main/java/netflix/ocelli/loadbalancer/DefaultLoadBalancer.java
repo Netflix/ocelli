@@ -199,8 +199,8 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
                 @Override
                 public Observable<EventType> call(Holder holder) {
                     LOG.info("{} - {} is removed", name, holder.getClient());
-                    activeClients.remove(holder);
-                    acquiredClients.add(holder);
+                    activeClients.remove(holder.getClient());
+                    acquiredClients.remove(holder);
                     idleClients.remove(holder);
                     clients.remove(holder.client);
                     cs.remove(holder.cs);
