@@ -13,6 +13,7 @@ import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.functions.Action1;
 import rx.functions.Action2;
+import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
@@ -92,7 +93,14 @@ public class StateMachine<T, E> implements Action1<E> {
         return Observable.create(new OnSubscribe<Void>() {
             @Override
             public void call(Subscriber<? super Void> sub) {
-                sub.add(events.collect(context, new Action2<T, E>() {
+                sub.add(events.collect(new Func0<T>() {
+
+                    @Override
+                    public T call() {
+                        return context;
+                    }
+                    
+                }, new Action2<T, E>() {
                         @Override
                         public void call(T context, E event) {
                             LOG.trace("{} : {}({})", context, state, event);
