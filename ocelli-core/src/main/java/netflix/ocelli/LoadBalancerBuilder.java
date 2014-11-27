@@ -1,6 +1,5 @@
 package netflix.ocelli;
 
-import netflix.ocelli.selectors.ClientsAndWeights;
 import rx.Observable;
 import rx.functions.Func1;
 
@@ -30,15 +29,10 @@ public interface LoadBalancerBuilder<C> {
     LoadBalancerBuilder<C> withMembershipSource(Observable<MembershipEvent<C>> hostSource);
     
     /**
-     * Strategy use to calculate weights for active clients
-     */
-    LoadBalancerBuilder<C> withWeightingStrategy(WeightingStrategy<C> algorithm);
-    
-    /**
      * Strategy used to select hosts from the calculated weights.  
      * @param selectionStrategy
      */
-    LoadBalancerBuilder<C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy);
+    LoadBalancerBuilder<C> withSelectionStrategy(SelectionStrategy<C> selectionStrategy);
     
     /**
      * The failure detector returns an Observable that will emit a Throwable for each 

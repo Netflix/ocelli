@@ -1,23 +1,24 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.PartitionedLoadBalancer;
-import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.selectors.ClientsAndWeights;
+import netflix.ocelli.SelectionStrategy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
-
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBalancer<C, K> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultPartitioningLoadBalancer.class);
@@ -26,12 +27,11 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
     private final Func1<C, Observable<K>> partitioner;
     private final Observable<MembershipEvent<C>> hostSource;
     private final ConcurrentMap<K, Holder> partitions = new ConcurrentHashMap<K, Holder>();
-    private final WeightingStrategy<C> weightingStrategy;
     private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
-    private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
+    private final SelectionStrategy<C> selectionStrategy;
     private final String name;
     
     private final class Holder {
@@ -49,10 +49,9 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
             Observable<MembershipEvent<C>> hostSource,
             ClientConnector<C> clientConnector,
             FailureDetectorFactory<C> failureDetector,
-            Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy,
+            SelectionStrategy<C> selectionStrategy,
             Func1<Integer, Long> quaratineDelayStrategy,
             Func1<Integer, Integer> connectedHostCountStrategy,
-            WeightingStrategy<C> weightingStrategy,
             Func1<C, Observable<K>> partitioner) {
         
         this.partitioner            = partitioner;
@@ -60,7 +59,6 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
         this.failureDetector        = failureDetector;
         this.clientConnector        = clientConnector;
         this.selectionStrategy      = selectionStrategy;
-        this.weightingStrategy      = weightingStrategy;
         this.quaratineDelayStrategy = quaratineDelayStrategy;
         this.name                   = name;
         this.connectedHostCountStrategy = connectedHostCountStrategy;
@@ -120,7 +118,6 @@ public class DefaultPartitioningLoadBalancer<C, K> implements PartitionedLoadBal
                 .withName(getName() + "_" + id)
                 .withQuarantineStrategy(quaratineDelayStrategy)
                 .withSelectionStrategy(selectionStrategy)
-                .withWeightingStrategy(weightingStrategy)
                 .withActiveClientCountStrategy(connectedHostCountStrategy)
                 .withClientConnector(clientConnector)
                 .withFailureDetector(failureDetector)

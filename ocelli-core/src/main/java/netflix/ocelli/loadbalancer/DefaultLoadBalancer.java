@@ -1,18 +1,27 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.ManagedLoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.selectors.ClientsAndWeights;
+import netflix.ocelli.SelectionStrategy;
 import netflix.ocelli.util.RandomBlockingQueue;
 import netflix.ocelli.util.RxUtil;
 import netflix.ocelli.util.StateMachine;
 import netflix.ocelli.util.StateMachine.State;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
@@ -20,16 +29,6 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.subscriptions.CompositeSubscription;
 import rx.subscriptions.SerialSubscription;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The ClientSelector keeps track of all existing hosts and returns a single host for each
@@ -45,12 +44,11 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultLoadBalancer.class);
     
     private final Observable<MembershipEvent<C>> hostSource;
-    private final WeightingStrategy<C> weightingStrategy;
     private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C> clientConnector;
     private final Func1<Integer, Integer> connectedHostCountStrategy;
     private final Func1<Integer, Long> quaratineDelayStrategy;
-    private final Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy;
+    private final SelectionStrategy<C> selectionStrategy;
     
     private final String name;
 
@@ -87,15 +85,13 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     private State<Holder, EventType> REMOVED      = State.create("REMOVED");
 
     public DefaultLoadBalancer(
-            String name, 
-            Observable<MembershipEvent<C>> hostSource, 
-            ClientConnector<C> clientConnector, 
-            FailureDetectorFactory<C> failureDetector, 
-            Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy, 
-            Func1<Integer, Long> quaratineDelayStrategy, 
-            Func1<Integer, Integer> connectedHostCountStrategy, 
-            WeightingStrategy<C> weightingStrategy) {
-        this.weightingStrategy          = weightingStrategy;
+            String                          name, 
+            Observable<MembershipEvent<C>>  hostSource, 
+            ClientConnector<C>              clientConnector, 
+            FailureDetectorFactory<C>       failureDetector, 
+            SelectionStrategy<C>            selectionStrategy, 
+            Func1<Integer, Long>            quaratineDelayStrategy, 
+            Func1<Integer, Integer>         connectedHostCountStrategy) {
         this.connectedHostCountStrategy = connectedHostCountStrategy;
         this.quaratineDelayStrategy     = quaratineDelayStrategy;
         this.selectionStrategy          = selectionStrategy;
@@ -158,6 +154,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
                 public Observable<EventType> call(Holder holder) {
                     LOG.info("{} - {} is connected", name, holder.getClient());
                     activeClients.add(holder.client);
+                    onActiveClientListChanged();
                     return Observable.empty();
                 }
             })
@@ -165,6 +162,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
                 @Override
                 public Observable<EventType> call(Holder holder) {
                     activeClients.remove(holder.client);
+                    onActiveClientListChanged();
                     return Observable.empty();
                 }
             })
@@ -204,6 +202,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
                     idleClients.remove(holder);
                     clients.remove(holder.client);
                     cs.remove(holder.cs);
+                    onActiveClientListChanged();
                     return Observable.empty();
                 }
         })
@@ -315,16 +314,17 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
         });
     }
     
+    @SuppressWarnings("unchecked")
+    private void onActiveClientListChanged() {
+        this.selectionStrategy.setClients((C[]) activeClients.toArray());
+    }
+    
     /**
      * Acquire the most recent list of hosts
      */
     @Override
     public Observable<C> choose() {
-        if (activeClients.isEmpty()) {
-            return Observable.error(new NoSuchElementException("No servers available in the load balancer: " + name));
-        }
-        return selectionStrategy.call(
-                weightingStrategy.call(new ArrayList<C>(activeClients)));
+        return this.selectionStrategy.call();
     }
 
     @Override

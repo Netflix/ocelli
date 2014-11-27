@@ -1,98 +1,71 @@
 package netflix.ocelli.algorithm;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import junit.framework.Assert;
+import netflix.ocelli.SelectionStrategy;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
-import netflix.ocelli.selectors.ClientsAndWeights;
-import netflix.ocelli.selectors.RandomWeightSelector;
-import netflix.ocelli.selectors.RoundRobinWeightSelector;
+import netflix.ocelli.selectors.RandomWeightedSelector;
+import netflix.ocelli.weighted.LinearWeightingStrategy;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import rx.functions.Func1;
-
 import com.google.common.collect.Lists;
 
 public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     
-    LinearWeightingStrategy<IntClientAndMetrics> strategy;
-
+    SelectionStrategy<IntClientAndMetrics> selector;
+                
     @Rule
     public RetryFailedTestRule retryRule = new RetryFailedTestRule();
     
     @Before 
     public void before() {
-        strategy = new LinearWeightingStrategy<IntClientAndMetrics>(new Func1<IntClientAndMetrics, Integer>() {
-            @Override
-            public Integer call(IntClientAndMetrics t1) {
-                return t1.getMetrics();
-            }            
-        });
+        selector = new RandomWeightedSelector<IntClientAndMetrics>(
+                new LinearWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
     }
     
-    @Test
-    public void testEmptyClients() {
-        ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create());
+    @Test(expected=NoSuchElementException.class)
+    public void testEmptyClients() throws Throwable {
+        IntClientAndMetrics[] clients = create();
+        selector.setClients(clients);
         
-        Assert.assertEquals(Lists.newArrayList(), getWeights(result));
-        
-        List<Integer> counts;
-        counts = roundToNearest(select(result, new RandomWeightSelector(), 1000), 100);
-        Assert.assertEquals(Lists.newArrayList(), counts);
-        
-        counts = select(result, new RoundRobinWeightSelector(), 1000);
+        List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 1000), 100));
         Assert.assertEquals(Lists.newArrayList(), counts);
     }
     
     @Test
     @Retry(5)
-    public void testOneClient() {
-        ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create(10));
+    public void testOneClient() throws Throwable {
+        IntClientAndMetrics[] clients = create(10);
+        selector.setClients(clients);
         
-        Assert.assertEquals(Lists.newArrayList(10), getWeights(result));
-        
-        List<Integer> counts;
-        counts = roundToNearest(select(result, new RandomWeightSelector(), 1000), 100);
+        List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 1000), 100));
         Assert.assertEquals(Lists.newArrayList(1000), counts);
-        
-        counts = select(result, new RoundRobinWeightSelector(), 1000);
-        Assert.assertEquals(Lists.newArrayList(1000), counts);
-
     }
     
     @Test
     @Retry(5)
-    public void testEqualsWeights() {
-        ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create(1,1,1,1));
+    public void testEqualsWeights() throws Throwable {
+        IntClientAndMetrics[] clients = create(1,1,1,1);
+        selector.setClients(clients);
         
-        Assert.assertEquals(Lists.newArrayList(1,2,3,4), getWeights(result));
-        
-        List<Integer> counts;
-        counts = roundToNearest(select(result, new RandomWeightSelector(), 4000), 100);
+        List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 4000), 100));
         Assert.assertEquals(Lists.newArrayList(1000, 1000, 1000, 1000), counts);
-        
-        counts = select(result, new RoundRobinWeightSelector(), 4000);
-        Assert.assertEquals(Lists.newArrayList(1000, 1000, 1000, 1000), counts);
-
     }
     
     @Test
     @Retry(5)
-    public void testDifferentWeights() {
-        ClientsAndWeights<IntClientAndMetrics> result = strategy.call(create(1,2,3,4));
+    public void testDifferentWeights() throws Throwable {
+        IntClientAndMetrics[] clients = create(1,2,3,4);
+        selector.setClients(clients);
         
-        Assert.assertEquals(Lists.newArrayList(1,3,6,10), getWeights(result));
-        
-        List<Integer> counts;
-        counts = roundToNearest(select(result, new RandomWeightSelector(), 4000), 100);
+        List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 4000), 100));
         Assert.assertEquals(Lists.newArrayList(400, 800, 1200, 1600), counts);
-        
-        counts = select(result, new RoundRobinWeightSelector(), 4000);
-        Assert.assertEquals(Lists.newArrayList(400, 800, 1200, 1600), counts);
-
     }
 }

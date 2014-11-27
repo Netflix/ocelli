@@ -1,5 +1,7 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.concurrent.TimeUnit;
+
 import netflix.ocelli.ClientConnector;
 import netflix.ocelli.FailureDetectorFactory;
 import netflix.ocelli.LoadBalancer;
@@ -7,26 +9,21 @@ import netflix.ocelli.LoadBalancerBuilder;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.PartitionedLoadBalancerBuilder;
-import netflix.ocelli.WeightingStrategy;
-import netflix.ocelli.algorithm.EqualWeightStrategy;
+import netflix.ocelli.SelectionStrategy;
 import netflix.ocelli.functions.Connectors;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Failures;
 import netflix.ocelli.functions.Functions;
-import netflix.ocelli.selectors.ClientsAndWeights;
 import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
 import rx.Observable;
 import rx.functions.Func1;
 
-import java.util.concurrent.TimeUnit;
-
 public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
     private Observable<MembershipEvent<C>>   hostSource;
     private String                      name = "<unnamed>";
-    private WeightingStrategy<C>        weightingStrategy = new EqualWeightStrategy<C>();
     private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
     private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-    private Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy = new RoundRobinSelectionStrategy<C>();
+    private SelectionStrategy<C>        selectionStrategy = new RoundRobinSelectionStrategy<C>();
     private FailureDetectorFactory<C>   failureDetector = Failures.never();
     private ClientConnector<C>          clientConnector = Connectors.immediate();
 
@@ -71,18 +68,10 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
     }
     
     /**
-     * Strategy use to calculate weights for active clients
-     */
-    public LoadBalancerBuilder<C> withWeightingStrategy(WeightingStrategy<C> algorithm) {
-        this.weightingStrategy = algorithm;
-        return this;
-    }
-    
-    /**
      * Strategy used to select hosts from the calculated weights.  
      * @param selectionStrategy
      */
-    public LoadBalancerBuilder<C> withSelectionStrategy(Func1<ClientsAndWeights<C>, Observable<C>> selectionStrategy) {
+    public LoadBalancerBuilder<C> withSelectionStrategy(SelectionStrategy<C> selectionStrategy) {
         this.selectionStrategy = selectionStrategy;
         return this;
     }
@@ -117,8 +106,7 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
                 failureDetector, 
                 selectionStrategy, 
                 quaratineDelayStrategy, 
-                connectedHostCountStrategy, 
-                weightingStrategy);
+                connectedHostCountStrategy);
     }
 
     @Override
@@ -134,7 +122,6 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
                         selectionStrategy, 
                         quaratineDelayStrategy, 
                         connectedHostCountStrategy, 
-                        weightingStrategy, 
                         partitioner);
             }
         };

@@ -10,19 +10,23 @@ import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
+
+import java.util.concurrent.TimeUnit;
+
 import netflix.ocelli.Host;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.algorithm.LinearWeightingStrategy;
+import netflix.ocelli.selectors.RandomWeightedSelector;
+import netflix.ocelli.weighted.LinearWeightingStrategy;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
 import rx.Observable;
 import rx.functions.Func1;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Nitesh Kant
@@ -62,7 +66,8 @@ public class RxNettyIntegrationTest {
                                                                           });
 
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                LoadBalancers.newBuilder(clientSource.map(new Func1<HttpClient<ByteBuf, ByteBuf>, MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>>() {
+                LoadBalancers
+                    .newBuilder(clientSource.map(new Func1<HttpClient<ByteBuf, ByteBuf>, MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>>() {
                             @Override
                             public MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>> call(
                                     HttpClient<ByteBuf, ByteBuf> client) {
@@ -71,9 +76,13 @@ public class RxNettyIntegrationTest {
                                         new HttpClientHolder<ByteBuf, ByteBuf>(
                                                 client));
                             }
-                        })).withWeightingStrategy(new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(new RxNettyPendingRequests<ByteBuf, ByteBuf>()))
-                           .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
-                           .build();
+                        }))
+                        .withSelectionStrategy(
+                            new RandomWeightedSelector<HttpClientHolder<ByteBuf, ByteBuf>>(
+                                new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
+                                    new RxNettyPendingRequests<ByteBuf, ByteBuf>())))
+                        .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
+                        .build();
 
         HttpClientResponse<ByteBuf> response = lb.choose().flatMap(
                 new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
