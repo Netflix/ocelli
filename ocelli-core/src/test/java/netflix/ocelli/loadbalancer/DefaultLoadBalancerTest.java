@@ -4,7 +4,6 @@ import netflix.ocelli.LoadBalancerBuilder;
 import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.algorithm.LinearWeightingStrategy;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -16,8 +15,11 @@ import netflix.ocelli.client.TrackingOperation;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Functions;
 import netflix.ocelli.functions.Retrys;
+import netflix.ocelli.selectors.RandomWeightedSelector;
 import netflix.ocelli.util.CountDownAction;
 import netflix.ocelli.util.RxUtil;
+import netflix.ocelli.weighted.LinearWeightingStrategy;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -26,6 +28,7 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+
 import rx.Observable;
 import rx.subjects.PublishSubject;
 
@@ -67,7 +70,10 @@ public class DefaultLoadBalancerTest {
             .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
             .withFailureDetector(failureDetector)
             .withClientConnector(clientConnector)
-            .withWeightingStrategy(new LinearWeightingStrategy<TestClient>(TestClient.byPendingRequestCount()));
+            .withSelectionStrategy(
+                new RandomWeightedSelector<TestClient>(
+                    new LinearWeightingStrategy<TestClient>(
+                        TestClient.byPendingRequestCount())));
     }
     
     @After

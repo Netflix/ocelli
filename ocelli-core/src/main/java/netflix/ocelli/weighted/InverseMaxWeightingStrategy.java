@@ -1,9 +1,5 @@
-package netflix.ocelli.algorithm;
+package netflix.ocelli.weighted;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
 import rx.functions.Func1;
 
@@ -30,25 +26,23 @@ public class InverseMaxWeightingStrategy<C> implements WeightingStrategy<C> {
     }
     
     @Override
-    public ClientsAndWeights<C> call(List<C> source) {
-        List<C>  clients = new ArrayList<C>(source.size());
-        List<Integer> weights = new ArrayList<Integer>(source.size());
+    public ClientsAndWeights<C> call(C[] clients) {
+        int[] weights = new int[clients.length];
         
-        if (source.size() > 0) {
+        if (clients.length > 0) {
             Integer max = 0;
-            for (C context : source) {
-                clients.add(context);
-                int weight = func.call(context);
+            for (int i = 0; i < clients.length; i++) {
+                int weight = func.call(clients[i]);
                 if (weight > max) {
                     max = weight;
-                }
-                weights.add(weight);
+                }   
+                weights[i] = weight;
             }
     
             int sum = 0;
-            for (int i = 0; i < weights.size(); i++) {
-                sum += (max - weights.get(i)) + 1;
-                weights.set(i, sum);
+            for (int i = 0; i < weights.length; i++) {
+                sum += (max - weights[i]) + 1;
+                weights[i] = sum;
             }
         }
         return new ClientsAndWeights<C>(clients, weights);

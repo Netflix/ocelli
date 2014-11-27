@@ -1,31 +1,36 @@
 package netflix.ocelli.rxnetty;
 
-import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.protocol.http.client.FlatResponseOperator;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.ResponseHolder;
-import netflix.ocelli.Host;
-import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.LoadBalancers;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.algorithm.LinearWeightingStrategy;
-import netflix.ocelli.functions.Retrys;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import rx.Observable;
-import rx.functions.Action1;
-import rx.functions.Func1;
 
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+import netflix.ocelli.Host;
+import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.LoadBalancers;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.functions.Retrys;
+import netflix.ocelli.selectors.RandomWeightedSelector;
+import netflix.ocelli.weighted.LinearWeightingStrategy;
+
+import org.junit.Ignore;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import rx.Observable;
+import rx.functions.Action1;
+import rx.functions.Func1;
+
+import com.google.common.collect.Lists;
 
 public class RxNettyStressTest {
     private static final Logger LOG = LoggerFactory.getLogger(RxNettyStressTest.class);
@@ -65,9 +70,11 @@ public class RxNettyStressTest {
                                                                  client));
                                                      }
                                                  }))
-                .withWeightingStrategy(new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
-                        new RxNettyPendingRequests<ByteBuf, ByteBuf>()))
-                        .build();
+                .withSelectionStrategy(
+                    new RandomWeightedSelector<HttpClientHolder<ByteBuf, ByteBuf>>(
+                        new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
+                            new RxNettyPendingRequests<ByteBuf, ByteBuf>())))
+                .build();
 
         final AtomicLong counter = new AtomicLong();
         

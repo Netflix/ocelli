@@ -1,8 +1,5 @@
-package netflix.ocelli.algorithm;
+package netflix.ocelli.weighted;
 
-import java.util.List;
-
-import netflix.ocelli.WeightingStrategy;
 import netflix.ocelli.selectors.ClientsAndWeights;
 
 /**
@@ -16,7 +13,7 @@ import netflix.ocelli.selectors.ClientsAndWeights;
 public class EqualWeightStrategy<C> implements WeightingStrategy<C> {
 
     @Override
-    public ClientsAndWeights<C> call(List<C> clients) {
+    public ClientsAndWeights<C> call(C[] clients) {
         return new ClientsAndWeights<C>(clients, null);
     }
 }
