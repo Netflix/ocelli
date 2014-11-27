@@ -16,9 +16,9 @@ import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Functions;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.selectors.RandomWeightedSelector;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 import netflix.ocelli.util.CountDownAction;
 import netflix.ocelli.util.RxUtil;
-import netflix.ocelli.weighted.LinearWeightingStrategy;
 
 import org.junit.After;
 import org.junit.Assert;

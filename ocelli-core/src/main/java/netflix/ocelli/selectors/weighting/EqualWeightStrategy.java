@@ -1,6 +1,5 @@
-package netflix.ocelli.weighted;
+package netflix.ocelli.selectors.weighting;
 
-import netflix.ocelli.selectors.ClientsAndWeights;
 
 /**
  * Strategy where all clients have the same weight

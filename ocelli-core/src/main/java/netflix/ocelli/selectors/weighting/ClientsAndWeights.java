@@ -1,4 +1,4 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.selectors.weighting;
 
 
 public class ClientsAndWeights<C> {

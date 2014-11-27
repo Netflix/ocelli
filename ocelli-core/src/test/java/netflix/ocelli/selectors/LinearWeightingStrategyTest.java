@@ -1,4 +1,4 @@
-package netflix.ocelli.algorithm;
+package netflix.ocelli.selectors;
 
 import java.util.Arrays;
 import java.util.List;
@@ -9,7 +9,7 @@ import netflix.ocelli.SelectionStrategy;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
 import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.weighted.LinearWeightingStrategy;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 
 import org.junit.Before;
 import org.junit.Rule;

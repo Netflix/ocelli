@@ -19,7 +19,7 @@ import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.weighted.LinearWeightingStrategy;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 
 import org.junit.Ignore;
 import org.junit.Test;

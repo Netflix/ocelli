@@ -14,7 +14,7 @@ import netflix.ocelli.functions.Connectors;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Failures;
 import netflix.ocelli.functions.Functions;
-import netflix.ocelli.selectors.RoundRobinSelectionStrategy;
+import netflix.ocelli.selectors.RoundRobinSelector;
 import rx.Observable;
 import rx.functions.Func1;
 
@@ -23,7 +23,7 @@ public class DefaultLoadBalancerBuilder<C> implements LoadBalancerBuilder<C> {
     private String                      name = "<unnamed>";
     private Func1<Integer, Integer>     connectedHostCountStrategy = Functions.identity();
     private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-    private SelectionStrategy<C>        selectionStrategy = new RoundRobinSelectionStrategy<C>();
+    private SelectionStrategy<C>        selectionStrategy = new RoundRobinSelector<C>();
     private FailureDetectorFactory<C>   failureDetector = Failures.never();
     private ClientConnector<C>          clientConnector = Connectors.immediate();
 

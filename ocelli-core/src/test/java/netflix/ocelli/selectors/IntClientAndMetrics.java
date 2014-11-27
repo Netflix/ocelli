@@ -1,4 +1,4 @@
-package netflix.ocelli.algorithm;
+package netflix.ocelli.selectors;
 
 import rx.functions.Func1;
 

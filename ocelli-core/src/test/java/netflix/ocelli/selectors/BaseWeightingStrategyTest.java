@@ -1,7 +1,7 @@
-package netflix.ocelli.algorithm;
+package netflix.ocelli.selectors;
 
 import netflix.ocelli.SelectionStrategy;
-import netflix.ocelli.selectors.ClientsAndWeights;
+import netflix.ocelli.selectors.weighting.ClientsAndWeights;
 
 import org.junit.Ignore;
 
@@ -62,7 +62,7 @@ public class BaseWeightingStrategyTest {
         // Run simulation
         for (int i = 0; i < count; i++) {
             try {
-                select.call().subscribe(new Action1<IntClientAndMetrics>() {
+                select.subscribe(new Action1<IntClientAndMetrics>() {
                     @Override
                     public void call(IntClientAndMetrics t1) {
                         counts[t1.getClient()] = counts[t1.getClient()] + 1;

@@ -18,7 +18,7 @@ import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.weighted.LinearWeightingStrategy;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 
 import org.junit.After;
 import org.junit.Assert;

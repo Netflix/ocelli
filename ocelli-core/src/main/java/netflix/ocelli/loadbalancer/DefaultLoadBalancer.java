@@ -53,7 +53,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
     private final String name;
 
     /**
-     * Composite subscription to keep track of all Subscriptions to be unsubscribed at
+     * Composite subscription to keep track of all Subscriptions to be un-subscribed at
      * shutdown
      */
     private final CompositeSubscription cs = new CompositeSubscription();
@@ -324,7 +324,7 @@ public class DefaultLoadBalancer<C> implements ManagedLoadBalancer<C> {
      */
     @Override
     public Observable<C> choose() {
-        return this.selectionStrategy.call();
+        return this.selectionStrategy;
     }
 
     @Override

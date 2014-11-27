@@ -1,10 +1,10 @@
 package netflix.ocelli.functions;
 
 import rx.functions.Func1;
-import netflix.ocelli.weighted.EqualWeightStrategy;
-import netflix.ocelli.weighted.InverseMaxWeightingStrategy;
-import netflix.ocelli.weighted.LinearWeightingStrategy;
-import netflix.ocelli.weighted.WeightingStrategy;
+import netflix.ocelli.selectors.weighting.EqualWeightStrategy;
+import netflix.ocelli.selectors.weighting.InverseMaxWeightingStrategy;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
+import netflix.ocelli.selectors.weighting.WeightingStrategy;
 
 public class Weightings {
     /**
