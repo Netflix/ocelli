@@ -1,6 +1,5 @@
-package netflix.ocelli.weighted;
+package netflix.ocelli.selectors.weighting;
 
-import netflix.ocelli.selectors.ClientsAndWeights;
 import rx.functions.Func1;
 
 /**
