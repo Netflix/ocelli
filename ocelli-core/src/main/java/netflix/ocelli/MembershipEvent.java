@@ -89,6 +89,7 @@ public class MembershipEvent<Client> {
             return false;
         if (getClass() != obj.getClass())
             return false;
+        @SuppressWarnings("rawtypes")
         MembershipEvent other = (MembershipEvent) obj;
         if (host == null) {
             if (other.host != null)
