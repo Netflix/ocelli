@@ -76,6 +76,10 @@ public class TestClient {
         return this.rack;
     }
     
+    public String id() {
+        return this.id;
+    }
+    
     public Observable<String> execute(Func1<TestClient, Observable<String>> operation) {
         return behavior.call(this)
                 .doOnSubscribe(RxUtil.acquire(sem))
