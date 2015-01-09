@@ -20,7 +20,7 @@ public class RoundRobinSelector<C> extends SelectionStrategy<C> {
 
     @SuppressWarnings("unchecked")
     public RoundRobinSelector() {
-        this(new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger());
+        this(new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger(-1));
     }
     
     RoundRobinSelector(final AtomicReference<C[]> clients, final AtomicInteger position) {

@@ -3,32 +3,24 @@ package netflix.ocelli.execute;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import rx.Observable;
-import rx.Observable.OnSubscribe;
-import rx.Observer;
+import rx.Observable.Operator;
 import rx.Scheduler;
 import rx.Subscriber;
-import rx.functions.Action0;
 import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
-import rx.subscriptions.CompositeSubscription;
-import rx.subscriptions.Subscriptions;
 
 /**
  * Execution strategy that executes on one host but then tries one more host
- * if there's no response after a certain timeout.  The previous request is
- * kept open until to allow the original request to complete in case it will
- * still response faster than the backup request.
+ * if there's no response after a certain timeout.  The original request is
+ * kept open to allow it to complete in case it will still respond faster 
+ * than the backup request.
  * 
  * @author elandau
  *
- * TODO: Retry each operation if it fails so that the first failure doesn't kill the entire request
- * 
  * @param <C>
  */
 public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
@@ -39,100 +31,147 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
         }
     };
     
-    private LoadBalancer<C> lb;
-    private Func0<Integer> delay;
-    private Func1<Throwable, Boolean> retriableError;
-    private Scheduler scheduler = Schedulers.computation();
-    private TimeUnit units = TimeUnit.MILLISECONDS;
+    public static Func0<Integer> DEFAULT_BACKUP_TIMEOUT = new Func0<Integer>() {
+        @Override
+        public Integer call() {
+            return 10;
+        }
+    };
     
-    public BackupRequestExecutionStrategy(final LoadBalancer<C> lb, final Func0<Integer> delay, Func1<Throwable, Boolean> retriableError) {
-        this.lb = lb;
-        this.delay = delay;
-        this.retriableError = retriableError;
+    private final LoadBalancer<C>           lb;
+    private final Func0<Integer>            delay;
+    private final Func1<Throwable, Boolean> retriableError;
+    private final Scheduler                 scheduler;
+    private final TimeUnit                  units;
+    
+    public static class Builder<C> {
+        private final LoadBalancer<C>     lb;
+        private Func0<Integer>            delay = DEFAULT_BACKUP_TIMEOUT;
+        private Func1<Throwable, Boolean> retriableError = ALWAYS;
+        private Scheduler                 scheduler = Schedulers.computation();
+        private TimeUnit                  units = TimeUnit.MILLISECONDS;
+
+        private Builder(LoadBalancer<C> lb) {
+            this.lb = lb;
+        }
+        
+        /**
+         * Function to determine if an exception is retriable or not.  A non 
+         * retriable exception will result in an immediate error being returned
+         * while the first retriable exception on either the primary or secondary
+         * request will be ignored to allow the other request to complete.
+         * @param retriableError
+         * @return
+         */
+        public Builder<C> withIsRetriableFunc(Func1<Throwable, Boolean> retriableError) {
+            this.retriableError = retriableError;
+            return this;
+        }
+        
+        /**
+         * Use a constant timeout for the backup requets
+         * @param timeout
+         * @param units
+         * @return
+         */
+        public Builder<C> withBackupTimeout(final Integer timeout, TimeUnit units) {
+            return withBackupTimeout(new Func0<Integer>() {
+                @Override
+                public Integer call() {
+                    return timeout;
+                }
+            }, units);
+        }
+        
+        /**
+         * Function to determine the backup request timeout for each operation.
+         * @param func
+         * @param units
+         * @return
+         */
+        public Builder<C> withBackupTimeout(Func0<Integer> func, TimeUnit units) {
+            this.delay = func;
+            this.units = units;
+            return this;
+        }
+        
+        /**
+         * Provide an external scheduler to drive the backup timeout.  Use this
+         * to test with a TestScheduler
+         * 
+         * @param scheduler
+         * @return
+         */
+        public Builder<C> withScheduler(Scheduler scheduler) {
+            this.scheduler = scheduler;
+            return this;
+        }
+        
+        public BackupRequestExecutionStrategy<C> build() {
+            return new BackupRequestExecutionStrategy<C>(this);
+        }
     }
     
-    public BackupRequestExecutionStrategy(final LoadBalancer<C> lb, final Func0<Integer> delay) {
-        this(lb, delay, ALWAYS);
+    public static <C> Builder<C> builder(LoadBalancer<C> lb) {
+        return new Builder<C>(lb);
     }
     
+    private BackupRequestExecutionStrategy(Builder<C> builder) {
+        this.lb             = builder.lb;
+        this.delay          = builder.delay;
+        this.retriableError = builder.retriableError;
+        this.scheduler      = builder.scheduler;
+        this.units          = builder.units;
+    }
+
     @Override
     public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        return Observable.create(new OnSubscribe<R>() {
-            @Override
-            public void call(final Subscriber<? super R> s) {
-                final CompositeSubscription cs = new CompositeSubscription();
-                final AtomicInteger requestCount = new AtomicInteger(0);
-                
-                // Observer for both the initial and backup request
-                final Observer<R> opObserver = new Observer<R>() {
-                    private AtomicInteger errorCount = new AtomicInteger(0);
-                    private AtomicBoolean onNextCalled = new AtomicBoolean(false);
+        final Observable<R> o = lb
+                .choose()
+                .concatMap(operation)
+                .lift(new Operator<R, R>() {
+                    private AtomicBoolean first = new AtomicBoolean(true);
                     
                     @Override
-                    public void onCompleted() {
-                        // ok to ignore
-                    }
+                    public Subscriber<? super R> call(final Subscriber<? super R> s) {
+                        return new Subscriber<R>() {
+                            private volatile boolean hasOnNext = false;
+                            
+                            @Override
+                            public void onCompleted() {
+                                // Propagate a NoSuchElementException on an empty stream
+                                if (!hasOnNext) {
+                                    onError(new NoSuchElementException());
+                                }
+                                else {
+                                    s.onCompleted();
+                                }
+                            }
 
-                    @Override
-                    public void onError(Throwable e) {
-                        if (requestCount.get() == 1 && e instanceof NoSuchElementException) {
-                            s.onError(e);
-                        }
-                        
-                        if (!retriableError.call(e) || errorCount.incrementAndGet() > 1) {
-                            s.onError(e);
-                        }
-                    }
+                            @Override
+                            public void onError(Throwable e) {
+                                // Ignore the first error we see as long as it's a retriable error.  This
+                                // will catch situations where the primary request results in a retriable exception
+                                // such as a throttle error or socket disconnect and allow the backup request
+                                // to proceeed.
+                                // TODO: Optimize this so that the backup request is called immediately on
+                                // an empty response from the first request
+                                if (!first.compareAndSet(true, false) || (!(e instanceof NoSuchElementException) && !retriableError.call(e))) {
+                                    s.onError(e);
+                                }
+                            }
 
-                    @Override
-                    public void onNext(R t) {
-                        if (onNextCalled.compareAndSet(false, true)) {
-                            s.onNext(t);
-                            s.onCompleted();
-                        }
+                            @Override
+                            public void onNext(R t) {
+                                hasOnNext = true;
+                                s.onNext(t);
+                            }
+                        };
                     }
-                };
-                
-                // Choose a host and forward errors and response to opObserver
-                final Observer<C> lbObserver = new Observer<C>() {
-                    @Override
-                    public void onCompleted() {
-                        // OK to ignore.  Should never return null.
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        opObserver.onError(e);
-                    }
-
-                    @Override
-                    public void onNext(C t) {
-                        cs.add(operation.call(t).subscribe(opObserver));
-                    }
-                };
-                
-                // This is the initial request
-                cs.add(lb.choose().subscribe(lbObserver));
-                
-                // This is the backup request
-                cs.add(scheduler.createWorker().schedule(new Action0() {
-                    @Override
-                    public void call() {
-                        cs.add(lb.choose().subscribe(lbObserver));
-                    }
-                }, delay.call(), units));
-                
-                s.add(Subscriptions.create(new Action0() {
-                    @Override
-                    public void call() {
-                        cs.unsubscribe();
-                    }
-                }));
-            }
-        });
-    }
-
-    public static <C> BackupRequestExecutionStrategy<C> create(DefaultLoadBalancer<C> lb, Func0<Integer> delay) {
-        return new BackupRequestExecutionStrategy<C>(lb, delay);
+                });
+        
+        return Observable.amb(
+                o, 
+                o.delaySubscription(delay.call(), units, scheduler));
     }
 }
