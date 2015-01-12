@@ -1,10 +1,12 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.loadbalancer;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.SelectionStrategy;
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.MembershipEvent;
+import rx.Observable;
 import rx.Subscriber;
 
 /**
@@ -15,16 +17,22 @@ import rx.Subscriber;
  *
  * @param <Client>
  */
-public class RoundRobinSelector<C> extends SelectionStrategy<C> {
-    private final AtomicReference<C[]> clients;
-
-    @SuppressWarnings("unchecked")
-    public RoundRobinSelector() {
-        this(new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger(-1));
+public class RoundRobinLoadBalancer<C> extends BaseLoadBalancer<C> {
+    public static <C> RoundRobinLoadBalancer<C> create(Observable<C[]> source) {
+        return new RoundRobinLoadBalancer<C>(source);
     }
     
-    RoundRobinSelector(final AtomicReference<C[]> clients, final AtomicInteger position) {
-        super(new OnSubscribe<C>() {
+    public static <C> RoundRobinLoadBalancer<C> from(Observable<MembershipEvent<C>> source) {
+        return new RoundRobinLoadBalancer<C>(source.map(new ClientCollector<C>()));
+    }
+    
+    @SuppressWarnings("unchecked")
+    public RoundRobinLoadBalancer(Observable<C[]> source) {
+        this(source, new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger(-1));
+    }
+    
+    RoundRobinLoadBalancer(final Observable<C[]> source, final AtomicReference<C[]> clients, final AtomicInteger position) {
+        super(source, clients, new OnSubscribe<C>() {
             @Override
             public void call(Subscriber<? super C> s) {
                 C[] internal = clients.get();
@@ -41,11 +49,5 @@ public class RoundRobinSelector<C> extends SelectionStrategy<C> {
                 }
             }
         });
-        this.clients = clients;
-    }
-    
-    @Override
-    public void setClients(C[] clients) {
-        this.clients.set(clients);
     }
 }

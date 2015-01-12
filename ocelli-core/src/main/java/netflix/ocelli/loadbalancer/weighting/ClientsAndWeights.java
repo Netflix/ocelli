@@ -1,4 +1,4 @@
-package netflix.ocelli.selectors.weighting;
+package netflix.ocelli.loadbalancer.weighting;
 
 
 public class ClientsAndWeights<C> {

@@ -1,4 +1,4 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.loadbalancer.weighting;
 
 import rx.functions.Func1;
 

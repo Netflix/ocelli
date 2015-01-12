@@ -5,17 +5,16 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
-import netflix.ocelli.LoadBalancers;
+import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
 import netflix.ocelli.functions.Delays;
-import netflix.ocelli.functions.Functions;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
-import netflix.ocelli.selectors.RoundRobinSelector;
+import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
 import org.junit.After;
 import org.junit.Before;
@@ -37,7 +36,7 @@ import rx.subjects.PublishSubject;
 public class BackupRequestExecutionStrategyTest {
     private static final Logger LOG = LoggerFactory.getLogger(BackupRequestExecutionStrategyTest.class);
     
-    private DefaultLoadBalancer<TestClient> lb;
+    private LoadBalancer<TestClient> lb;
     private PublishSubject<TestClient> hosts = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
@@ -76,15 +75,14 @@ public class BackupRequestExecutionStrategyTest {
     
     @Before
     public void before() {
-        this.lb = (DefaultLoadBalancer<TestClient>) LoadBalancers.newBuilder(hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD)))
-            .withName("Test-" + testName.getMethodName())
-            .withActiveClientCountStrategy(Functions.identity())
-            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-            .withFailureDetector(failureDetector)
-            .withClientConnector(clientConnector)
-            .withSelectionStrategy(
-                new RoundRobinSelector<TestClient>())
-            .build();
+        this.lb = RoundRobinLoadBalancer.from(hosts  
+                    .map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
+                    .lift(MembershipFailureDetector.<TestClient>builder()
+                            .withName("Test-" + testName.getMethodName())
+                            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                            .withFailureDetector(failureDetector)
+                            .withClientConnector(clientConnector)
+                            .build()));
         
         this.executor = BackupRequestExecutionStrategy.builder(lb)
                 .withBackupTimeout(

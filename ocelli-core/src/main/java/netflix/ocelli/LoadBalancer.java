@@ -2,19 +2,29 @@ package netflix.ocelli;
 
 import rx.Observable;
 
-public interface LoadBalancer<C> {
-
+/**
+ * Base for all LoadBalancers will emit a single C based on the load balancing
+ * strategy when subscribed to.
+ * 
+ * @author elandau
+ *
+ * @param <C>
+ */
+public abstract class LoadBalancer<C> extends Observable<C> {
+    protected LoadBalancer(rx.Observable.OnSubscribe<C> onSubscribe) {
+        super(onSubscribe);
+    }
+    
     /**
-     * Return an Observable that when subscribed to will select the next C
-     * in the pool.  Call chose() for each use of the load balancer as the Observable
-     * will contain some context for selecting the next C on retries.
+     * Shut down the load balancer
      * 
-     * @return Observable that when subscribed to will emit a single C and complete
+     * TODO: Re-implement using ConnectableObservable
      */
-    Observable<C> choose();
-
+    public abstract void shutdown();
+    
     /**
-     * Perform cleanup and unregister
+     * @return  Observable that when subscribed to will emit all currently active
+     *          clients in the load balancer
      */
-    void shutdown();
+    public abstract Observable<C> all();
 }

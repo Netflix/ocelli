@@ -15,10 +15,10 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
+import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MembershipFailureDetector;
+import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -56,39 +56,31 @@ public class RxNettyIntegrationTest {
     @Test
     public void testSimple() throws Exception {
         final HttpClientPool<ByteBuf, ByteBuf> clientPool = HttpClientPool.newPool();
-        Observable<HttpClient<ByteBuf, ByteBuf>> clientSource = Observable.just(new Host("127.0.0.1", httpServer.getServerPort()))
-                                                                          .map(new Func1<Host, HttpClient<ByteBuf, ByteBuf>>() {
-                                                                              @Override
-                                                                              public HttpClient<ByteBuf, ByteBuf> call(
-                                                                                      Host host) {
-                                                                                  return clientPool.getClientForHost(host);
-                                                                              }
-                                                                          });
+        Observable<HttpClient<ByteBuf, ByteBuf>> clientSource = Observable
+                .just(new Host("127.0.0.1", httpServer.getServerPort()))
+                .map(new Func1<Host, HttpClient<ByteBuf, ByteBuf>>() {
+                    @Override
+                    public HttpClient<ByteBuf, ByteBuf> call(
+                            Host host) {
+                        return clientPool.getClientForHost(host);
+                    }
+                });
 
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                LoadBalancers
-                    .newBuilder(clientSource.map(new Func1<HttpClient<ByteBuf, ByteBuf>, MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>>() {
-                            @Override
-                            public MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>> call(
-                                    HttpClient<ByteBuf, ByteBuf> client) {
-                                return new MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>(
-                                        MembershipEvent.EventType.ADD,
-                                        new HttpClientHolder<ByteBuf, ByteBuf>(
-                                                client));
-                            }
-                        }))
-                        .withSelectionStrategy(
-                            new RandomWeightedSelector<HttpClientHolder<ByteBuf, ByteBuf>>(
-                                new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
-                                    new RxNettyPendingRequests<ByteBuf, ByteBuf>())))
-                        .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
-                        .build();
-
-        HttpClientResponse<ByteBuf> response = lb.choose().flatMap(
+                RoundRobinLoadBalancer
+                    .from(clientSource
+                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder())
+                        .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
+                        .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
+                            .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
+                            .build()));
+        
+        HttpClientResponse<ByteBuf> response = lb.flatMap(
                 new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                     @Override
                     public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
-                        return holder.getClient().submit(HttpClientRequest.createGet("/"))
+                        return holder.getClient()
+                                     .submit(HttpClientRequest.createGet("/"))
                                      .map(new Func1<HttpClientResponse<ByteBuf>, HttpClientResponse<ByteBuf>>() {
                                          @Override
                                          public HttpClientResponse<ByteBuf> call(HttpClientResponse<ByteBuf> response) {
