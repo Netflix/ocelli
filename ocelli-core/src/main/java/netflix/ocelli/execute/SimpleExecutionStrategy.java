@@ -1,7 +1,6 @@
 package netflix.ocelli.execute;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import rx.Observable;
 import rx.functions.Func1;
 
@@ -15,21 +14,19 @@ import rx.functions.Func1;
  */
 public class SimpleExecutionStrategy<C> extends ExecutionStrategy<C> {
 
-    private LoadBalancer<C> lb;
+    private LoadBalancer<C> chooser;
 
     public SimpleExecutionStrategy(final LoadBalancer<C> lb) {
-        this.lb = lb;
+        this.chooser = lb;
     }
     
     @Override
     public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        return lb
-                .choose()
-                .flatMap(operation);
+        return chooser.flatMap(operation);
     }
 
-    public static <C> SimpleExecutionStrategy<C> create(DefaultLoadBalancer<C> lb) {
-        return new SimpleExecutionStrategy<C>(lb);
+    public static <C> SimpleExecutionStrategy<C> create(LoadBalancer<C> chooser) {
+        return new SimpleExecutionStrategy<C>(chooser);
     }
     
 }

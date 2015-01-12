@@ -1,17 +1,17 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.loadbalancer.weighting;
 
-import netflix.ocelli.SelectionStrategy;
-import netflix.ocelli.selectors.weighting.ClientsAndWeights;
+import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 
 import org.junit.Ignore;
+
+import rx.exceptions.OnErrorNotImplementedException;
+import rx.functions.Action1;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Lists;
-
-import rx.exceptions.OnErrorNotImplementedException;
-import rx.functions.Action1;
 
 @Ignore
 public class BaseWeightingStrategyTest {
@@ -52,7 +52,7 @@ public class BaseWeightingStrategyTest {
      * @return
      * @throws Throwable 
      */
-    static Integer[] simulate(SelectionStrategy<IntClientAndMetrics> select, int N, int count) throws Throwable {
+    static Integer[] simulate(LoadBalancer<IntClientAndMetrics> select, int N, int count) throws Throwable {
         // Set up array of counts
         final Integer[] counts = new Integer[N];
         for (int i = 0; i < N; i++) {

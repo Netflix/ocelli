@@ -14,12 +14,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.functions.Retrys;
-import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
+import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -60,21 +59,13 @@ public class RxNettyStressTest {
                                                                  });
 
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                LoadBalancers.newBuilder(clientSource
-                                                 .map(new Func1<HttpClient<ByteBuf, ByteBuf>, MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>>() {
-                                                     @Override
-                                                     public MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>> call(
-                                                             HttpClient<ByteBuf, ByteBuf> client) {
-                                                         return new MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>(
-                                                                 EventType.ADD, new HttpClientHolder<ByteBuf, ByteBuf>(
-                                                                 client));
-                                                     }
-                                                 }))
-                .withSelectionStrategy(
-                    new RandomWeightedSelector<HttpClientHolder<ByteBuf, ByteBuf>>(
-                        new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
-                            new RxNettyPendingRequests<ByteBuf, ByteBuf>())))
-                .build();
+                RoundRobinLoadBalancer
+                    .from(clientSource
+                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder())
+                        .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
+                        .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
+                            .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
+                            .build()));
 
         final AtomicLong counter = new AtomicLong();
         
@@ -82,9 +73,7 @@ public class RxNettyStressTest {
             .subscribe(new Action1<Long>() {
                 @Override
                 public void call(Long t1) {
-                    lb
-                    .choose()
-                    .concatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<String>>() {
+                    lb.concatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<String>>() {
                         @Override
                         public Observable<String> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
                             HttpClientRequest<ByteBuf> request = HttpClientRequest.createGet("/hello");

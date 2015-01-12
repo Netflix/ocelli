@@ -1,13 +1,15 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.loadbalancer;
 
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.SelectionStrategy;
-import netflix.ocelli.selectors.weighting.ClientsAndWeights;
-import netflix.ocelli.selectors.weighting.WeightingStrategy;
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
+import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
+import rx.Observable;
 import rx.Subscriber;
 
 /**
@@ -23,17 +25,22 @@ import rx.Subscriber;
  * @author elandau
  *
  */
-public class RandomWeightedSelector<C> extends SelectionStrategy<C> {
-    
-    private final AtomicReference<C[]> clients;
-    
-    @SuppressWarnings("unchecked")
-    public RandomWeightedSelector(final WeightingStrategy<C> strategy) {
-        this(strategy, new Random(), new AtomicReference<C[]>((C[]) new Object[0]));
+public class RandomWeightedLoadBalancer<C> extends BaseLoadBalancer<C> {
+    public static <C> RandomWeightedLoadBalancer<C> create(final Observable<C[]> source, final WeightingStrategy<C> strategy) {
+        return new RandomWeightedLoadBalancer<C>(source, strategy);
     }
     
-    RandomWeightedSelector(final WeightingStrategy<C> strategy, final Random rand, final AtomicReference<C[]> clients) {
-        super(new OnSubscribe<C>() {
+    public static <C> RandomWeightedLoadBalancer<C> from(final Observable<MembershipEvent<C>> source, final WeightingStrategy<C> strategy) {
+        return new RandomWeightedLoadBalancer<C>(source.map(new ClientCollector<C>()), strategy);
+    }
+    
+    @SuppressWarnings("unchecked")
+    public RandomWeightedLoadBalancer(final Observable<C[]> source, final WeightingStrategy<C> strategy) {
+        this(source, strategy, new Random(), new AtomicReference<C[]>((C[]) new Object[0]));
+    }
+    
+    RandomWeightedLoadBalancer(final Observable<C[]> source, final WeightingStrategy<C> strategy, final Random rand, final AtomicReference<C[]> clients) {
+        super(source, clients, new OnSubscribe<C>() {
                 @Override
                 public void call(Subscriber<? super C> s) {
                     final ClientsAndWeights<C> caw = strategy.call(clients.get());
@@ -60,12 +67,5 @@ public class RandomWeightedSelector<C> extends SelectionStrategy<C> {
                     }
                 }
             });
-        this.clients = clients;
-
-    }
-    
-    @Override
-    public void setClients(C[] clients) {
-        this.clients.set(clients);
     }
 }

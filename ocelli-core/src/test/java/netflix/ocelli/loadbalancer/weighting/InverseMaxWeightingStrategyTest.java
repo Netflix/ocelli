@@ -1,39 +1,40 @@
-package netflix.ocelli.selectors;
+package netflix.ocelli.loadbalancer.weighting;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 import junit.framework.Assert;
-import netflix.ocelli.SelectionStrategy;
+import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
+import netflix.ocelli.loadbalancer.weighting.InverseMaxWeightingStrategy;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
-import netflix.ocelli.selectors.RandomWeightedSelector;
-import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import rx.subjects.PublishSubject;
+
 import com.google.common.collect.Lists;
 
-public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
-    
-    SelectionStrategy<IntClientAndMetrics> selector;
-                
+public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
     @Rule
     public RetryFailedTestRule retryRule = new RetryFailedTestRule();
     
     @Before 
     public void before() {
-        selector = new RandomWeightedSelector<IntClientAndMetrics>(
-                new LinearWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
     }
     
     @Test(expected=NoSuchElementException.class)
     public void testEmptyClients() throws Throwable {
+        PublishSubject<IntClientAndMetrics[]> subject = PublishSubject.create();
+        
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+                new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
+        
         IntClientAndMetrics[] clients = create();
-        selector.setClients(clients);
+        subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 1000), 100));
         Assert.assertEquals(Lists.newArrayList(), counts);
@@ -42,8 +43,13 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     @Test
     @Retry(5)
     public void testOneClient() throws Throwable {
+        PublishSubject<IntClientAndMetrics[]> subject = PublishSubject.create();
+        
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+                new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
+        
         IntClientAndMetrics[] clients = create(10);
-        selector.setClients(clients);
+        subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 1000), 100));
         Assert.assertEquals(Lists.newArrayList(1000), counts);
@@ -52,8 +58,13 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     @Test
     @Retry(5)
     public void testEqualsWeights() throws Throwable {
+        PublishSubject<IntClientAndMetrics[]> subject = PublishSubject.create();
+        
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+                new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
+        
         IntClientAndMetrics[] clients = create(1,1,1,1);
-        selector.setClients(clients);
+        subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 4000), 100));
         Assert.assertEquals(Lists.newArrayList(1000, 1000, 1000, 1000), counts);
@@ -62,10 +73,18 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     @Test
     @Retry(5)
     public void testDifferentWeights() throws Throwable {
+        PublishSubject<IntClientAndMetrics[]> subject = PublishSubject.create();
+        
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+                new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
+        
         IntClientAndMetrics[] clients = create(1,2,3,4);
-        selector.setClients(clients);
+        subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.length, 4000), 100));
-        Assert.assertEquals(Lists.newArrayList(400, 800, 1200, 1600), counts);
+        Assert.assertEquals(Lists.newArrayList(1600, 1200, 800, 400), counts);
     }
+    
+    
+    
 }

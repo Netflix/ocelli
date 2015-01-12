@@ -21,12 +21,6 @@ public class MembershipEvent<Client> {
 
         // The host may be removed from quarantine
         UNQUARANTINE,
-        
-        // Stop sending traffic to a host
-        STOP, 
-        
-        // The host is now idle either after stopping or being un-quarantined
-        IDLE
     }
     
     private final Client host;

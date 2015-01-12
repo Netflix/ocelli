@@ -38,21 +38,21 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
         }
     };
     
-    private final LoadBalancer<C>           lb;
+    private final LoadBalancer<C>           chooser;
     private final Func0<Integer>            delay;
     private final Func1<Throwable, Boolean> retriableError;
     private final Scheduler                 scheduler;
     private final TimeUnit                  units;
     
     public static class Builder<C> {
-        private final LoadBalancer<C>     lb;
+        private final LoadBalancer<C>          chooser;
         private Func0<Integer>            delay = DEFAULT_BACKUP_TIMEOUT;
         private Func1<Throwable, Boolean> retriableError = ALWAYS;
         private Scheduler                 scheduler = Schedulers.computation();
         private TimeUnit                  units = TimeUnit.MILLISECONDS;
 
-        private Builder(LoadBalancer<C> lb) {
-            this.lb = lb;
+        private Builder(LoadBalancer<C> chooser) {
+            this.chooser = chooser;
         }
         
         /**
@@ -117,7 +117,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
     }
     
     private BackupRequestExecutionStrategy(Builder<C> builder) {
-        this.lb             = builder.lb;
+        this.chooser        = builder.chooser;
         this.delay          = builder.delay;
         this.retriableError = builder.retriableError;
         this.scheduler      = builder.scheduler;
@@ -126,8 +126,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
 
     @Override
     public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        final Observable<R> o = lb
-                .choose()
+        final Observable<R> o = chooser
                 .concatMap(operation)
                 .lift(new Operator<R, R>() {
                     private AtomicBoolean first = new AtomicBoolean(true);
