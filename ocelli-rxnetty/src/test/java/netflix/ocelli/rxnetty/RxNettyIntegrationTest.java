@@ -19,6 +19,7 @@ import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.stats.NullAverage;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -66,10 +67,12 @@ public class RxNettyIntegrationTest {
                     }
                 });
 
+        final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
+        
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
                 RoundRobinLoadBalancer
                     .from(clientSource
-                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder())
+                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder(NullAverage.factory(), poolListener))
                         .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
                         .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
                             .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())

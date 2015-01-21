@@ -1,5 +1,7 @@
 package netflix.ocelli.stats;
 
+import rx.functions.Func0;
+
 import com.google.common.util.concurrent.AtomicDouble;
 
 public class ExponentialAverage implements Average {
@@ -7,6 +9,15 @@ public class ExponentialAverage implements Average {
     private final double k;
     private final AtomicDouble ema;
     private final double initial;
+    
+    public static Func0<Average> factory(final int N, final double initial) {
+        return new Func0<Average>() {
+            @Override
+            public Average call() {
+                return new ExponentialAverage(N, initial);
+            }
+        };
+    }
     
     public ExponentialAverage(int N, double initial) {
         this.initial = initial;

@@ -44,6 +44,7 @@ subprojects {
     dependencies {
         compile 'org.slf4j:slf4j-log4j12:1.7.2'
         compile 'io.reactivex:rxjava:1.0.0'
+        compile 'com.netflix.numerus:numerus:1.1'
 
         testCompile 'org.uncommons:uncommons-maths:1.2'
         testCompile 'log4j:log4j:1.2.17'
