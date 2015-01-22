@@ -16,9 +16,6 @@
 apply plugin: 'osgi'
 apply plugin: 'groovy'
 
-sourceCompatibility = JavaVersion.VERSION_1_6
-targetCompatibility = JavaVersion.VERSION_1_6
-
 dependencies {
     testCompile 'junit:junit:4.10'
 }

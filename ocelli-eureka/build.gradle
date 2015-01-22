@@ -17,9 +17,6 @@
 apply plugin: 'osgi'
 apply plugin: 'groovy'
 
-sourceCompatibility = JavaVersion.VERSION_1_6
-targetCompatibility = JavaVersion.VERSION_1_6
-
 dependencies {
     compile project(':ocelli-core')
 
