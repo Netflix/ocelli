@@ -1,8 +1,7 @@
 package netflix.ocelli.stats;
 
+import netflix.ocelli.util.AtomicDouble;
 import rx.functions.Func0;
-
-import com.google.common.util.concurrent.AtomicDouble;
 
 public class ExponentialAverage implements Average {
 
