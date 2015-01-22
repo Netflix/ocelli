@@ -22,8 +22,6 @@ dependencies {
     compile project(':ocelli-core')
     compile 'io.reactivex:rxnetty:0.4.4'
     
-    compile 'com.github.mayconbordin:streaminer:1.0'
-
     testCompile 'junit:junit:4.10'
 }
 
