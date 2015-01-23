@@ -40,12 +40,12 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
     
     private final FailureDetectorFactory<C> failureDetector;
     private final ClientConnector<C>        clientConnector;
-    private final Func1<Integer, Long>      quaratineDelayStrategy;
+    private final Func1<Integer, Long>      quarantineDelayStrategy;
     private final String                    name;
 
     public static class Builder<C> {
         private String                      name = "<unnamed>";
-        private Func1<Integer, Long>        quaratineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
+        private Func1<Integer, Long>        quarantineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
         private FailureDetectorFactory<C>   failureDetector = Failures.never();
         private ClientConnector<C>          clientConnector = Connectors.immediate();
 
@@ -63,14 +63,14 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
          * count.  The count is incremented by one for each failure detections and reset
          * once the host is back to normal.
          */
-        public Builder<C> withQuarantineStrategy(Func1<Integer, Long> quaratineDelayStrategy) {
-            this.quaratineDelayStrategy = quaratineDelayStrategy;
+        public Builder<C> withQuarantineStrategy(Func1<Integer, Long> quarantineDelayStrategy) {
+            this.quarantineDelayStrategy = quarantineDelayStrategy;
             return this;
         }
         
         /**
          * The failure detector returns an Observable that will emit a Throwable for each 
-         * failure of the client.  The load balancer will quaratine the client in response.
+         * failure of the client.  The load balancer will quarantine the client in response.
          * @param failureDetector
          */
         public Builder<C> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
@@ -93,7 +93,7 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
                     name, 
                     clientConnector, 
                     failureDetector, 
-                    quaratineDelayStrategy);
+                    quarantineDelayStrategy);
         }
     }
         
@@ -105,8 +105,8 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
             String                     name, 
             ClientConnector<C>         clientConnector, 
             FailureDetectorFactory<C>  failureDetector, 
-            Func1<Integer, Long>       quaratineDelayStrategy) {
-        this.quaratineDelayStrategy     = quaratineDelayStrategy;
+            Func1<Integer, Long>       quarantineDelayStrategy) {
+        this.quarantineDelayStrategy     = quarantineDelayStrategy;
         this.name                       = name;
         this.failureDetector            = failureDetector;
         this.clientConnector            = clientConnector;
@@ -116,7 +116,7 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
      * Holder the client state within the context of this LoadBalancer
      */
     public class Holder {
-        final AtomicInteger quaratineCounter = new AtomicInteger();
+        final AtomicInteger quarantineCounter = new AtomicInteger();
         final C client;
         final StateMachine<Holder, EventType> sm;
         final CompositeSubscription cs = new CompositeSubscription();
@@ -134,7 +134,7 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
                 @Override
                 public void call(Throwable t1) {
                     sm.call(EventType.FAILED);
-                    quaratineCounter.incrementAndGet();
+                    quarantineCounter.incrementAndGet();
                 }
             }));
         }
@@ -145,20 +145,20 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
                     @Override
                     public void call(C client) {
                         sm.call(EventType.CONNECTED);
-                        quaratineCounter.set(0);
+                        quarantineCounter.set(0);
                     }
                 },
                 new Action1<Throwable>() {
                     @Override
                     public void call(Throwable t1) {
                         sm.call(EventType.FAILED);
-                        quaratineCounter.incrementAndGet();
+                        quarantineCounter.incrementAndGet();
                     }
                 }));
         }
         
-        public int getQuaratineCounter() {
-            return quaratineCounter.get();
+        public int getQuarantineCounter() {
+            return quarantineCounter.get();
         }
 
         public void shutdown() {
@@ -238,12 +238,12 @@ public class MembershipFailureDetector<C> implements Operator<MembershipEvent<C>
             .onEnter(new Func1<Holder, Observable<EventType>>() {
                 @Override
                 public Observable<EventType> call(final Holder holder) {
-                    LOG.info("{} - {} is quarantined ({})", name, holder.getClient(), holder.quaratineCounter);
+                    LOG.info("{} - {} is quarantined ({})", name, holder.getClient(), holder.quarantineCounter);
                     acquiredClients.remove(holder);
                     
                     return Observable
                             .just(EventType.UNQUARANTINE)
-                            .delay(quaratineDelayStrategy.call(holder.getQuaratineCounter()), TimeUnit.MILLISECONDS)
+                            .delay(quarantineDelayStrategy.call(holder.getQuarantineCounter()), TimeUnit.MILLISECONDS)
                             .doOnNext(RxUtil.info("Next:")); 
                 }
             })

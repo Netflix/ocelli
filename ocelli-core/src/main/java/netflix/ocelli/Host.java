@@ -48,7 +48,6 @@ public class Host {
         Host host = (Host) o;
 
         return port == host.port && !(hostName != null ? !hostName.equals(host.hostName) : host.hostName != null);
-
     }
 
     @Override
@@ -56,5 +55,11 @@ public class Host {
         int result = hostName != null ? hostName.hashCode() : 0;
         result = 31 * result + port;
         return result;
+    }
+    
+    @Override
+    public String toString() {
+        return "Host [hostName=" + hostName + ", port=" + port + ", metadata="
+                + metadata + "]";
     }
 }
