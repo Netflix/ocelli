@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.ClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
@@ -59,7 +62,10 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer.from(source);
+        ClientLifecycleFactory<TestClient> factory =
+                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+                    .build();
+        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
         
 //        this.selector.prime(10).toBlocking().last();
 
@@ -89,7 +95,11 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer.from(source);
+        ClientLifecycleFactory<TestClient> factory =
+                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+                    .build();
+        
+        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
         
         final AtomicLong messageCount = new AtomicLong(0);
         

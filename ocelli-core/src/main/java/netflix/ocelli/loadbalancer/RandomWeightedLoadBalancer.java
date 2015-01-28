@@ -1,12 +1,12 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
 import rx.Observable;
@@ -26,20 +26,15 @@ import rx.Subscriber;
  *
  */
 public class RandomWeightedLoadBalancer<C> extends BaseLoadBalancer<C> {
-    public static <C> RandomWeightedLoadBalancer<C> create(final Observable<C[]> source, final WeightingStrategy<C> strategy) {
+    public static <C> RandomWeightedLoadBalancer<C> create(final Observable<List<C>> source, final WeightingStrategy<C> strategy) {
         return new RandomWeightedLoadBalancer<C>(source, strategy);
     }
     
-    public static <C> RandomWeightedLoadBalancer<C> from(final Observable<MembershipEvent<C>> source, final WeightingStrategy<C> strategy) {
-        return new RandomWeightedLoadBalancer<C>(source.map(new ClientCollector<C>()), strategy);
+    public RandomWeightedLoadBalancer(final Observable<List<C>> source, final WeightingStrategy<C> strategy) {
+        this(source, strategy, new Random(), new AtomicReference<List<C>>(new ArrayList<C>()));
     }
     
-    @SuppressWarnings("unchecked")
-    public RandomWeightedLoadBalancer(final Observable<C[]> source, final WeightingStrategy<C> strategy) {
-        this(source, strategy, new Random(), new AtomicReference<C[]>((C[]) new Object[0]));
-    }
-    
-    RandomWeightedLoadBalancer(final Observable<C[]> source, final WeightingStrategy<C> strategy, final Random rand, final AtomicReference<C[]> clients) {
+    RandomWeightedLoadBalancer(final Observable<List<C>> source, final WeightingStrategy<C> strategy, final Random rand, final AtomicReference<List<C>> clients) {
         super(source, clients, new OnSubscribe<C>() {
                 @Override
                 public void call(Subscriber<? super C> s) {
@@ -50,7 +45,7 @@ public class RandomWeightedLoadBalancer<C> extends BaseLoadBalancer<C> {
                             s.onNext(caw.getClient(rand.nextInt(caw.size())));
                         }
                         else {
-                            int pos = Arrays.binarySearch(caw.getWeights(), rand.nextInt(total));
+                            int pos = Collections.binarySearch(caw.getWeights(), rand.nextInt(total));
                             if (pos >= 0) {
                                 pos = pos+1;
                             }

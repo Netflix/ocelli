@@ -1,5 +1,6 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
@@ -11,6 +12,8 @@ import org.junit.rules.TestName;
 
 import rx.functions.Func2;
 import rx.subjects.PublishSubject;
+
+import com.google.common.collect.Lists;
 
 public class ChoiceOfTwoLoadBalancerTest {
     @Rule
@@ -25,20 +28,20 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test(expected=NoSuchElementException.class)
     public void testEmpty() {
-        PublishSubject<Integer[]> source = PublishSubject.create();
+        PublishSubject<List<Integer>> source = PublishSubject.create();
         ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.onNext(new Integer[0]);
+        source.onNext(Lists.<Integer>newArrayList());
         
         lb.toBlocking().single();
     }
     
     @Test
     public void testOne() {
-        PublishSubject<Integer[]> source = PublishSubject.create();
+        PublishSubject<List<Integer>> source = PublishSubject.create();
         ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.onNext(new Integer[]{0});
+        source.onNext(Lists.newArrayList(0));
         
         for (int i = 0; i < 100; i++) {
             Assert.assertEquals(0, (int)lb.toBlocking().single());
@@ -47,10 +50,10 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testTwo() {
-        PublishSubject<Integer[]> source = PublishSubject.create();
+        PublishSubject<List<Integer>> source = PublishSubject.create();
         ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.onNext(new Integer[]{0,1});
+        source.onNext(Lists.newArrayList(0,1));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
@@ -63,10 +66,10 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testMany() {
-        PublishSubject<Integer[]> source = PublishSubject.create();
+        PublishSubject<List<Integer>> source = PublishSubject.create();
         ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.onNext(new Integer[]{0,1,2,3,4,5,6,7,8,9});
+        source.onNext(Lists.newArrayList(0,1,2,3,4,5,6,7,8,9));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         

@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.ClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -67,15 +69,16 @@ public class SimpleExecutionStrategyInvokerTest {
     
     @Test
     public void test() {
-        this.lb = RoundRobinLoadBalancer.from(hostEvents  
-                .lift(MembershipFailureDetector.<TestClient>builder()
-                        .withName("Test-" + testName.getMethodName())
-                        .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                        .withFailureDetector(failureDetector)
-                        .withClientConnector(clientConnector)
-                        .build()));
+        ClientLifecycleFactory<TestClient> factory =
+                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+                .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                .withFailureDetector(failureDetector)
+                .withClientConnector(clientConnector)
+                .build();
+    
+        this.lb = RoundRobinLoadBalancer.create(
+                hostEvents.lift(ClientCollector.create(factory)));  
 
-        
         source.subscribe(hostEvents);
         
         List<String> result = Observable.range(0, 10)

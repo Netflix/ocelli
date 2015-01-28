@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.ClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
@@ -75,14 +77,15 @@ public class BackupRequestExecutionStrategyTest {
     
     @Before
     public void before() {
-        this.lb = RoundRobinLoadBalancer.from(hosts  
-                    .map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
-                    .lift(MembershipFailureDetector.<TestClient>builder()
-                            .withName("Test-" + testName.getMethodName())
-                            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                            .withFailureDetector(failureDetector)
-                            .withClientConnector(clientConnector)
-                            .build()));
+        ClientLifecycleFactory<TestClient> factory =
+                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+                .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                .withFailureDetector(failureDetector)
+                .withClientConnector(clientConnector)
+                .build();
+    
+        this.lb = RoundRobinLoadBalancer.create(
+                hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD)).lift(ClientCollector.create(factory)));  
         
         this.executor = BackupRequestExecutionStrategy.builder(lb)
                 .withBackupTimeout(

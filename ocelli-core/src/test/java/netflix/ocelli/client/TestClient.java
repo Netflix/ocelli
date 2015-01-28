@@ -149,7 +149,8 @@ public class TestClient {
     }
     
     public String toString() {
-        return "Host[id=" + id + ", pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + " rack=" + rack + "]";
+//      return "Host[id=" + id + ", pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + " rack=" + rack + "]";
+        return "Host[id=" + id + "]";
     }
 
     @Override

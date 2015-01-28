@@ -1,5 +1,8 @@
 package netflix.ocelli.loadbalancer.weighting;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 
@@ -22,11 +25,11 @@ public class BaseWeightingStrategyTest {
      * @param weights
      * @return
      */
-    static IntClientAndMetrics[] create(Integer... weights) {
-        IntClientAndMetrics[] cam = new IntClientAndMetrics[weights.length];
+    static List<IntClientAndMetrics> create(Integer... weights) {
+        List<IntClientAndMetrics> cam = new ArrayList<IntClientAndMetrics>(weights.length);
         int counter = 0;
         for (int i = 0; i < weights.length; i++) {
-            cam[i] = new IntClientAndMetrics(counter++, weights[i]);
+            cam.add(new IntClientAndMetrics(counter++, weights[i]));
         }
         return cam;
     }

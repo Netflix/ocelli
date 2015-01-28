@@ -46,7 +46,6 @@ public class MembershipPartitioner<C, K> {
     private final ConcurrentMap<K, PublishSubject<MembershipEvent<C>>> partitions = new ConcurrentHashMap<K, PublishSubject<MembershipEvent<C>>>();
     private final Subscription s;
     
-    
     public static <C, K> MembershipPartitioner<C, K> create(Observable<MembershipEvent<C>> source, final Func1<C, Observable<K>> partitioner) {
         return new MembershipPartitioner<C, K>(source, partitioner);
     }

@@ -1,5 +1,6 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import netflix.ocelli.LoadBalancer;
@@ -17,15 +18,15 @@ import rx.functions.Action1;
  */
 public abstract class BaseLoadBalancer<C> extends LoadBalancer<C> {
     private final Subscription s;
-    private final AtomicReference<C[]> clients;
+    private final AtomicReference<List<C>> clients;
     
-    protected BaseLoadBalancer(final Observable<C[]> source, final AtomicReference<C[]> clients, rx.Observable.OnSubscribe<C> onSubscribe) {
+    protected BaseLoadBalancer(final Observable<List<C>> source, final AtomicReference<List<C>> clients, rx.Observable.OnSubscribe<C> onSubscribe) {
         super(onSubscribe);
         
         this.s = source
-            .subscribe(new Action1<C[]>() {
+            .subscribe(new Action1<List<C>>() {
                 @Override
-                public void call(C[] t1) {
+                public void call(List<C> t1) {
                     clients.set(t1);
                 }
             });

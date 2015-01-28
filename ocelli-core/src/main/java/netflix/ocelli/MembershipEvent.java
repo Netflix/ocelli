@@ -9,18 +9,6 @@ public class MembershipEvent<Client> {
         
         // A host was removed
         REMOVE,
-        
-        // The host is connecting
-        CONNECT,
-        
-        // A host connected successfully
-        CONNECTED,
-        
-        // A host failed
-        FAILED,
-
-        // The host may be removed from quarantine
-        UNQUARANTINE,
     }
     
     private final Client host;

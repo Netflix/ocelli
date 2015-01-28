@@ -1,34 +1,26 @@
 package netflix.ocelli;
 
-import java.util.concurrent.CopyOnWriteArrayList;
+import rx.Notification;
+import rx.Observable;
 
-import rx.functions.Func1;
+public class ClientCollector<C> extends AbstractHostToClientCollector<C, C> {
 
-/**
- * Collect all client into an immutable list of clients based on ADD and REMOVE
- * events
- * 
- * @author elandau
- *
- * @param <C>
- */
-public class ClientCollector<C> implements Func1<MembershipEvent<C>, C[]> {
-    private CopyOnWriteArrayList<C> clients = new CopyOnWriteArrayList<C>();
+    private final ClientLifecycleFactory<C> factory;
     
-    @SuppressWarnings("unchecked")
+    public static <C> ClientCollector<C> create(ClientLifecycleFactory<C> factory)  {
+        return new ClientCollector<C>(factory);
+    }
+    
+    public static <C> ClientCollector<C> create() {
+        return create(FailureDetectingClientLifecycleFactory.<C>builder().build());
+    }
+    
+    public ClientCollector(ClientLifecycleFactory<C> factory) {
+        this.factory = factory;
+    }
+
     @Override
-    public C[] call(MembershipEvent<C> event) {
-        switch (event.getType()) {
-        case ADD:
-            clients.add(event.getClient());
-            break;
-        case REMOVE:
-            clients.remove(event.getClient());
-            break;
-        default:
-            break;
-        }
-        
-        return (C[]) clients.toArray();
+    protected Observable<Notification<C>> createClientLifeycle(C host) {
+        return factory.call(host);
     }
 }

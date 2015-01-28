@@ -1,11 +1,11 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.MembershipEvent;
 import rx.Observable;
 import rx.Subscriber;
 
@@ -18,30 +18,25 @@ import rx.Subscriber;
  * @param <Client>
  */
 public class RoundRobinLoadBalancer<C> extends BaseLoadBalancer<C> {
-    public static <C> RoundRobinLoadBalancer<C> create(Observable<C[]> source) {
+    public static <C> RoundRobinLoadBalancer<C> create(Observable<List<C>> source) {
         return new RoundRobinLoadBalancer<C>(source);
     }
     
-    public static <C> RoundRobinLoadBalancer<C> from(Observable<MembershipEvent<C>> source) {
-        return new RoundRobinLoadBalancer<C>(source.map(new ClientCollector<C>()));
+    public RoundRobinLoadBalancer(Observable<List<C>> source) {
+        this(source, new AtomicReference<List<C>>(new ArrayList<C>()), new AtomicInteger(-1));
     }
     
-    @SuppressWarnings("unchecked")
-    public RoundRobinLoadBalancer(Observable<C[]> source) {
-        this(source, new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger(-1));
-    }
-    
-    RoundRobinLoadBalancer(final Observable<C[]> source, final AtomicReference<C[]> clients, final AtomicInteger position) {
+    RoundRobinLoadBalancer(final Observable<List<C>> source, final AtomicReference<List<C>> clients, final AtomicInteger position) {
         super(source, clients, new OnSubscribe<C>() {
             @Override
             public void call(Subscriber<? super C> s) {
-                C[] internal = clients.get();
-                if (internal.length > 0) {
+                List<C> local = clients.get();
+                if (local.size() > 0) {
                     int pos = position.incrementAndGet();
                     if (pos < 0) {
                         pos = -pos;
                     }
-                    s.onNext(internal[pos % internal.length]);
+                    s.onNext(local.get(pos % local.size()));
                     s.onCompleted();
                 }                
                 else {

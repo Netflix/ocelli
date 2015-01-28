@@ -58,6 +58,20 @@ public class RxUtil {
         };
     }
     
+    public static <T> Action01<T> increment(final AtomicInteger metric) {
+        return new Action01<T>() {
+            @Override
+            public void call(T t1) {
+                metric.incrementAndGet();
+            }
+
+            @Override
+            public void call() {
+                metric.incrementAndGet();
+            }
+        };
+    }
+    
     /**
      * Decrement a stateful counter outside the stream.
      * 

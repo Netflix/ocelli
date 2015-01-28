@@ -41,7 +41,7 @@ public class LoadBalancerTest {
 
     private static List<TestClient> servers;
 
-    private LoadBalancer<TestClient> selector;
+    private LoadBalancer<TestClient> lb;
 
     @Rule
     public TestName name = new TestName();
@@ -63,18 +63,20 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer
-                .from(Observable
+        this.lb = RoundRobinLoadBalancer
+                .create(Observable
                         .from(servers)
-                        .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)));
+                        .map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
+                        .lift(ClientCollector.<TestClient>create())
+                    );
 
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
     
     @After
     public void after() {
-        if (this.selector != null)
-            this.selector.shutdown();
+        if (this.lb != null)
+            this.lb.shutdown();
     }
     
     @Test
@@ -83,7 +85,7 @@ public class LoadBalancerTest {
         final TrackingOperation op = new TrackingOperation("response");
         final ResponseObserver response = new ResponseObserver();
 
-        selector
+        lb
             .flatMap(op)
             .retry(2)
             .subscribe(response);

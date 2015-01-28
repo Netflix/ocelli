@@ -1,43 +1,49 @@
 package netflix.ocelli.loadbalancer.weighting;
 
+import java.util.List;
+
+import com.google.common.collect.Iterables;
+
 
 public class ClientsAndWeights<C> {
-    private final C[] clients;
-    private final int[] weights;
+    private final List<C> clients;
+    private final List<Integer> weights;
     
-    public ClientsAndWeights(C[] clients, int[] weights) {
+    public ClientsAndWeights(List<C> clients, List<Integer> weights) {
         this.clients = clients;
         this.weights = weights;
     }
 
-    public C[] getClients() {
+    public List<C> getClients() {
         return clients;
     }
 
-    public int[] getWeights() {
+    public List<Integer> getWeights() {
         return weights;
     }
 
     public boolean isEmpty() {
-        return clients.length == 0;
+        return clients.isEmpty();
     }
 
     public int size() {
-        return clients.length;
+        return clients.size();
     }
     
     public int getTotalWeights() {
-        return weights[weights.length-1];
+        if (weights == null || weights.size() == 0)
+            return 0;
+        return Iterables.getLast(weights);
     }
 
     public C getClient(int index) {
-        return clients[index];
+        return clients.get(index);
     }
     
     public int getWeight(int index) {
-        assert(weights.length > 0);
-        
-        return weights[index];
+        if (weights == null) 
+            return 0;
+        return weights.get(index);
     }
     
     @Override
