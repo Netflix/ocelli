@@ -1,5 +1,8 @@
 package netflix.ocelli.loadbalancer.weighting;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import rx.functions.Func1;
 
 public class LinearWeightingStrategy<C> implements WeightingStrategy<C> {
@@ -11,18 +14,18 @@ public class LinearWeightingStrategy<C> implements WeightingStrategy<C> {
     }
     
     @Override
-    public ClientsAndWeights<C> call(C[] clients) {
-        int[] weights = new int[clients.length];
+    public ClientsAndWeights<C> call(List<C> clients) {
+        ArrayList<Integer> weights = new ArrayList<Integer>(clients.size());
         
-        if (clients.length > 0) {
-            for (int i = 0; i < clients.length; i++) {
-                weights[i] = func.call(clients[i]);
+        if (clients.size() > 0) {
+            for (int i = 0; i < clients.size(); i++) {
+                weights.add(func.call(clients.get(i)));
             }
     
             int sum = 0;
-            for (int i = 0; i < weights.length; i++) {
-                sum += weights[i];
-                weights[i] = sum;
+            for (int i = 0; i < weights.size(); i++) {
+                sum += weights.get(i);
+                weights.set(i, sum);
             }
         }
         return new ClientsAndWeights<C>(clients, weights);

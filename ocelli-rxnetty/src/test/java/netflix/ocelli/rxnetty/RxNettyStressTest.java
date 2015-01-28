@@ -1,6 +1,7 @@
 package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
+import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.protocol.http.client.FlatResponseOperator;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
@@ -12,13 +13,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
+import netflix.ocelli.Host;
+import netflix.ocelli.HostToClient;
+import netflix.ocelli.HostToClientCollector;
+import netflix.ocelli.HostToClientCachingLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.execute.BackupRequestExecutionStrategy;
+import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Limiters;
 import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
+import netflix.ocelli.stats.Average;
 import netflix.ocelli.stats.ExponentialAverage;
 
 import org.junit.ClassRule;
@@ -55,18 +62,37 @@ public class RxNettyStressTest {
     @Ignore
     public void stressTest() throws InterruptedException {
         final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
-        final HttpClientPool<ByteBuf, ByteBuf> clientPool = HttpClientPool.newPool();
+        
+        final Func0<Average> averageFactory = ExponentialAverage.factory(100, 10);
+        
+        HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
+            new HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
+                new HostToClient<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
+                    @Override
+                    public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
+                        return new HttpClientHolder<ByteBuf, ByteBuf>(
+                                RxNetty.createHttpClient(host.getHostName(), host.getPort()), 
+                                averageFactory.call(), 
+                                poolListener);
+                    }
+                }, 
+                FailureDetectingClientLifecycleFactory.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
+                    .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                    .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
+                    .withClientShutdown(new Action1<HttpClientHolder<ByteBuf, ByteBuf>>() {
+                        @Override
+                        public void call(HttpClientHolder<ByteBuf, ByteBuf> t1) {
+                            t1.getClient().shutdown();
+                        }
+                    })
+                    .build());           
         
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                ChoiceOfTwoLoadBalancer
-                    .from(servers
+                ChoiceOfTwoLoadBalancer.create(
+                    servers
                         .hosts()
-                        .map(clientPool.toFunc())
-                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder(ExponentialAverage.factory(100, 10), poolListener))
-                        .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
-                        .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
-                            .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
-                            .build()),
+                        .map(MembershipEvent.<Host>toEvent(EventType.ADD))
+                        .lift(HostToClientCollector.create(factory)),
                     new Func2<HttpClientHolder<ByteBuf, ByteBuf>, HttpClientHolder<ByteBuf, ByteBuf>, HttpClientHolder<ByteBuf, ByteBuf>>() {
                         @Override
                         public HttpClientHolder<ByteBuf, ByteBuf> call(

@@ -14,6 +14,4 @@ import rx.functions.Func1;
  * @param <C>
  */
 public interface ClientConnector<C> extends Func1<C, Observable<C>>{
-    @Override
-    public Observable<C> call(C client);
 }

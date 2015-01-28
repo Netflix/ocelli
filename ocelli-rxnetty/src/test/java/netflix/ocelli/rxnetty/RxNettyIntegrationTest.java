@@ -3,7 +3,6 @@ package netflix.ocelli.rxnetty;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
-import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.server.HttpServer;
@@ -13,11 +12,15 @@ import io.reactivex.netty.protocol.http.server.RequestHandler;
 
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.Host;
+import netflix.ocelli.HostToClient;
+import netflix.ocelli.HostToClientCollector;
+import netflix.ocelli.HostToClientCachingLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
+import netflix.ocelli.functions.Delays;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 import netflix.ocelli.stats.NullAverage;
 
@@ -27,6 +30,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import rx.Observable;
+import rx.functions.Action1;
 import rx.functions.Func1;
 
 /**
@@ -56,43 +60,54 @@ public class RxNettyIntegrationTest {
 
     @Test
     public void testSimple() throws Exception {
-        final HttpClientPool<ByteBuf, ByteBuf> clientPool = HttpClientPool.newPool();
-        Observable<HttpClient<ByteBuf, ByteBuf>> clientSource = Observable
-                .just(new Host("127.0.0.1", httpServer.getServerPort()))
-                .map(new Func1<Host, HttpClient<ByteBuf, ByteBuf>>() {
-                    @Override
-                    public HttpClient<ByteBuf, ByteBuf> call(
-                            Host host) {
-                        return clientPool.getClientForHost(host);
-                    }
-                });
-
         final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
         
+        HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
+            new HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
+                new HostToClient<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
+                    @Override
+                    public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
+                        return new HttpClientHolder<ByteBuf, ByteBuf>(
+                                RxNetty.createHttpClient(host.getHostName(), host.getPort()), 
+                                NullAverage.factory().call(), 
+                                poolListener);
+                    }
+                }, 
+                FailureDetectingClientLifecycleFactory.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
+                    .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                    .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
+                    .withClientShutdown(new Action1<HttpClientHolder<ByteBuf, ByteBuf>>() {
+                        @Override
+                        public void call(HttpClientHolder<ByteBuf, ByteBuf> t1) {
+                            t1.getClient().shutdown();
+                        }
+                    })
+                    .build());        
+        
+        Observable<Host> clientSource = Observable
+            .just(new Host("127.0.0.1", httpServer.getServerPort()));
+
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                RoundRobinLoadBalancer
-                    .from(clientSource
-                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder(NullAverage.factory(), poolListener))
-                        .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
-                        .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
-                            .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
-                            .build()));
+            RoundRobinLoadBalancer
+                .create(clientSource
+                    .map(MembershipEvent.<Host>toEvent(EventType.ADD))
+                    .lift(HostToClientCollector.create(factory)));
         
         HttpClientResponse<ByteBuf> response = lb.flatMap(
-                new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
-                    @Override
-                    public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
-                        return holder.getClient()
-                                     .submit(HttpClientRequest.createGet("/"))
-                                     .map(new Func1<HttpClientResponse<ByteBuf>, HttpClientResponse<ByteBuf>>() {
-                                         @Override
-                                         public HttpClientResponse<ByteBuf> call(HttpClientResponse<ByteBuf> response) {
-                                             response.ignoreContent();
-                                             return response;
-                                         }
-                                     });
-                    }
-                }).toBlocking().toFuture().get(1, TimeUnit.MINUTES);
+            new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
+                @Override
+                public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
+                    return holder.getClient()
+                                 .submit(HttpClientRequest.createGet("/"))
+                                 .map(new Func1<HttpClientResponse<ByteBuf>, HttpClientResponse<ByteBuf>>() {
+                                     @Override
+                                     public HttpClientResponse<ByteBuf> call(HttpClientResponse<ByteBuf> response) {
+                                         response.ignoreContent();
+                                         return response;
+                                     }
+                                 });
+                }
+            }).toBlocking().toFuture().get(1, TimeUnit.MINUTES);
 
         Assert.assertEquals("Unexpected response status.", HttpResponseStatus.OK, response.getStatus());
     }

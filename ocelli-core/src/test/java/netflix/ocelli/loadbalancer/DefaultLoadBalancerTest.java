@@ -1,13 +1,12 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.ClientCollector;
+import netflix.ocelli.ClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -25,7 +24,6 @@ import netflix.ocelli.util.RxUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,9 +33,6 @@ import rx.Observable;
 import rx.subjects.PublishSubject;
 
 public class DefaultLoadBalancerTest {
-
-    private static final int NUM_HOSTS = 10;
-    private static Observable<MembershipEvent<TestClient>> source;
     
     private LoadBalancer<TestClient> lb;
     private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
@@ -47,27 +42,18 @@ public class DefaultLoadBalancerTest {
     @Rule
     public TestName testName = new TestName();
     
-    @BeforeClass
-    public static void setup() {
-        List<TestClient> hosts = new ArrayList<TestClient>();
-        for (int i = 0; i < NUM_HOSTS; i++) {
-            hosts.add(TestClient.create("host-"+i, Connects.immediate(), Behaviors.immediate()));
-        }
-        
-        source = Observable
-            .from(hosts)
-            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
-    }
-    
     @Before 
     public void before() {
-        this.lb = RandomWeightedLoadBalancer.from(
-                    hostEvents.lift(MembershipFailureDetector.<TestClient>builder()
-                        .withName("Test-" + testName.getMethodName())
-                        .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                        .withFailureDetector(failureDetector)
-                        .withClientConnector(clientConnector)
-                        .build()),
+        ClientLifecycleFactory<TestClient> factory =
+                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+                    .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                    .withFailureDetector(failureDetector)
+                    .withClientConnector(clientConnector)
+                    .build();
+
+        this.lb = RandomWeightedLoadBalancer.create(
+                    hostEvents
+                        .lift(ClientCollector.create(factory)),
                     new LinearWeightingStrategy<TestClient>(
                         TestClient.byPendingRequestCount()));
     }
