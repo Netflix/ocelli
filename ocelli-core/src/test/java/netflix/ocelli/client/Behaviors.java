@@ -2,25 +2,19 @@ package netflix.ocelli.client;
 
 import netflix.ocelli.util.RxUtil;
 import rx.Observable;
-import rx.Scheduler;
 import rx.functions.Func1;
-import rx.schedulers.Schedulers;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Behaviors {
     public static Func1<TestClient, Observable<TestClient>> delay(final long amount, final TimeUnit units) {
-        return delay(amount, units, Schedulers.computation());
-    }
-    
-    public static Func1<TestClient, Observable<TestClient>> delay(final long amount, final TimeUnit units, final Scheduler scheduler) {
         return new Func1<TestClient, Observable<TestClient>>() {
             @Override
             public Observable<TestClient> call(final TestClient client) {
                 return Observable
                         .just(client)
-                        .delay(amount, units, scheduler)
+                        .delay(amount, units)
                         ;
             }
         };
@@ -37,20 +31,14 @@ public class Behaviors {
     }
     
     public static Func1<TestClient, Observable<TestClient>> failure(final long amount, final TimeUnit units) {
-        return failure(amount, units, Schedulers.computation());
-    }
-    
-    public static Func1<TestClient, Observable<TestClient>> failure(final long amount, final TimeUnit units, final Scheduler scheduler) {
         return new Func1<TestClient, Observable<TestClient>>() {
             @Override
             public Observable<TestClient> call(TestClient client) {
-                return Observable.timer(amount, units, scheduler)
-                        .flatMap(new Func1<Long, Observable<TestClient>>() {
-                            @Override
-                            public Observable<TestClient> call(Long t1) {
-                                return Observable.error(new Exception("error"));
-                            }
-                        });
+                return Observable
+                        .just(client)
+                        .delay(amount, units)
+                        .ignoreElements()
+                        .concatWith(Observable.<TestClient>error(new Exception("error")));
             }
         };
     }
@@ -106,16 +94,6 @@ public class Behaviors {
             }
         };
     }
-    
-    public static Func1<TestClient, Observable<TestClient>> empty() {
-        return new Func1<TestClient, Observable<TestClient>>() {
-            @Override
-            public Observable<TestClient> call(TestClient t1) {
-                return Observable.empty();
-            }
-        };
-    }
-    
     // public static poissonDelay()
     // public static gaussianDelay();
     // public static gcPauses();

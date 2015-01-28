@@ -6,19 +6,15 @@ import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ResponseObserver;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TrackingOperation;
-import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 
 import java.util.ArrayList;
@@ -63,10 +59,8 @@ public class LoadBalancerTest {
     
     @Before 
     public void before() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer
-                .from(Observable
-                        .from(servers)
-                        .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)));
+        this.selector = LoadBalancers.fromHostSource(Observable.from(servers)
+                                                               .map(MembershipEvent.<TestClient>toEvent(EventType.ADD)));
 
         LOG.info(">>>>>>>>>>>>>>>> " + name.getMethodName() + " <<<<<<<<<<<<<<<<");
     }
@@ -78,12 +72,12 @@ public class LoadBalancerTest {
     }
     
     @Test
-    @Ignore
     public void testManualOperation() throws Throwable {
         final TrackingOperation op = new TrackingOperation("response");
         final ResponseObserver response = new ResponseObserver();
 
         selector
+            .choose()
             .flatMap(op)
             .retry(2)
             .subscribe(response);

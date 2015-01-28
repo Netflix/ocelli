@@ -1,29 +1,28 @@
 package netflix.ocelli.perf;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TrackingOperation;
-import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
-
+import netflix.ocelli.functions.Functions;
+import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class PerfTest {
     private static final Logger LOG = LoggerFactory.getLogger(PerfTest.class);
@@ -31,7 +30,7 @@ public class PerfTest {
     private static final int NUM_HOSTS = 1000;
     private static Observable<MembershipEvent<TestClient>> source;
 
-    private LoadBalancer<TestClient> selector;
+    private DefaultLoadBalancer<TestClient> selector;
     
     @BeforeClass
     public static void setup() {
@@ -59,7 +58,10 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer.from(source);
+        this.selector = (DefaultLoadBalancer<TestClient>) LoadBalancers.newBuilder(source)
+                .withActiveClientCountStrategy(Functions.sqrt())
+//                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient, ClientMetrics>())
+                .build();
         
 //        this.selector.prime(10).toBlocking().last();
 
@@ -71,7 +73,7 @@ public class PerfTest {
                         .subscribe(new Action1<Long>() {
                            @Override
                             public void call(final Long counter) {
-                               selector
+                               selector.choose()
                                    .concatMap(new TrackingOperation(counter + ""))
                                    .retry()
                                    .subscribe(new Action1<String>() {
@@ -89,7 +91,10 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        this.selector = RoundRobinLoadBalancer.from(source);
+        this.selector = (DefaultLoadBalancer<TestClient>) LoadBalancers.<TestClient>newBuilder(source)
+//                .withWeightingStrategy(new LowestLatencyScoreStrategy<TestHost, TestClient>())
+                .withActiveClientCountStrategy(Functions.sqrt())
+                .build();
         
         final AtomicLong messageCount = new AtomicLong(0);
         
@@ -101,7 +106,7 @@ public class PerfTest {
                         .subscribe(new Action1<Long>() {
                            @Override
                             public void call(final Long counter) {
-                               selector
+                               selector.choose()
                                    .concatMap(new TrackingOperation(counter + ""))
                                    .retry()
                                    .subscribe(new Action1<String>() {
@@ -122,7 +127,7 @@ public class PerfTest {
             @Override
             public void call(Long t1) {
                 long current = messageCount.get();
-                LOG.info("Rate : " + (current - previous) + " Host count: " + selector.all().count().toBlocking().first());
+                LOG.info("Rate : " + (current - previous) + " Host count: " + selector.listActiveClients().count().toBlocking().first());
                 previous = current;
             }
         });

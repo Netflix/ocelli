@@ -3,11 +3,9 @@ package netflix.ocelli.client;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.util.RxUtil;
 import rx.Observable;
-import rx.Observer;
 import rx.functions.Func1;
 
 public class TestClient {
@@ -50,10 +48,6 @@ public class TestClient {
         return new TestClient(id, connect, behavior);
     }
     
-    public static TestClient create(String id, Func1<TestClient, Observable<TestClient>> behavior) {
-        return new TestClient(id, Connects.immediate(), behavior);
-    }
-    
     public TestClient(String id, Observable<Void> connect, Func1<TestClient, Observable<TestClient>> behavior) {
         this.id = id;
         this.behavior = behavior;
@@ -86,66 +80,12 @@ public class TestClient {
         return this.id;
     }
     
-    private AtomicLong executeCount = new AtomicLong(0);
-    private AtomicLong onNextCount = new AtomicLong(0);
-    private AtomicLong onCompletedCount = new AtomicLong(0);
-    private AtomicLong onSubscribeCount = new AtomicLong(0);
-    private AtomicLong onUnSubscribeCount = new AtomicLong(0);
-    private AtomicLong onErrorCount = new AtomicLong(0);
-    
-    public long getExecuteCount() {
-        return executeCount.get();
-    }
-    
-    public long getOnNextCount() {
-        return onNextCount.get();
-    }
-    
-    public long getOnCompletedCount() {
-        return onCompletedCount.get();
-    }
-    
-    public long getOnErrorCount() {
-        return onErrorCount.get();
-    }
-    
-    public long getOnSubscribeCount() {
-        return onSubscribeCount.get();
-    }
-    
-    public long getOnUnSubscribeCount() {
-        return onUnSubscribeCount.get();
-    }
-
-    
-    public boolean hasError() {
-        return onErrorCount.get() > 0;
-    }
-
     public Observable<String> execute(Func1<TestClient, Observable<String>> operation) {
-        this.executeCount.incrementAndGet();
         return behavior.call(this)
-                .doOnSubscribe(RxUtil.increment(onSubscribeCount))
                 .doOnSubscribe(RxUtil.acquire(sem))
-                .doOnUnsubscribe(RxUtil.increment(onUnSubscribeCount))
+                .concatMap(behavior)
                 .concatMap(operation)
-                .doOnEach(new Observer<String>() {
-                    @Override
-                    public void onCompleted() {
-                        onCompletedCount.incrementAndGet();
-                        sem.release();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        onErrorCount.incrementAndGet();
-                    }
-
-                    @Override
-                    public void onNext(String t) {
-                        onNextCount.incrementAndGet();
-                    }
-                });
+                .doOnCompleted(RxUtil.release(sem));
     }
     
     public String toString() {
@@ -176,5 +116,4 @@ public class TestClient {
             return false;
         return true;
     }
-
 }

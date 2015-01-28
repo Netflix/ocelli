@@ -4,18 +4,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.LoadBalancerBuilder;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
+import netflix.ocelli.execute.SimpleExecutionStrategy;
 import netflix.ocelli.functions.Delays;
-import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.functions.Functions;
+import netflix.ocelli.loadbalancer.DefaultLoadBalancer;
+import netflix.ocelli.selectors.RoundRobinSelector;
 
 import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -38,13 +43,14 @@ public class SimpleExecutionStrategyInvokerTest {
     private static final int NUM_HOSTS = 10;
     private static Observable<MembershipEvent<TestClient>> source;
     
+    private LoadBalancerBuilder<TestClient> builder;
+    private DefaultLoadBalancer<TestClient> lb;
     private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
     
     @Rule
     public TestName testName = new TestName();
-    private RoundRobinLoadBalancer<TestClient> lb;
     
     @BeforeClass
     public static void setup() {
@@ -58,6 +64,18 @@ public class SimpleExecutionStrategyInvokerTest {
             .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
     }
     
+    @Before 
+    public void before() {
+        builder = LoadBalancers.newBuilder(hostEvents)
+            .withName("Test-" + testName.getMethodName())
+            .withActiveClientCountStrategy(Functions.identity())
+            .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+            .withFailureDetector(failureDetector)
+            .withClientConnector(clientConnector)
+            .withSelectionStrategy(
+                new RoundRobinSelector<TestClient>());
+    }
+    
     @After
     public void afterTest() {
         if (this.lb != null) {
@@ -67,15 +85,7 @@ public class SimpleExecutionStrategyInvokerTest {
     
     @Test
     public void test() {
-        this.lb = RoundRobinLoadBalancer.from(hostEvents  
-                .lift(MembershipFailureDetector.<TestClient>builder()
-                        .withName("Test-" + testName.getMethodName())
-                        .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                        .withFailureDetector(failureDetector)
-                        .withClientConnector(clientConnector)
-                        .build()));
-
-        
+        this.lb = (DefaultLoadBalancer<TestClient>) builder.build();
         source.subscribe(hostEvents);
         
         List<String> result = Observable.range(0, 10)

@@ -4,7 +4,7 @@ import rx.Observable;
 import rx.functions.Func1;
 
 /**
- * The execution strategy encapsulates a specific usage of the load balancer and uses
+ * The invoker encapsulates a specific usage of the load balancer and uses
  * ioc to execute an operation.  An invoker will normally capture specific
  * policies such as failover and retries.
  * 

@@ -21,6 +21,12 @@ public class MembershipEvent<Client> {
 
         // The host may be removed from quarantine
         UNQUARANTINE,
+        
+        // Stop sending traffic to a host
+        STOP, 
+        
+        // The host is now idle either after stopping or being un-quarantined
+        IDLE
     }
     
     private final Client host;
@@ -83,7 +89,6 @@ public class MembershipEvent<Client> {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        @SuppressWarnings("rawtypes")
         MembershipEvent other = (MembershipEvent) obj;
         if (host == null) {
             if (other.host != null)

@@ -31,7 +31,7 @@ public class RetryFailedTestRule implements TestRule {
             public void evaluate() throws Throwable {
                 Throwable caughtThrowable = null;
 
-                for (attemptNumber = 0; attemptNumber <= retryCount; ++attemptNumber) {
+                for (attemptNumber = 0; attemptNumber < retryCount; ++attemptNumber) {
                     try {
                         base.evaluate();
 

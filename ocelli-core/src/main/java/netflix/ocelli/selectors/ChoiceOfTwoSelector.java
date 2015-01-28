@@ -1,12 +1,10 @@
-package netflix.ocelli.loadbalancer;
+package netflix.ocelli.selectors;
 
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.MembershipEvent;
-import rx.Observable;
+import netflix.ocelli.SelectionStrategy;
 import rx.Subscriber;
 import rx.functions.Func2;
 
@@ -25,22 +23,16 @@ import rx.functions.Func2;
  *
  * @param <C>
  */
-public class ChoiceOfTwoLoadBalancer<C> extends BaseLoadBalancer<C>{
-    public static <C> ChoiceOfTwoLoadBalancer<C> from(final Observable<MembershipEvent<C>> source, final Func2<C, C, C> func) {
-        return new ChoiceOfTwoLoadBalancer<C>(source.map(new ClientCollector<C>()), func);
-    }
-    
-    public static <C> ChoiceOfTwoLoadBalancer<C> create(final Observable<C[]> source, final Func2<C, C, C> func) {
-        return new ChoiceOfTwoLoadBalancer<C>(source, func);
-    }
-    
+public class ChoiceOfTwoSelector<C> extends SelectionStrategy<C>{
+    private final AtomicReference<C[]> clients;
+
     @SuppressWarnings("unchecked")
-    public ChoiceOfTwoLoadBalancer(final Observable<C[]> source, final Func2<C, C, C> func) {
-        this(source, func, new AtomicReference<C[]>((C[]) new Object[0]), new Random());
+    public ChoiceOfTwoSelector(final Func2<C, C, C> func) {
+        this(func, new AtomicReference<C[]>((C[]) new Object[0]), new Random());
     }
     
-    ChoiceOfTwoLoadBalancer(final Observable<C[]> source, final Func2<C, C, C> func, final AtomicReference<C[]> clients, final Random rand) {
-        super(source, clients, new OnSubscribe<C>() {
+    ChoiceOfTwoSelector(final Func2<C, C, C> func, final AtomicReference<C[]> clients, final Random rand) {
+        super(new OnSubscribe<C>() {
             @Override
             public void call(Subscriber<? super C> s) {
                 C[] internal = clients.get();
@@ -60,5 +52,12 @@ public class ChoiceOfTwoLoadBalancer<C> extends BaseLoadBalancer<C>{
                 }
             }
         });
+        this.clients = clients;
     }
+    
+    @Override
+    public void setClients(C[] clients) {
+        this.clients.set(clients);
+    }
+
 }

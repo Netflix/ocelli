@@ -20,8 +20,7 @@ apply plugin: 'groovy'
 
 dependencies {
     compile project(':ocelli-core')
-    compile 'io.reactivex:rxnetty:0.4.4'
-    
+    compile 'io.reactivex:rxnetty:0.4.0'
     testCompile 'junit:junit:4.10'
 }
 

@@ -1,27 +1,22 @@
 package netflix.ocelli.rxnetty;
 
+import com.google.common.collect.Maps;
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.pipeline.PipelineConfigurators;
 import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
-
-import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
-
 import netflix.ocelli.Host;
-
+import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEvent.EventType;
 import org.junit.rules.ExternalResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import rx.Observable;
-import rx.functions.Func1;
 
-import com.google.common.collect.Maps;
+import java.util.HashMap;
 
 public class NettyServerFarmResource extends ExternalResource {
     private static final Logger LOG = LoggerFactory.getLogger(NettyServerFarmResource.class);
@@ -58,44 +53,16 @@ public class NettyServerFarmResource extends ExternalResource {
     }
     
     public HttpServer<ByteBuf, ByteBuf> createServer() {
-        return RxNetty
-                .newHttpServerBuilder(0, new RequestHandler<ByteBuf, ByteBuf>() {
-                    @Override
-                    public Observable<Void> handle(HttpServerRequest<ByteBuf> request, final HttpServerResponse<ByteBuf> response) {
-//                        LOG.info("Request: " + request.getUri());
-                        
-                        QueryParameters params = QueryParameters.from(request.getQueryParameters());
-                        Integer delay = params.firstAsInt("delay");
-                        Integer code  = params.firstAsInt("code");
-                        
-                        // Optional response code
-                        if (code != null) {
-                            response.setStatus(HttpResponseStatus.valueOf(code));
-                        }
-                        
-                        // Message body
-                        response.writeString("Welcome!!");
-                        
-                        // Optional delay
-                        if (delay != null) {
-//                            LOG.info("Delaying " + delay);
-                            return Observable
-                                .timer(delay, TimeUnit.MILLISECONDS)
-                                .flatMap(new Func1<Long, Observable<Void>>() {
-                                    @Override
-                                    public Observable<Void> call(Long t1) {
-                                        return response.close(true);
-                                    }
-                                });
-                        }
-                        return response.close(true);
-                    }
-                })
-                .pipelineConfigurator(PipelineConfigurators.<ByteBuf, ByteBuf>httpServerConfigurator())
-                .build();
+        return RxNetty.newHttpServerBuilder(0, new RequestHandler<ByteBuf, ByteBuf>() {
+            @Override
+            public Observable<Void> handle(HttpServerRequest<ByteBuf> request, final HttpServerResponse<ByteBuf> response) {
+                response.writeString("Welcome!!");
+                return response.close(false);
+            }
+        }).pipelineConfigurator(PipelineConfigurators.<ByteBuf, ByteBuf>httpServerConfigurator()).build();
     }
     
-    public Observable<Host> hosts() {
-        return Observable.from(servers.keySet());
+    public Observable<MembershipEvent<Host>> hostEvents() {
+        return Observable.from(servers.keySet()).map(MembershipEvent.<Host>toEvent(EventType.ADD));
     }
 }

@@ -36,15 +36,6 @@ public class HttpClientPool<I, O> extends RxNettyClientPool<HttpClientRequest<I>
         return clientFactory.call(host);
     }
 
-    public Func1<Host, HttpClient<I, O>> toFunc() {
-        return new Func1<Host, HttpClient<I, O>>() {
-            @Override
-            public HttpClient<I, O> call(Host host) {
-                return getClientForHost(host);
-            }
-        };
-    }
-    
     public static HttpClientPool<ByteBuf, ByteBuf> newPool() {
         return new HttpClientPool<ByteBuf, ByteBuf>(new Func1<Host, HttpClient<ByteBuf, ByteBuf>>() {
             @Override

@@ -66,7 +66,6 @@ public class RingTopology<T, K extends Comparable<K>> implements Operator<Member
                 return false;
             if (getClass() != obj.getClass())
                 return false;
-            @SuppressWarnings("rawtypes")
             Holder other = (Holder) obj;
             if (key == null) {
                 if (other.key != null)
@@ -122,8 +121,6 @@ public class RingTopology<T, K extends Comparable<K>> implements Operator<Member
                     case REMOVE:
                         ring.remove(new Holder<T, K>(t.getClient(), hashFunc.call(t.getClient())));
                         break;
-                    default:
-                        return;
                     }
                     
                     // Re-sort the ring

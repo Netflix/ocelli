@@ -7,14 +7,14 @@ import rx.Observable;
 import rx.functions.Func1;
 
 public abstract class Retrys {
-    public static Func1<Throwable, Boolean> ALWAYS = new Func1<Throwable, Boolean>() {
+    public static Func1<Throwable, Boolean> ALWAYS_TRUE = new Func1<Throwable, Boolean>() {
         @Override
         public Boolean call(Throwable t1) {
             return true;
         }
     };
     
-    public static Func1<Throwable, Boolean> NEVER = new Func1<Throwable, Boolean>() {
+    public static Func1<Throwable, Boolean> ALWAYS_FALSE = new Func1<Throwable, Boolean>() {
         @Override
         public Boolean call(Throwable t1) {
             return false;
@@ -29,7 +29,7 @@ public abstract class Retrys {
      * @return
      */
     public static Func1<Observable<? extends Throwable>, Observable<?>> exponentialBackoff(final int maxRetrys, final long timeslice, final TimeUnit units) {
-        return new ExponentialBackoff(maxRetrys, timeslice, -1, units, ALWAYS);
+        return new ExponentialBackoff(maxRetrys, timeslice, -1, units, ALWAYS_TRUE);
     }
 
     /**
@@ -40,6 +40,6 @@ public abstract class Retrys {
      * @return
      */
     public static Func1<Observable<? extends Throwable>, Observable<?>> exponentialBackoff(final int maxRetrys, final long timeslice, final TimeUnit units, final long maxDelay) {
-        return new ExponentialBackoff(maxRetrys, timeslice, maxDelay, units, ALWAYS);
+        return new ExponentialBackoff(maxRetrys, timeslice, maxDelay, units, ALWAYS_TRUE);
     }
 }

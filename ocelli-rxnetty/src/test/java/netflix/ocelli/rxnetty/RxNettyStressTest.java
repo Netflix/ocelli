@@ -1,142 +1,106 @@
 package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
+import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.protocol.http.client.FlatResponseOperator;
+import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.HttpClientRequest;
-import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.client.ResponseHolder;
 
 import java.nio.charset.Charset;
-import java.util.Random;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.Host;
 import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.LoadBalancers;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipFailureDetector;
-import netflix.ocelli.execute.BackupRequestExecutionStrategy;
-import netflix.ocelli.functions.Limiters;
-import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
-import netflix.ocelli.stats.ExponentialAverage;
+import netflix.ocelli.functions.Retrys;
+import netflix.ocelli.selectors.RandomWeightedSelector;
+import netflix.ocelli.selectors.weighting.LinearWeightingStrategy;
 
-import org.junit.ClassRule;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.uncommons.maths.random.ExponentialGenerator;
 
 import rx.Observable;
-import rx.Observer;
 import rx.functions.Action1;
-import rx.functions.Func0;
 import rx.functions.Func1;
-import rx.functions.Func2;
 
-@Ignore
+import com.google.common.collect.Lists;
+
 public class RxNettyStressTest {
     private static final Logger LOG = LoggerFactory.getLogger(RxNettyStressTest.class);
     
+//    @ClassRule
+//    public static NettyServerFarmResource servers = new NettyServerFarmResource(100);
+    
     public static int OPS_PER_SECOND = 1000;
-    public static int SERVER_COUNT   = 5;
-    public static long interval      = 1000000 / OPS_PER_SECOND;
-    
-    @ClassRule
-    public static NettyServerFarmResource servers = new NettyServerFarmResource(SERVER_COUNT);
-    
-    @Rule
-    public TestName name = new TestName();
+    public static int SERVER_COUNT = 5;
+    public static long interval = 1000000 / OPS_PER_SECOND;
     
     @Test
     @Ignore
     public void stressTest() throws InterruptedException {
-        final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
-        final HttpClientPool<ByteBuf, ByteBuf> clientPool = HttpClientPool.newPool();
-        
-        final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
-                ChoiceOfTwoLoadBalancer
-                    .from(servers
-                        .hosts()
-                        .map(clientPool.toFunc())
-                        .map(HttpClientHolder.<ByteBuf, ByteBuf>toHolder(ExponentialAverage.factory(100, 10), poolListener))
-                        .map(MembershipEvent.<HttpClientHolder<ByteBuf, ByteBuf>>toEvent(EventType.ADD))
-                        .lift(MembershipFailureDetector.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
-                            .withFailureDetector(new RxNettyFailureDetector<ByteBuf, ByteBuf>())
-                            .build()),
-                    new Func2<HttpClientHolder<ByteBuf, ByteBuf>, HttpClientHolder<ByteBuf, ByteBuf>, HttpClientHolder<ByteBuf, ByteBuf>>() {
-                        @Override
-                        public HttpClientHolder<ByteBuf, ByteBuf> call(
-                                HttpClientHolder<ByteBuf, ByteBuf> left,
-                                HttpClientHolder<ByteBuf, ByteBuf> right) {
-                            return left.getListener().getAverageLatency() > right.getListener().getAverageLatency()
-                                ? left 
-                                : right;
-                        }
-                    });
+        List<Host> si = Lists.newArrayList();
 
-        final BackupRequestExecutionStrategy<HttpClientHolder<ByteBuf, ByteBuf>> execution = BackupRequestExecutionStrategy
-                .builder(lb)
-                .withBackupTimeout(new Func0<Integer>() {
-                    @Override
-                    public Integer call() {
-                        return poolListener.getLatencyPercentile(0.90);
-                    }
-                }, TimeUnit.MILLISECONDS)
-                .withLimiter(Limiters.exponential(0.90, 20))
+        for (int i = 0; i < SERVER_COUNT; i++) {
+            si.add(new Host("localhost", 8080+i));
+        }
+
+        Observable<HttpClient<ByteBuf, ByteBuf>> clientSource = Observable.from(si)
+                                                                 .map(new Func1<Host, HttpClient<ByteBuf, ByteBuf>>() {
+                                                                     @Override
+                                                                     public HttpClient<ByteBuf, ByteBuf> call(Host host) {
+                                                                         return RxNetty.createHttpClient(host.getHostName(), host.getPort());
+                                                                     }
+                                                                 });
+
+        final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
+                LoadBalancers.newBuilder(clientSource
+                                                 .map(new Func1<HttpClient<ByteBuf, ByteBuf>, MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>>() {
+                                                     @Override
+                                                     public MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>> call(
+                                                             HttpClient<ByteBuf, ByteBuf> client) {
+                                                         return new MembershipEvent<HttpClientHolder<ByteBuf, ByteBuf>>(
+                                                                 EventType.ADD, new HttpClientHolder<ByteBuf, ByteBuf>(
+                                                                 client));
+                                                     }
+                                                 }))
+                .withSelectionStrategy(
+                    new RandomWeightedSelector<HttpClientHolder<ByteBuf, ByteBuf>>(
+                        new LinearWeightingStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(
+                            new RxNettyPendingRequests<ByteBuf, ByteBuf>())))
                 .build();
 
         final AtomicLong counter = new AtomicLong();
-        final ExponentialGenerator generator = new ExponentialGenerator(10.0, new Random());
-
+        
         Observable.interval(interval, TimeUnit.MICROSECONDS)
-            .flatMap(new Func1<Long, Observable<String>>() {
+            .subscribe(new Action1<Long>() {
                 @Override
-                public Observable<String> call(Long t1) {
-                    final long startTime = System.currentTimeMillis();
-                    final CopyOnWriteArrayList<Integer> delays = new CopyOnWriteArrayList<Integer>();
-                    return execution.execute(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
-                            @Override
-                            public Observable<HttpClientResponse<ByteBuf>> call(final HttpClientHolder<ByteBuf, ByteBuf> holder) {
-                                int delay = (int) (generator.nextValue() * 1000);
-                                delays.add(delay);
-                                HttpClientRequest<ByteBuf> request = HttpClientRequest.createGet("?delay="+delay);
-                                return holder.getClient().submit(request);
-                            }
-                        })
-                        .lift(FlatResponseOperator.<ByteBuf>flatResponse())
-                        .map(new Func1<ResponseHolder<ByteBuf>, String>() {
-                            @Override
-                            public String call(ResponseHolder<ByteBuf> holder) {
-                                counter.incrementAndGet();
-                                return holder.getContent().toString(Charset.defaultCharset());
-                            }
-                        })
-                        .doOnNext(new Action1<String>() {
-                            @Override
-                            public void call(String t1) {
-                                final long endTime = System.currentTimeMillis();
-                                // LOG.info("Actual " + (endTime - startTime) + " from " + delays);
-                            }
-                        });
-                }
-            })
-            .subscribe(new Observer<String>() {
-                @Override
-                public void onCompleted() {
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    e.printStackTrace();
-                }
-
-                @Override
-                public void onNext(String t) {
-                    // LOG.info(" Result : " + t1);
+                public void call(Long t1) {
+                    lb
+                    .choose()
+                    .concatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<String>>() {
+                        @Override
+                        public Observable<String> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
+                            HttpClientRequest<ByteBuf> request = HttpClientRequest.createGet("/hello");
+                            return holder.getClient().submit(request)
+                                .lift(FlatResponseOperator.<ByteBuf>flatResponse())
+                                .map(new Func1<ResponseHolder<ByteBuf>, String>() {
+                                    @Override
+                                    public String call(ResponseHolder<ByteBuf> holder) {
+                                        counter.incrementAndGet();
+                                        return holder.getContent().toString(Charset.defaultCharset());
+                                    }
+                                });
+                        }
+                    })
+                    .retryWhen(Retrys.exponentialBackoff(3, 1, TimeUnit.SECONDS))
+                    .subscribe();                            
                 }
             });
 
@@ -145,10 +109,7 @@ public class RxNettyStressTest {
                 @Override
                 public void call(Long t1) {
                     long current = counter.getAndSet(0);
-                    LOG.info("Rate: {} / sec.   95th: {}   50th: {}  Ratio : {}", 
-                            current, 
-                            poolListener.getLatencyPercentile(0.90), 
-                            poolListener.getLatencyPercentile(0.50));
+                    LOG.info("Rate " + current + " / sec");
                 }
             });
 

@@ -1,12 +1,10 @@
-package netflix.ocelli.loadbalancer;
+package netflix.ocelli.selectors;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.MembershipEvent;
-import rx.Observable;
+import netflix.ocelli.SelectionStrategy;
 import rx.Subscriber;
 
 /**
@@ -17,22 +15,16 @@ import rx.Subscriber;
  *
  * @param <Client>
  */
-public class RoundRobinLoadBalancer<C> extends BaseLoadBalancer<C> {
-    public static <C> RoundRobinLoadBalancer<C> create(Observable<C[]> source) {
-        return new RoundRobinLoadBalancer<C>(source);
-    }
-    
-    public static <C> RoundRobinLoadBalancer<C> from(Observable<MembershipEvent<C>> source) {
-        return new RoundRobinLoadBalancer<C>(source.map(new ClientCollector<C>()));
-    }
-    
+public class RoundRobinSelector<C> extends SelectionStrategy<C> {
+    private final AtomicReference<C[]> clients;
+
     @SuppressWarnings("unchecked")
-    public RoundRobinLoadBalancer(Observable<C[]> source) {
-        this(source, new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger(-1));
+    public RoundRobinSelector() {
+        this(new AtomicReference<C[]>((C[]) new Object[0]), new AtomicInteger());
     }
     
-    RoundRobinLoadBalancer(final Observable<C[]> source, final AtomicReference<C[]> clients, final AtomicInteger position) {
-        super(source, clients, new OnSubscribe<C>() {
+    RoundRobinSelector(final AtomicReference<C[]> clients, final AtomicInteger position) {
+        super(new OnSubscribe<C>() {
             @Override
             public void call(Subscriber<? super C> s) {
                 C[] internal = clients.get();
@@ -49,5 +41,11 @@ public class RoundRobinLoadBalancer<C> extends BaseLoadBalancer<C> {
                 }
             }
         });
+        this.clients = clients;
+    }
+    
+    @Override
+    public void setClients(C[] clients) {
+        this.clients.set(clients);
     }
 }

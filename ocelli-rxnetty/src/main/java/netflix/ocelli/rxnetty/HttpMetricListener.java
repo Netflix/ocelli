@@ -1,15 +1,11 @@
 package netflix.ocelli.rxnetty;
 
-import io.reactivex.netty.client.ClientMetricsEvent;
 import io.reactivex.netty.client.RxClient;
-import io.reactivex.netty.metrics.ClientMetricEventsListener;
 import io.reactivex.netty.metrics.HttpClientMetricEventsListener;
+import netflix.ocelli.LoadBalancer;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.stats.Average;
 
 /**
  * An {@link RxClient} metric listener to calculate metrics for {@link LoadBalancer}
@@ -18,26 +14,10 @@ import netflix.ocelli.stats.Average;
  */
 public class HttpMetricListener extends HttpClientMetricEventsListener {
 
-    private final AtomicInteger pendingRequests = new AtomicInteger();
-    private final Average average;
-    private final ClientMetricEventsListener<ClientMetricsEvent<?>> poolListener;
-    
-    public HttpMetricListener(Average average, ClientMetricEventsListener<ClientMetricsEvent<?>> poolListener) {
-        this.poolListener = poolListener;
-        this.average = average;
-    }
+    public AtomicInteger pendingRequests = new AtomicInteger();
 
     public int getPendingRequests() {
         return pendingRequests.get();
-    }
-
-    public int getAverageLatency() {
-        return (int)average.get();
-    }
-    
-    public void onEvent(ClientMetricsEvent<?> event, long duration, TimeUnit timeUnit, Throwable throwable, Object value) {
-        super.onEvent(event, duration, timeUnit, throwable, value);
-        poolListener.onEvent(event, duration, timeUnit, throwable, value);
     }
 
     @Override
@@ -59,9 +39,5 @@ public class HttpMetricListener extends HttpClientMetricEventsListener {
     protected void onRequestSubmitted() {
         pendingRequests.incrementAndGet();
     }
-    
-    @Override
-    protected void onRequestProcessingComplete(long duration, TimeUnit timeUnit) {
-        average.add((int) TimeUnit.MILLISECONDS.convert(duration, timeUnit));
-    }
+
 }
