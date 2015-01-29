@@ -197,7 +197,7 @@ public class PartitionedLoadBalancerTest {
         LoadBalancer<TestClient> zoneD = RoundRobinLoadBalancer.create(
                 lb.getPartition("us-east-1d").lift(ClientCollector.create(factory)));
         
-        RxUtil.onSubscribeChooseNext(zoneA, zoneB, zoneC, zoneD)
+        RxUtil.onSubscribeChooseNext(Observable.create(zoneA), Observable.create(zoneB), Observable.create(zoneC), Observable.create(zoneD))
             .concatMap(new Func1<Observable<TestClient>, Observable<String>>() {
                 @Override
                 public Observable<String> call(Observable<TestClient> t1) {

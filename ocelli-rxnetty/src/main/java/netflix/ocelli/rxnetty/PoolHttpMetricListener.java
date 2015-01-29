@@ -14,14 +14,23 @@ import netflix.ocelli.stats.Quantiles;
  *
  */
 public class PoolHttpMetricListener extends HttpClientMetricEventsListener {
-    private final Quantiles percentiles = new CKMSQuantiles(new CKMSQuantiles.Quantile[]{new CKMSQuantiles.Quantile(0.5, 1), new CKMSQuantiles.Quantile(0.90, 1)});
+    
+    private final Quantiles quantiles;
+    
+    public PoolHttpMetricListener(Quantiles quantiles) {
+        this.quantiles = quantiles;
+    }
+    
+    public PoolHttpMetricListener() {
+        this(new CKMSQuantiles(new CKMSQuantiles.Quantile[]{new CKMSQuantiles.Quantile(0.5, 1), new CKMSQuantiles.Quantile(0.90, 1)}));
+    }
     
     public Integer getLatencyPercentile(double percentile) {
-        return percentiles.get(percentile);
+        return quantiles.get(percentile);
     }
 
     @Override
     protected void onRequestProcessingComplete(long duration, TimeUnit timeUnit) {
-        percentiles.insert((int) TimeUnit.MILLISECONDS.convert(duration, timeUnit));
+        quantiles.insert((int) TimeUnit.MILLISECONDS.convert(duration, timeUnit));
     }
 }

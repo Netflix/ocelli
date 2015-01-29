@@ -14,15 +14,15 @@ import rx.functions.Func1;
  */
 public class SimpleExecutionStrategy<C> extends ExecutionStrategy<C> {
 
-    private LoadBalancer<C> chooser;
+    private LoadBalancer<C> lb;
 
     public SimpleExecutionStrategy(final LoadBalancer<C> lb) {
-        this.chooser = lb;
+        this.lb = lb;
     }
     
     @Override
     public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        return chooser.flatMap(operation);
+        return Observable.create(lb).flatMap(operation);
     }
 
     public static <C> SimpleExecutionStrategy<C> create(LoadBalancer<C> chooser) {

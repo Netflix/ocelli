@@ -15,8 +15,8 @@ import java.util.concurrent.TimeUnit;
 import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.Host;
 import netflix.ocelli.HostToClient;
-import netflix.ocelli.HostToClientCollector;
 import netflix.ocelli.HostToClientCachingLifecycleFactory;
+import netflix.ocelli.HostToClientCollector;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
@@ -31,7 +31,6 @@ import org.junit.Test;
 
 import rx.Observable;
 import rx.functions.Action1;
-import rx.functions.Func1;
 
 /**
  * @author Nitesh Kant
@@ -60,6 +59,9 @@ public class RxNettyIntegrationTest {
 
     @Test
     public void testSimple() throws Exception {
+        Observable<Host> clientSource = Observable
+                .just(new Host("127.0.0.1", httpServer.getServerPort()));
+
         final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
         
         HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
@@ -84,30 +86,17 @@ public class RxNettyIntegrationTest {
                     })
                     .build());        
         
-        Observable<Host> clientSource = Observable
-            .just(new Host("127.0.0.1", httpServer.getServerPort()));
-
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
             RoundRobinLoadBalancer
                 .create(clientSource
                     .map(MembershipEvent.<Host>toEvent(EventType.ADD))
                     .lift(HostToClientCollector.create(factory)));
         
-        HttpClientResponse<ByteBuf> response = lb.flatMap(
-            new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
-                @Override
-                public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> holder) {
-                    return holder.getClient()
-                                 .submit(HttpClientRequest.createGet("/"))
-                                 .map(new Func1<HttpClientResponse<ByteBuf>, HttpClientResponse<ByteBuf>>() {
-                                     @Override
-                                     public HttpClientResponse<ByteBuf> call(HttpClientResponse<ByteBuf> response) {
-                                         response.ignoreContent();
-                                         return response;
-                                     }
-                                 });
-                }
-            }).toBlocking().toFuture().get(1, TimeUnit.MINUTES);
+        HttpClientResponse<ByteBuf> response = Observable.create(lb)
+                .flatMap(Requests.from(HttpClientRequest.createGet("/")))
+                .toBlocking()
+                .toFuture()
+                .get(1, TimeUnit.MINUTES);
 
         Assert.assertEquals("Unexpected response status.", HttpResponseStatus.OK, response.getStatus());
     }
