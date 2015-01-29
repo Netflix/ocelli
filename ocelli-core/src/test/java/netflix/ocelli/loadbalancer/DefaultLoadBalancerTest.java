@@ -79,7 +79,8 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb  .concatMap(operation)
+        Observable.create(lb)
+            .concatMap(operation)
             .retry()
             .subscribe(response);
         
@@ -129,7 +130,8 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb  .concatMap(operation)
+        Observable.create(lb)
+            .concatMap(operation)
             .retry()
             .subscribe(response);
         
@@ -146,7 +148,8 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        lb  .concatMap(operation)
+        Observable.create(lb)   
+            .concatMap(operation)
             .single()
             .retry()
             .subscribe(response);

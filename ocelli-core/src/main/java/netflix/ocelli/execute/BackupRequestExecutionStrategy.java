@@ -40,7 +40,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
         }
     };
     
-    private final LoadBalancer<C>           chooser;
+    private final LoadBalancer<C>           lb;
     private final Func0<Integer>            delay;
     private final TimeUnit                  delayUnits;
     private final Func1<Throwable, Boolean> retriableError;
@@ -48,15 +48,15 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
     private final Func1<Boolean, Boolean>   limiter;
     
     public static class Builder<C> {
-        private final LoadBalancer<C>     chooser;
+        private final LoadBalancer<C>     lb;
         private Func0<Integer>            delay          = DEFAULT_BACKUP_TIMEOUT;
         private TimeUnit                  delayUnits     = TimeUnit.MILLISECONDS;
-        private Func1<Boolean, Boolean>   limiter          = DEFAULT_GUARD;
+        private Func1<Boolean, Boolean>   limiter        = DEFAULT_GUARD;
         private Func1<Throwable, Boolean> retriableError = Retrys.ALWAYS;
         private Scheduler                 scheduler      = Schedulers.computation();
 
-        private Builder(LoadBalancer<C> chooser) {
-            this.chooser = chooser;
+        private Builder(LoadBalancer<C> lb) {
+            this.lb = lb;
         }
         
         /**
@@ -133,7 +133,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
     }
     
     private BackupRequestExecutionStrategy(Builder<C> builder) {
-        this.chooser        = builder.chooser;
+        this.lb             = builder.lb;
         this.delay          = builder.delay;
         this.retriableError = builder.retriableError;
         this.scheduler      = builder.scheduler;
@@ -143,7 +143,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
 
     @Override
     public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        final Observable<R> o = chooser
+        final Observable<R> o = Observable.create(lb)
                 .flatMap(operation)
                 .lift(new Operator<R, R>() {
                     private AtomicBoolean first = new AtomicBoolean(true);

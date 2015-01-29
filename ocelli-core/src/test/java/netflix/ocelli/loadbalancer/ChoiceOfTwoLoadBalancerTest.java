@@ -10,6 +10,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
+import rx.Observable;
 import rx.functions.Func2;
 import rx.subjects.PublishSubject;
 
@@ -33,7 +34,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         
         source.onNext(Lists.<Integer>newArrayList());
         
-        lb.toBlocking().single();
+        Observable.create(lb).toBlocking().single();
     }
     
     @Test
@@ -44,7 +45,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         source.onNext(Lists.newArrayList(0));
         
         for (int i = 0; i < 100; i++) {
-            Assert.assertEquals(0, (int)lb.toBlocking().single());
+            Assert.assertEquals(0, (int)Observable.create(lb).toBlocking().single());
         }
     }
     
@@ -58,7 +59,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
         for (int i = 0; i < 100; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(Observable.create(lb).toBlocking().single());
         }
         Assert.assertEquals(counts.get(0), 0);
         Assert.assertEquals(counts.get(1), 100);
@@ -74,7 +75,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         
         for (int i = 0; i < 100000; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(Observable.create(lb).toBlocking().single());
         }
         Double[] pct = new Double[counts.length()];
         for (int i = 0; i < counts.length(); i++) {

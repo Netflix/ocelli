@@ -85,7 +85,7 @@ public class LoadBalancerTest {
         final TrackingOperation op = new TrackingOperation("response");
         final ResponseObserver response = new ResponseObserver();
 
-        lb
+        Observable.create(lb)
             .flatMap(op)
             .retry(2)
             .subscribe(response);

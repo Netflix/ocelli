@@ -1,6 +1,7 @@
 package netflix.ocelli;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
 
 /**
  * Base for all LoadBalancers will emit a single C based on the load balancing
@@ -10,11 +11,7 @@ import rx.Observable;
  *
  * @param <C>
  */
-public abstract class LoadBalancer<C> extends Observable<C> {
-    protected LoadBalancer(rx.Observable.OnSubscribe<C> onSubscribe) {
-        super(onSubscribe);
-    }
-    
+public abstract class LoadBalancer<C> implements OnSubscribe<C> {
     /**
      * Shut down the load balancer
      * 

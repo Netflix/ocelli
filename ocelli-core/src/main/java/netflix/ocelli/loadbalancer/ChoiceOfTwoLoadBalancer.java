@@ -1,10 +1,8 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
 
 import rx.Observable;
 import rx.Subscriber;
@@ -30,30 +28,30 @@ public class ChoiceOfTwoLoadBalancer<C> extends BaseLoadBalancer<C>{
         return new ChoiceOfTwoLoadBalancer<C>(source, func);
     }
     
-    public ChoiceOfTwoLoadBalancer(final Observable<List<C>> source, final Func2<C, C, C> func) {
-        this(source, func, new AtomicReference<List<C>>(new ArrayList<C>()), new Random());
-    }
+    private final Random rand = new Random();
+    private final Func2<C, C, C> func;
     
-    ChoiceOfTwoLoadBalancer(final Observable<List<C>> source, final Func2<C, C, C> func, final AtomicReference<List<C>> clients, final Random rand) {
-        super(source, clients, new OnSubscribe<C>() {
-            @Override
-            public void call(Subscriber<? super C> s) {
-                List<C> local = clients.get();
-                if (local.size() == 1) {
-                    s.onNext(local.get(0));
-                    s.onCompleted();
-                }                
-                else if (local.size() > 1){
-                    int first  = rand.nextInt(local.size());
-                    int second = (rand.nextInt(local.size()-1) + first + 1) % local.size();
-                    
-                    s.onNext(func.call(local.get(first), local.get(second)));
-                    s.onCompleted();
-                }
-                else {
-                    s.onError(new NoSuchElementException("No servers available in the load balancer"));
-                }
-            }
-        });
+    ChoiceOfTwoLoadBalancer(final Observable<List<C>> source, final Func2<C, C, C> func) {
+        super(source);
+        this.func = func;
+    }
+
+    @Override
+    public void call(Subscriber<? super C> s) {
+        List<C> local = clients.get();
+        if (local.size() == 1) {
+            s.onNext(local.get(0));
+            s.onCompleted();
+        }                
+        else if (local.size() > 1){
+            int first  = rand.nextInt(local.size());
+            int second = (rand.nextInt(local.size()-1) + first + 1) % local.size();
+            
+            s.onNext(func.call(local.get(first), local.get(second)));
+            s.onCompleted();
+        }
+        else {
+            s.onError(new NoSuchElementException("No servers available in the load balancer"));
+        }
     }
 }
