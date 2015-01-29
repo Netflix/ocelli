@@ -6,7 +6,7 @@ Ocelli is a client side reactive load balancer based on RxJava.
 Observable<Client> loadBalancer = ...;
 
 loadBalancer
-  .concatMap((client) -> client.doSomethingRetrunsAnObservableResponse())
+  .concatMap((client) -> client.doSomething())
   .retry(2) 
   .subscribe();
 ```
