@@ -1,18 +1,19 @@
 package netflix.ocelli.stats;
 
+import netflix.ocelli.SingleMetric;
 import netflix.ocelli.util.AtomicDouble;
 import rx.functions.Func0;
 
-public class ExponentialAverage implements Average {
+public class ExponentialAverage implements SingleMetric<Long> {
 
     private final double k;
     private final AtomicDouble ema;
     private final double initial;
     
-    public static Func0<Average> factory(final int N, final double initial) {
-        return new Func0<Average>() {
+    public static Func0<SingleMetric<Long>> factory(final int N, final double initial) {
+        return new Func0<SingleMetric<Long>>() {
             @Override
-            public Average call() {
+            public SingleMetric<Long> call() {
                 return new ExponentialAverage(N, initial);
             }
         };
@@ -25,7 +26,7 @@ public class ExponentialAverage implements Average {
     }
 
     @Override
-    public void add(int sample) {
+    public void add(Long sample) {
         double next;
         double current;
         do {    
@@ -35,8 +36,8 @@ public class ExponentialAverage implements Average {
     }
 
     @Override
-    public double get() {
-        return ema.get();
+    public Long get() {
+        return (long)ema.get();
     }
     
     @Override

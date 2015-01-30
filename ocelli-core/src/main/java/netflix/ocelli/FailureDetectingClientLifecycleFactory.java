@@ -143,35 +143,35 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
                 
                 connectSubscription.set(connect(connectSubscription, quarantineCounter, client, s));
             }
+            
+            private Subscription connect(final SerialSubscription connectSubscription, final AtomicInteger quarantineCounter, final C client, final Subscriber<? super C> s) {
+                Observable<C> o = clientConnector.call(client);
+                int delayCount = quarantineCounter.get();
+                if (delayCount > 0) { 
+                    o = o.delaySubscription(quarantineDelayStrategy.call(delayCount), TimeUnit.MILLISECONDS);
+                }
+                return o.subscribe(
+                    new Action1<C>() {
+                        @Override
+                        public void call(C client) {
+                            LOG.info("Client {} connected", client);
+                            
+                            quarantineCounter.set(0);
+                            s.onNext(client);
+                        }
+                    },
+                    new Action1<Throwable>() {
+                        @Override
+                        public void call(Throwable t1) {
+                            LOG.info("Client {} failed. {}", client, t1.getMessage());
+                            
+                            quarantineCounter.incrementAndGet();
+                            connectSubscription.set(connect(connectSubscription, quarantineCounter, client, s));
+                        }
+                    });
+            }
         })
         .materialize();
-    }
-    
-    private Subscription connect(final SerialSubscription connectSubscription, final AtomicInteger quarantineCounter, final C client, final Subscriber<? super C> s) {
-        Observable<C> o = clientConnector.call(client);
-        int delayCount = quarantineCounter.get();
-        if (delayCount > 0) { 
-            o = o.delaySubscription(quarantineDelayStrategy.call(delayCount), TimeUnit.MILLISECONDS);
-        }
-        return o.subscribe(
-            new Action1<C>() {
-                @Override
-                public void call(C client) {
-                    LOG.info("Client {} connected", client);
-                    
-                    quarantineCounter.set(0);
-                    s.onNext(client);
-                }
-            },
-            new Action1<Throwable>() {
-                @Override
-                public void call(Throwable t1) {
-                    LOG.info("Client {} failed. {}", client, t1.getMessage());
-                    
-                    quarantineCounter.incrementAndGet();
-                    connectSubscription.set(connect(connectSubscription, quarantineCounter, client, s));
-                }
-            });
     }
 
     public String toString() {

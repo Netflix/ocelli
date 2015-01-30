@@ -26,11 +26,11 @@ public abstract class Limiters {
             @Override
             public Boolean call(Boolean isPrimary) {
                 if (isPrimary) {
-                    exp.add(1);
+                    exp.add(1L);
                     return true;
                 }
                 if (exp.get() > ratio) {
-                    exp.add(0);
+                    exp.add(0L);
                     return true;
                 }
                 return false;

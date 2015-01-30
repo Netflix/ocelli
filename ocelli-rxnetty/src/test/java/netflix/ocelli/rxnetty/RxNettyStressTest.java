@@ -17,15 +17,16 @@ import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.Host;
 import netflix.ocelli.HostToClient;
 import netflix.ocelli.HostToClientCollector;
-import netflix.ocelli.HostToClientCachingLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.PoolingHostToClientLifecycleFactory;
+import netflix.ocelli.SingleMetric;
 import netflix.ocelli.execute.BackupRequestExecutionStrategy;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Limiters;
+import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
-import netflix.ocelli.stats.Average;
 import netflix.ocelli.stats.ExponentialAverage;
 
 import org.junit.ClassRule;
@@ -61,19 +62,16 @@ public class RxNettyStressTest {
     @Test
     @Ignore
     public void stressTest() throws InterruptedException {
-        final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
+        final Func0<SingleMetric<Long>> averageFactory = ExponentialAverage.factory(100, 10);
         
-        final Func0<Average> averageFactory = ExponentialAverage.factory(100, 10);
-        
-        HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
-            new HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
+        PoolingHostToClientLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
+            new PoolingHostToClientLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
                 new HostToClient<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
                     @Override
                     public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
                         return new HttpClientHolder<ByteBuf, ByteBuf>(
                                 RxNetty.createHttpClient(host.getHostName(), host.getPort()), 
-                                averageFactory.call(), 
-                                poolListener);
+                                averageFactory.call());
                     }
                 }, 
                 FailureDetectingClientLifecycleFactory.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
@@ -98,7 +96,7 @@ public class RxNettyStressTest {
                         public HttpClientHolder<ByteBuf, ByteBuf> call(
                                 HttpClientHolder<ByteBuf, ByteBuf> left,
                                 HttpClientHolder<ByteBuf, ByteBuf> right) {
-                            return left.getListener().getAverageLatency() > right.getListener().getAverageLatency()
+                            return left.getListener().getMetric() > right.getListener().getMetric()
                                 ? left 
                                 : right;
                         }
@@ -106,12 +104,7 @@ public class RxNettyStressTest {
 
         final BackupRequestExecutionStrategy<HttpClientHolder<ByteBuf, ByteBuf>> execution = BackupRequestExecutionStrategy
                 .builder(lb)
-                .withBackupTimeout(new Func0<Integer>() {
-                    @Override
-                    public Integer call() {
-                        return poolListener.getLatencyPercentile(0.90);
-                    }
-                }, TimeUnit.MILLISECONDS)
+                .withTimeoutMetric(Metrics.quantile(0.90))
                 .withLimiter(Limiters.exponential(0.90, 20))
                 .build();
 
@@ -171,10 +164,7 @@ public class RxNettyStressTest {
                 @Override
                 public void call(Long t1) {
                     long current = counter.getAndSet(0);
-                    LOG.info("Rate: {} / sec.   95th: {}   50th: {}  Ratio : {}", 
-                            current, 
-                            poolListener.getLatencyPercentile(0.90), 
-                            poolListener.getLatencyPercentile(0.50));
+                    LOG.info("Rate: {} / sec.", current);
                 }
             });
 

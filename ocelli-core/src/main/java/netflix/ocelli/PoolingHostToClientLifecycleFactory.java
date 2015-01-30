@@ -23,15 +23,15 @@ import rx.subscriptions.Subscriptions;
  * @param <H>
  * @param <C>
  */
-public class HostToClientCachingLifecycleFactory<H, C> implements HostToClientLifecycleFactory<H, C> {
-    private static final Logger LOG = LoggerFactory.getLogger(HostToClientCachingLifecycleFactory.class);
+public class PoolingHostToClientLifecycleFactory<H, C> implements HostToClientLifecycleFactory<H, C> {
+    private static final Logger LOG = LoggerFactory.getLogger(PoolingHostToClientLifecycleFactory.class);
     
     private final HashMap<H, Observable<Notification<C>>> clients = new HashMap<H, Observable<Notification<C>>>();
     private final HostToClient<H, C> creator;
     private final ClientLifecycleFactory<C> lifecycle;
     
-    public static <C> HostToClientCachingLifecycleFactory<C, C> create(ClientLifecycleFactory<C> lifecycle) {
-        return new HostToClientCachingLifecycleFactory<C, C>(new HostToClient<C, C>() {
+    public static <C> PoolingHostToClientLifecycleFactory<C, C> create(ClientLifecycleFactory<C> lifecycle) {
+        return new PoolingHostToClientLifecycleFactory<C, C>(new HostToClient<C, C>() {
             @Override
             public C call(C t1) {
                 return t1;
@@ -39,7 +39,7 @@ public class HostToClientCachingLifecycleFactory<H, C> implements HostToClientLi
         }, lifecycle);
     }
     
-    public HostToClientCachingLifecycleFactory(HostToClient<H, C> creator, ClientLifecycleFactory<C> lifecycle) {
+    public PoolingHostToClientLifecycleFactory(HostToClient<H, C> creator, ClientLifecycleFactory<C> lifecycle) {
         this.creator = creator;
         this.lifecycle = lifecycle;
     }
@@ -67,7 +67,7 @@ public class HostToClientCachingLifecycleFactory<H, C> implements HostToClientLi
                 public void call(Subscriber<? super Notification<C>> s) {
                     LOG.info("Connecting lifecycle for {} ({})", host, refCount.get());
                     
-                    final Subscription local = bs.subscribe(s);
+                    s.add(bs.subscribe(s));
                     refCount.incrementAndGet();
                     
                     s.add(Subscriptions.create(new Action0() {
@@ -80,7 +80,6 @@ public class HostToClientCachingLifecycleFactory<H, C> implements HostToClientLi
                                 sub.unsubscribe();
                                 clients.remove(host);
                             }
-                            local.unsubscribe();
                         }
                     }));
                 }

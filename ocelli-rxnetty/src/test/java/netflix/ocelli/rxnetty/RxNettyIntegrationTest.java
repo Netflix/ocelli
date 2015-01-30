@@ -15,14 +15,16 @@ import java.util.concurrent.TimeUnit;
 import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.Host;
 import netflix.ocelli.HostToClient;
-import netflix.ocelli.HostToClientCachingLifecycleFactory;
 import netflix.ocelli.HostToClientCollector;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.PoolingHostToClientLifecycleFactory;
+import netflix.ocelli.execute.SimpleExecutionStrategy;
 import netflix.ocelli.functions.Delays;
+import netflix.ocelli.functions.Metrics;
+import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
-import netflix.ocelli.stats.NullAverage;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -31,6 +33,7 @@ import org.junit.Test;
 
 import rx.Observable;
 import rx.functions.Action1;
+import rx.subjects.PublishSubject;
 
 /**
  * @author Nitesh Kant
@@ -62,17 +65,15 @@ public class RxNettyIntegrationTest {
         Observable<Host> clientSource = Observable
                 .just(new Host("127.0.0.1", httpServer.getServerPort()));
 
-        final PoolHttpMetricListener poolListener = new PoolHttpMetricListener();
-        
-        HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
-            new HostToClientCachingLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
+        // Create a factory/pool of client objects
+        PoolingHostToClientLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>> factory = 
+            new PoolingHostToClientLifecycleFactory<Host, HttpClientHolder<ByteBuf, ByteBuf>>(
                 new HostToClient<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
                     @Override
                     public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
                         return new HttpClientHolder<ByteBuf, ByteBuf>(
                                 RxNetty.createHttpClient(host.getHostName(), host.getPort()), 
-                                NullAverage.factory().call(), 
-                                poolListener);
+                                Metrics.memoize(0L));
                     }
                 }, 
                 FailureDetectingClientLifecycleFactory.<HttpClientHolder<ByteBuf, ByteBuf>>builder()
@@ -86,14 +87,18 @@ public class RxNettyIntegrationTest {
                     })
                     .build());        
         
+        // Create a single load balancer for ALL hosts
         final LoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb =
             RoundRobinLoadBalancer
                 .create(clientSource
                     .map(MembershipEvent.<Host>toEvent(EventType.ADD))
                     .lift(HostToClientCollector.create(factory)));
         
-        HttpClientResponse<ByteBuf> response = Observable.create(lb)
-                .flatMap(Requests.from(HttpClientRequest.createGet("/")))
+        SimpleExecutionStrategy<HttpClientHolder<ByteBuf, ByteBuf>> executor = new SimpleExecutionStrategy<HttpClientHolder<ByteBuf, ByteBuf>>(lb);
+        
+        // Execute a single request
+        HttpClientResponse<ByteBuf> response = executor
+                .execute(Requests.from(HttpClientRequest.createGet("/")))
                 .toBlocking()
                 .toFuture()
                 .get(1, TimeUnit.MINUTES);

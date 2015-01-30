@@ -16,8 +16,8 @@ import rx.subjects.PublishSubject;
 public class ClientFactoryTest {
     @Test
     public void testAddAndRemove() {
-        HostToClientCachingLifecycleFactory<Integer, String> factory 
-            = new HostToClientCachingLifecycleFactory<Integer, String>(
+        PoolingHostToClientLifecycleFactory<Integer, String> factory 
+            = new PoolingHostToClientLifecycleFactory<Integer, String>(
                 new HostToClient<Integer, String>() {
                     public String call(Integer host) {
                         return "Client-" + host;
@@ -51,8 +51,8 @@ public class ClientFactoryTest {
         final List<String> removed = Lists.newArrayList();
         final List<String> created = Lists.newArrayList();
                 
-        HostToClientCachingLifecycleFactory<Integer, String> factory 
-            = new HostToClientCachingLifecycleFactory<Integer, String>(
+        PoolingHostToClientLifecycleFactory<Integer, String> factory 
+            = new PoolingHostToClientLifecycleFactory<Integer, String>(
                 new HostToClient<Integer, String>() {
                     public String call(Integer host) {
                         String client = "Client-" + host;
