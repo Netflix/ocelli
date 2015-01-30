@@ -21,7 +21,10 @@ apply plugin: 'groovy'
 dependencies {
     compile project(':ocelli-core')
     compile 'io.reactivex:rxnetty:0.4.4'
-    
+    compile 'io.reactivex:rxjava:1.0.0'
+
+    testCompile 'org.uncommons:uncommons-maths:1.2'
+    testCompile 'com.google.guava:guava:14.0.1'
     testCompile 'junit:junit:4.10'
 }
 

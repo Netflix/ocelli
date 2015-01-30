@@ -17,24 +17,16 @@ apply plugin: 'osgi'
 apply plugin: 'groovy'
 
 dependencies {
+    compile 'org.slf4j:slf4j-log4j12:1.7.2'
+    compile 'io.reactivex:rxjava:1.0.0'
+
+    testCompile 'com.google.guava:guava:14.0.1'
     testCompile 'junit:junit:4.10'
 }
 
 eclipse {
     classpath {
-        // include 'provided' dependencies on the classpath
-        plusConfigurations += configurations.provided
-
         downloadSources = true
         downloadJavadoc = true
     }
 }
-
-idea {
-    module {
-        // include 'provided' dependencies on the classpath
-        scopes.PROVIDED.plus += configurations.provided
-        scopes.PROVIDED.plus += configurations.provided
-    }
-}
-
