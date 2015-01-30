@@ -16,6 +16,7 @@ import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
 import netflix.ocelli.functions.Delays;
+import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
 import org.junit.After;
@@ -29,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.Observer;
-import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 import rx.schedulers.TestScheduler;
@@ -44,8 +44,8 @@ public class BackupRequestExecutionStrategyTest {
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
     private BackupRequestExecutionStrategy<TestClient> executor;
     
-    private final static int BACKUP_REQUEST_TIMEOUT = 10;
-    private final static int HALF_BACKUP_REQUEST_TIMEOUT = BACKUP_REQUEST_TIMEOUT/2;
+    private final static long BACKUP_REQUEST_TIMEOUT = 10;
+    private final static long HALF_BACKUP_REQUEST_TIMEOUT = BACKUP_REQUEST_TIMEOUT/2;
     
     private final TestScheduler scheduler = Schedulers.test();
     
@@ -88,14 +88,7 @@ public class BackupRequestExecutionStrategyTest {
                 hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD)).lift(ClientCollector.create(factory)));  
         
         this.executor = BackupRequestExecutionStrategy.builder(lb)
-                .withBackupTimeout(
-                    new Func0<Integer>() {
-                        @Override
-                        public Integer call() {
-                            return BACKUP_REQUEST_TIMEOUT;
-                        }
-                    },
-                    TimeUnit.MILLISECONDS)
+                .withTimeoutMetric(Metrics.memoize(BACKUP_REQUEST_TIMEOUT))
                 .withScheduler(scheduler)
                 .build();
         
@@ -158,6 +151,10 @@ public class BackupRequestExecutionStrategyTest {
 
         public boolean hasError() {
             return e != null;
+        }
+        
+        public Throwable getError() {
+            return e;
         }
     }
     

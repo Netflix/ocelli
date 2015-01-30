@@ -48,7 +48,7 @@ public class Behaviors {
                         .flatMap(new Func1<Long, Observable<TestClient>>() {
                             @Override
                             public Observable<TestClient> call(Long t1) {
-                                return Observable.error(new Exception("error"));
+                                return Observable.error(new Exception("SimulatedErrorBehavior"));
                             }
                         });
             }
@@ -74,7 +74,7 @@ public class Behaviors {
             public Observable<TestClient> call(TestClient client) {
                 return Observable
                         .just(client)
-                        .concatWith(Observable.<TestClient>error(new Exception("error")));
+                        .concatWith(Observable.<TestClient>error(new Exception("SimulatedErrorBehavior")));
             }
         };
     }
