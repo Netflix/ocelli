@@ -2,7 +2,7 @@ package netflix.ocelli.functions;
 
 import java.util.concurrent.TimeUnit;
 
-import netflix.ocelli.Stopwatch;
+import netflix.ocelli.util.Stopwatch;
 import rx.functions.Func0;
 
 /**

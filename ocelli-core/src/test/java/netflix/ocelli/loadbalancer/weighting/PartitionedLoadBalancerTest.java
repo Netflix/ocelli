@@ -4,12 +4,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 import junit.framework.Assert;
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.ClientLifecycleFactory;
-import netflix.ocelli.FailureDetectingClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.Instance;
 import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.Member;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipPartitioner;
+import netflix.ocelli.MembershipEventToMember;
+import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -22,7 +23,10 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
 import rx.functions.Func1;
+import rx.observables.GroupedObservable;
 import rx.subjects.PublishSubject;
 
 import com.google.common.collect.Sets;
@@ -43,26 +47,37 @@ public class PartitionedLoadBalancerTest {
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withVip("a").withVip("b");
         TestClient h4 = TestClient.create("h4", Connects.immediate(), Behaviors.immediate()).withVip("b");
         
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .withFailureDetector(failureDetector)
-                    .build();
+        final FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
+                .withFailureDetector(failureDetector)
+                .build();
 
-        MembershipPartitioner<TestClient, String> lb = MembershipPartitioner.create(
-                hostSource,
-                TestClient.byVip())
-                ;
-
+        PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
+        
+        hostSource
+            .compose(new MembershipEventToMember<TestClient>())
+            .compose(Member.partitionBy(TestClient.byVip()))
+            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+                @Override
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                    return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
+                        @Override
+                        public void call(Subscriber<? super Instance<TestClient>> t1) {
+                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                        }
+                    });
+                }
+                
+            })
+            .subscribe(plb);
+        
         //////////////////////////
         // Step 1: Add 4 hosts
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestClient> lbA = RoundRobinLoadBalancer.create(
-                lb.getPartition("a").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> lbB = RoundRobinLoadBalancer.create(
-                lb.getPartition("b").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> lbAll = RoundRobinLoadBalancer.create(
-                lb.getPartition("*").lift(ClientCollector.create(factory)));
+        LoadBalancer<TestClient> lbA = plb.get("a");
+        LoadBalancer<TestClient> lbB = plb.get("b");
+        LoadBalancer<TestClient> lbAll = plb.get("*");
         
         // Add 4 hosts
         hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
@@ -120,27 +135,40 @@ public class PartitionedLoadBalancerTest {
     
     @Test
     public void testVipHostFailure() {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .withFailureDetector(failureDetector)
-                    .build();
+        final FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
+                .withFailureDetector(failureDetector)
+                .build();
         
         PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
         
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
-        MembershipPartitioner<TestClient, String> lb = MembershipPartitioner.create(
-                hostSource,
-                TestClient.byVip());
-
+        PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
+        
+        hostSource
+            .compose(new MembershipEventToMember<TestClient>())
+            .compose(Member.partitionBy(TestClient.byVip()))
+            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+                @Override
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                    return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
+                        @Override
+                        public void call(Subscriber<? super Instance<TestClient>> t1) {
+                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                        }
+                    });
+                }
+                
+            })
+            .subscribe(plb);
+        
         //////////////////////////
         // Step 1: Add 4 hosts
         
         // Get a LoadBalancer for each partition
-        LoadBalancer<TestClient> lbA = RoundRobinLoadBalancer.create(
-                lb.getPartition("a").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> lbAll = RoundRobinLoadBalancer.create(
-                lb.getPartition("*").lift(ClientCollector.create(factory)));
+        LoadBalancer<TestClient> lbA   = plb.get("a");
+        LoadBalancer<TestClient> lbAll = plb.get("*");
         
         // Add 4 hosts
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
@@ -168,10 +196,10 @@ public class PartitionedLoadBalancerTest {
     
     @Test
     public void retryOnceEachPartition() {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .withFailureDetector(failureDetector)
-                    .build();
+        final FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
+                .withFailureDetector(failureDetector)
+                .build();
         
         PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
         
@@ -179,23 +207,34 @@ public class PartitionedLoadBalancerTest {
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1c");
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1d");
         
-        MembershipPartitioner<TestClient, String> lb = MembershipPartitioner.create(
-                hostSource,
-                TestClient.byRack())
-                ;
+        PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
+        
+        hostSource
+            .compose(new MembershipEventToMember<TestClient>())
+            .compose(Member.partitionBy(TestClient.byRack()))
+            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+                @Override
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                    return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
+                        @Override
+                        public void call(Subscriber<? super Instance<TestClient>> t1) {
+                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                        }
+                    });
+                }
+                
+            })
+            .subscribe(plb);
+
         
         hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
         hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.ADD));
 
-        LoadBalancer<TestClient> zoneA = RoundRobinLoadBalancer.create(
-                lb.getPartition("us-east-1a").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> zoneB = RoundRobinLoadBalancer.create(
-                lb.getPartition("us-east-1b").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> zoneC = RoundRobinLoadBalancer.create(
-                lb.getPartition("us-east-1c").lift(ClientCollector.create(factory)));
-        LoadBalancer<TestClient> zoneD = RoundRobinLoadBalancer.create(
-                lb.getPartition("us-east-1d").lift(ClientCollector.create(factory)));
+        LoadBalancer<TestClient> zoneA = plb.get("us-east-1a");
+        LoadBalancer<TestClient> zoneB = plb.get("us-east-1b");
+        LoadBalancer<TestClient> zoneC = plb.get("us-east-1c");
+        LoadBalancer<TestClient> zoneD = plb.get("us-east-1d");
         
         RxUtil.onSubscribeChooseNext(Observable.create(zoneA), Observable.create(zoneB), Observable.create(zoneC), Observable.create(zoneD))
             .concatMap(new Func1<Observable<TestClient>, Observable<String>>() {

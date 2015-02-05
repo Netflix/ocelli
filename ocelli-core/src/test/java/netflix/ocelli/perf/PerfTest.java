@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.ClientLifecycleFactory;
-import netflix.ocelli.FailureDetectingClientLifecycleFactory;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
@@ -62,79 +59,79 @@ public class PerfTest {
     @Test
     @Ignore
     public void perf() throws InterruptedException {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .build();
-        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
-        
-//        this.selector.prime(10).toBlocking().last();
-
-        Observable.range(1, 10)
-            .subscribe(new Action1<Integer>() {
-                @Override
-                public void call(final Integer id) {
-                    Observable.interval(100, TimeUnit.MILLISECONDS, Schedulers.newThread())
-                        .subscribe(new Action1<Long>() {
-                           @Override
-                            public void call(final Long counter) {
-                               Observable.create(selector)
-                                   .concatMap(new TrackingOperation(counter + ""))
-                                   .retry()
-                                   .subscribe(new Action1<String>() {
-                                       @Override
-                                       public void call(String t1) {
-                                           LOG.info("{} - {} - {}", id, counter, t1);
-                                       }
-                                   });
-                            }
-                        });
-                }
-            });
+//        ClientLifecycleFactory<TestClient> factory =
+//                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+//                    .build();
+//        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
+//        
+////        this.selector.prime(10).toBlocking().last();
+//
+//        Observable.range(1, 10)
+//            .subscribe(new Action1<Integer>() {
+//                @Override
+//                public void call(final Integer id) {
+//                    Observable.interval(100, TimeUnit.MILLISECONDS, Schedulers.newThread())
+//                        .subscribe(new Action1<Long>() {
+//                           @Override
+//                            public void call(final Long counter) {
+//                               Observable.create(selector)
+//                                   .concatMap(new TrackingOperation(counter + ""))
+//                                   .retry()
+//                                   .subscribe(new Action1<String>() {
+//                                       @Override
+//                                       public void call(String t1) {
+//                                           LOG.info("{} - {} - {}", id, counter, t1);
+//                                       }
+//                                   });
+//                            }
+//                        });
+//                }
+//            });
     }
     
     @Test
     @Ignore
     public void perf2() throws InterruptedException {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .build();
-        
-        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
-        
-        final AtomicLong messageCount = new AtomicLong(0);
-        
-        Observable.range(1, 400)
-            .subscribe(new Action1<Integer>() {
-                @Override
-                public void call(final Integer id) {
-                    Observable.interval(10, TimeUnit.MILLISECONDS, Schedulers.newThread())
-                        .subscribe(new Action1<Long>() {
-                           @Override
-                            public void call(final Long counter) {
-                               Observable.create(selector)
-                                   .concatMap(new TrackingOperation(counter + ""))
-                                   .retry()
-                                   .subscribe(new Action1<String>() {
-                                       @Override
-                                       public void call(String t1) {
-                                           messageCount.incrementAndGet();
-                                           
-//                                           LOG.info("{} - {} - {}", id, counter, t1);
-                                       }
-                                   });
-                            }
-                        });
-                }
-            });
-        
-        Observable.interval(1, TimeUnit.SECONDS).subscribe(new Action1<Long>() {
-            private long previous = 0;
-            @Override
-            public void call(Long t1) {
-                long current = messageCount.get();
-                LOG.info("Rate : " + (current - previous) + " Host count: " + selector.all().count().toBlocking().first());
-                previous = current;
-            }
-        });
+//        ClientLifecycleFactory<TestClient> factory =
+//                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+//                    .build();
+//        
+//        this.selector = RoundRobinLoadBalancer.create(source.lift(ClientCollector.create(factory)));
+//        
+//        final AtomicLong messageCount = new AtomicLong(0);
+//        
+//        Observable.range(1, 400)
+//            .subscribe(new Action1<Integer>() {
+//                @Override
+//                public void call(final Integer id) {
+//                    Observable.interval(10, TimeUnit.MILLISECONDS, Schedulers.newThread())
+//                        .subscribe(new Action1<Long>() {
+//                           @Override
+//                            public void call(final Long counter) {
+//                               Observable.create(selector)
+//                                   .concatMap(new TrackingOperation(counter + ""))
+//                                   .retry()
+//                                   .subscribe(new Action1<String>() {
+//                                       @Override
+//                                       public void call(String t1) {
+//                                           messageCount.incrementAndGet();
+//                                           
+////                                           LOG.info("{} - {} - {}", id, counter, t1);
+//                                       }
+//                                   });
+//                            }
+//                        });
+//                }
+//            });
+//        
+//        Observable.interval(1, TimeUnit.SECONDS).subscribe(new Action1<Long>() {
+//            private long previous = 0;
+//            @Override
+//            public void call(Long t1) {
+//                long current = messageCount.get();
+//                LOG.info("Rate : " + (current - previous) + " Host count: " + selector.all().count().toBlocking().first());
+//                previous = current;
+//            }
+//        });
     }
 }

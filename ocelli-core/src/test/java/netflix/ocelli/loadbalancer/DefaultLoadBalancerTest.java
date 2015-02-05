@@ -2,11 +2,11 @@ package netflix.ocelli.loadbalancer;
 
 import java.util.concurrent.TimeUnit;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.ClientLifecycleFactory;
-import netflix.ocelli.FailureDetectingClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -44,16 +44,18 @@ public class DefaultLoadBalancerTest {
     
     @Before 
     public void before() {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
-                    .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
-                    .withFailureDetector(failureDetector)
-                    .withClientConnector(clientConnector)
-                    .build();
+        FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
+                .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
+                .withFailureDetector(failureDetector)
+                .withClientConnector(clientConnector)
+                .build();
 
         this.lb = RandomWeightedLoadBalancer.create(
                     hostEvents
-                        .lift(ClientCollector.create(factory)),
+                        .compose(new MembershipEventToMember<TestClient>())
+                        .map(TestClient.memberToInstance(factory))  
+                        .compose(new InstanceCollector<TestClient>()),
                     new LinearWeightingStrategy<TestClient>(
                         TestClient.byPendingRequestCount()));
     }

@@ -1,8 +1,9 @@
 package netflix.ocelli.functions;
 
-import netflix.ocelli.SingleMetric;
+import rx.functions.Func0;
 import netflix.ocelli.stats.CKMSQuantiles;
 import netflix.ocelli.stats.Quantiles;
+import netflix.ocelli.util.SingleMetric;
 
 /**
  * Utility class for creating common strategies for tracking specific types of metrics
@@ -11,6 +12,15 @@ import netflix.ocelli.stats.Quantiles;
  *
  */
 public class Metrics {
+    public static <T> Func0<SingleMetric<T>> memoizeFactory(final T value) {
+        return new Func0<SingleMetric<T>>() {
+            @Override
+            public SingleMetric<T> call() {
+                return memoize(value);
+            }
+        };
+    }
+    
     /**
      * Return a predetermine constant value regardless of samples added.
      * @param value
@@ -33,6 +43,15 @@ public class Metrics {
         };
     }
     
+    public static Func0<SingleMetric<Long>> quantileFactory(final double percentile) {
+        return new Func0<SingleMetric<Long>>() {
+            @Override
+            public SingleMetric<Long> call() {
+                return quantile(percentile);
+            }
+        };
+    }
+
     /**
      * Use the default CKMSQuantiles algorithm to track a specific percentile
      * @param percentile

@@ -1,7 +1,7 @@
 package netflix.ocelli.stats;
 
-import netflix.ocelli.SingleMetric;
 import netflix.ocelli.util.AtomicDouble;
+import netflix.ocelli.util.SingleMetric;
 import rx.functions.Func0;
 
 public class ExponentialAverage implements SingleMetric<Long> {

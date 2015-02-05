@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.SingleMetric;
+import netflix.ocelli.util.SingleMetric;
 
 /**
  * An {@link RxClient} metric listener to calculate metrics for {@link LoadBalancer}

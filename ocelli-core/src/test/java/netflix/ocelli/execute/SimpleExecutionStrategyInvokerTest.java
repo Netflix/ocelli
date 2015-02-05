@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.ClientLifecycleFactory;
-import netflix.ocelli.FailureDetectingClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -69,30 +69,34 @@ public class SimpleExecutionStrategyInvokerTest {
     
     @Test
     public void test() {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+        FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
                 .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
                 .withFailureDetector(failureDetector)
                 .withClientConnector(clientConnector)
                 .build();
     
-        this.lb = RoundRobinLoadBalancer.create(
-                hostEvents.lift(ClientCollector.create(factory)));  
+        this.lb = RoundRobinLoadBalancer.from(
+                hostEvents
+                    .compose(new MembershipEventToMember<TestClient>())
+                    .map(TestClient.memberToInstance(factory))  
+                    .compose(new InstanceCollector<TestClient>()));  
 
+        ExecutionStrategy<String, String> execution = new SimpleExecutionStrategy<TestClient, String, String>(lb, TestClient.func());
         source.subscribe(hostEvents);
         
-        List<String> result = Observable.range(0, 10)
-            .map(new Func1<Integer, Func1<TestClient, Observable<String>>>() {
-                @Override
-                public Func1<TestClient, Observable<String>> call(Integer client) {
-                    return request(client);
-                }
-            })
-            .flatMap(new SimpleExecutionStrategy<TestClient>(lb).<String>asFunction())
-            .toList()
-            .toBlocking()
-            .first();
+//        List<String> result = Observable.range(0, 10)
+//            .map(new Func1<Integer, Func1<TestClient, Observable<String>>>() {
+//                @Override
+//                public Func1<TestClient, Observable<String>> call(Integer client) {
+//                    return request(client);
+//                }
+//            })
+//            .flatMap(new SimpleExecutionStrategy<TestClient>(lb).<String>asFunction())
+//            .toList()
+//            .toBlocking()
+//            .first();
         
-        System.out.println(result);
+//        System.out.println(result);
     }
 }

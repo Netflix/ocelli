@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -675,6 +676,15 @@ public class RxUtil {
             @Override
             public void call() {
                 sem.release();
+            }
+        };
+    }
+    
+    public static <T> Action1<T> set(final AtomicReference<T> ref) {
+        return new Action1<T>() {
+            @Override
+            public void call(T t1) {
+                ref.set(t1);
             }
         };
     }
