@@ -12,6 +12,15 @@ public abstract class Functions {
         };
     }
     
+    public static Func1<Integer, Integer> memoize(final Integer value) {
+        return new Func1<Integer, Integer>() {
+            @Override
+            public Integer call(Integer t1) {
+                return Math.min(value, t1);
+            }
+        };
+    }
+    
     public static Func1<Integer, Integer> log_log() {
         return new Func1<Integer, Integer>() {
             @Override
