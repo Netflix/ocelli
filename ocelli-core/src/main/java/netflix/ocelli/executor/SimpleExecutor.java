@@ -1,4 +1,4 @@
-package netflix.ocelli.execute;
+package netflix.ocelli.executor;
 
 import netflix.ocelli.LoadBalancer;
 import rx.Observable;
@@ -13,20 +13,20 @@ import rx.functions.Func2;
  *
  * @param <C>
  */
-public class SimpleExecutionStrategy<C, I, O> implements ExecutionStrategy<I, O> {
+public class SimpleExecutor<C, I, O> implements Executor<I, O> {
 
     private Observable<C> lb;
     private final Func2<C, I, Observable<O>> operation;
     
-    public static <C, I, O> Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, ExecutionStrategy<I, O>> factory() {
-        return new Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, ExecutionStrategy<I, O>>() {
+    public static <C, I, O> Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, Executor<I, O>> factory() {
+        return new Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, Executor<I, O>>() {
             @Override
-            public ExecutionStrategy<I, O> call(LoadBalancer<C> t1, Func2<C, I, Observable<O>> t2) {
-                return new SimpleExecutionStrategy<C, I, O>(t1, t2);
+            public Executor<I, O> call(LoadBalancer<C> t1, Func2<C, I, Observable<O>> t2) {
+                return new SimpleExecutor<C, I, O>(t1, t2);
             }
         };
     }
-    public SimpleExecutionStrategy(final LoadBalancer<C> lb, final Func2<C, I, Observable<O>> operation) {
+    public SimpleExecutor(final LoadBalancer<C> lb, final Func2<C, I, Observable<O>> operation) {
         this.lb = Observable.create(lb);
         this.operation = operation;
     }
@@ -41,8 +41,8 @@ public class SimpleExecutionStrategy<C, I, O> implements ExecutionStrategy<I, O>
         });
     }
     
-    public static <C, I, O> SimpleExecutionStrategy<C, I, O> create(LoadBalancer<C> lb, final Func2<C, I, Observable<O>> operation) {
-        return new SimpleExecutionStrategy<C, I, O>(lb, operation);
+    public static <C, I, O> SimpleExecutor<C, I, O> create(LoadBalancer<C> lb, final Func2<C, I, Observable<O>> operation) {
+        return new SimpleExecutor<C, I, O>(lb, operation);
     }
     
 }

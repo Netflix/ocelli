@@ -1,8 +1,9 @@
-package netflix.ocelli.execute;
+package netflix.ocelli.executor;
 
 import java.util.List;
 
 import rx.Observable;
+import rx.functions.Action1;
 import rx.functions.Func1;
 
 /**
@@ -14,17 +15,18 @@ import rx.functions.Func1;
  * @param <I>
  * @param <O>
  */
-public class InterceptingRequestExecutionStrategy<C, I, O> implements ExecutionStrategy<I, O> {
+public class InterceptingExecutor<I, O> implements Executor<I, O> {
 
     public static interface Interceptor<I, O> {
         I pre(I request);
-        O post(O response);
+        O post(I request, O response);
+        void error(I request, Throwable error);
     }
     
-    private final ExecutionStrategy<I, O> delegate;
+    private final Executor<I, O> delegate;
     private final List<Interceptor<I, O>> interceptors;
     
-    public InterceptingRequestExecutionStrategy(ExecutionStrategy<I, O> delegate, List<Interceptor<I, O>> interceptors) {
+    public InterceptingExecutor(Executor<I, O> delegate, List<Interceptor<I, O>> interceptors) {
         this.delegate = delegate;
         this.interceptors = interceptors;
     }
@@ -35,12 +37,25 @@ public class InterceptingRequestExecutionStrategy<C, I, O> implements ExecutionS
             request = interceptor.pre(request);
         }
 
-        return delegate.call(request)
+        return _call(request);
+    }
+    
+    private Observable<O> _call(final I request) {
+        return delegate
+            .call(request)
+            .doOnError(new Action1<Throwable>() {
+                @Override
+                public void call(Throwable error) {
+                    for (Interceptor<I, O> interceptor : interceptors) {
+                        interceptor.error(request, error);
+                    }
+                }
+            })
             .map(new Func1<O, O>() {
                 @Override
                 public O call(O response) {
                     for (Interceptor<I, O> interceptor : interceptors) {
-                        response = interceptor.post(response);
+                        response = interceptor.post(request, response);
                     }
                     return response;
                 }

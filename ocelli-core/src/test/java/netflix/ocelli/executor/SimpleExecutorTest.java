@@ -1,4 +1,4 @@
-package netflix.ocelli.execute;
+package netflix.ocelli.executor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +14,8 @@ import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
+import netflix.ocelli.executor.Executor;
+import netflix.ocelli.executor.SimpleExecutor;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
@@ -27,7 +29,7 @@ import rx.Observable;
 import rx.functions.Func1;
 import rx.subjects.PublishSubject;
 
-public class SimpleExecutionStrategyInvokerTest {
+public class SimpleExecutorTest {
     public static Func1<TestClient, Observable<String>> request(final Integer req) {
         return new Func1<TestClient, Observable<String>>() {
             @Override
@@ -82,7 +84,7 @@ public class SimpleExecutionStrategyInvokerTest {
                     .map(TestClient.memberToInstance(factory))  
                     .compose(new InstanceCollector<TestClient>()));  
 
-        ExecutionStrategy<String, String> execution = new SimpleExecutionStrategy<TestClient, String, String>(lb, TestClient.func());
+        Executor<String, String> execution = new SimpleExecutor<TestClient, String, String>(lb, TestClient.func());
         source.subscribe(hostEvents);
         
 //        List<String> result = Observable.range(0, 10)

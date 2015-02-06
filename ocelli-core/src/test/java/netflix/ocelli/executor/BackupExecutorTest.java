@@ -1,4 +1,4 @@
-package netflix.ocelli.execute;
+package netflix.ocelli.executor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +15,7 @@ import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
+import netflix.ocelli.executor.BackupExecutor;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
@@ -35,14 +36,14 @@ import rx.schedulers.Schedulers;
 import rx.schedulers.TestScheduler;
 import rx.subjects.PublishSubject;
 
-public class BackupRequestExecutionStrategyTest {
-    private static final Logger LOG = LoggerFactory.getLogger(BackupRequestExecutionStrategyTest.class);
+public class BackupExecutorTest {
+    private static final Logger LOG = LoggerFactory.getLogger(BackupExecutorTest.class);
     
     private LoadBalancer<TestClient> lb;
     private PublishSubject<TestClient> hosts = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
-    private BackupRequestExecutionStrategy<TestClient, String, String> executor;
+    private BackupExecutor<TestClient, String, String> executor;
     
     private final static long BACKUP_REQUEST_TIMEOUT = 10;
     private final static long HALF_BACKUP_REQUEST_TIMEOUT = BACKUP_REQUEST_TIMEOUT/2;
@@ -90,7 +91,7 @@ public class BackupRequestExecutionStrategyTest {
                      .map(TestClient.memberToInstance(factory))  
                      .compose(new InstanceCollector<TestClient>()));  
         
-        this.executor = BackupRequestExecutionStrategy.<TestClient, String, String>builder(lb)
+        this.executor = BackupExecutor.<TestClient, String, String>builder(lb)
                 .withTimeoutMetric(Metrics.memoize(BACKUP_REQUEST_TIMEOUT))
                 .withScheduler(scheduler)
                 .withClientFunc(TestClient.func())

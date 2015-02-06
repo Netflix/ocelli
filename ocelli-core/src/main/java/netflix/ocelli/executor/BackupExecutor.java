@@ -1,4 +1,4 @@
-package netflix.ocelli.execute;
+package netflix.ocelli.executor;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +30,7 @@ import rx.schedulers.Schedulers;
  *
  * @param <C>
  */
-public class BackupRequestExecutionStrategy<C, I, O> implements ExecutionStrategy<I, O> {
+public class BackupExecutor<C, I, O> implements Executor<I, O> {
     public static Func0<Stopwatch>        DEFAULT_CLOCK   = Stopwatches.systemNano();
     public static Func1<Boolean, Boolean> DEFAULT_LIMITER = new Func1<Boolean, Boolean>() {
         @Override
@@ -123,9 +123,9 @@ public class BackupRequestExecutionStrategy<C, I, O> implements ExecutionStrateg
             return this;
         }
         
-        public BackupRequestExecutionStrategy<C, I, O> build() {
+        public BackupExecutor<C, I, O> build() {
             assert operation != null;
-            return new BackupRequestExecutionStrategy<C, I, O>(this);
+            return new BackupExecutor<C, I, O>(this);
         }
     }
     
@@ -133,7 +133,7 @@ public class BackupRequestExecutionStrategy<C, I, O> implements ExecutionStrateg
         return new Builder<C, I, O>(lb);
     }
     
-    private BackupRequestExecutionStrategy(Builder<C, I, O> builder) {
+    private BackupExecutor(Builder<C, I, O> builder) {
         this.lb             = Observable.create(builder.lb);
         this.metric         = builder.metric;
         this.retriableError = builder.retriableError;
