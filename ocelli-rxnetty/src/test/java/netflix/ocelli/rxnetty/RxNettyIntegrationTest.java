@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 import netflix.ocelli.Host;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.execute.ExecutionStrategy;
+import netflix.ocelli.executor.Executor;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -57,7 +57,7 @@ public class RxNettyIntegrationTest {
                 ;
 
         
-        ExecutionStrategy<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();
+        Executor<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();
         
         // Execute a single request
         HttpClientResponse<ByteBuf> response = executor
@@ -76,7 +76,7 @@ public class RxNettyIntegrationTest {
                 .map(MembershipEvent.<Host>toEvent(EventType.ADD))
                 ;
 
-        ExecutionStrategy<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();
+        Executor<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();
         
         // Execute a single request
         HttpClientResponse<ByteBuf> response = executor

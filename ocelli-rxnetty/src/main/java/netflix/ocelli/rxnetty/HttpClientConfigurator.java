@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.execute.ExecutionStrategyBuilder;
-import netflix.ocelli.execute.ExecutionStrategyBuilder.Configurator;
+import netflix.ocelli.executor.ExecutorBuilder;
+import netflix.ocelli.executor.ExecutorBuilder.Configurator;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.util.SingleMetric;
@@ -28,7 +28,7 @@ public class HttpClientConfigurator implements Configurator<Host, HttpClientHold
     }
     
     @Override
-    public void configure(ExecutionStrategyBuilder<Host, HttpClientHolder<ByteBuf, ByteBuf>, HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> builder) {
+    public void configure(ExecutorBuilder<Host, HttpClientHolder<ByteBuf, ByteBuf>, HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> builder) {
         final Func0<SingleMetric<Long>> metricFactory = new Func0<SingleMetric<Long>>() {
             @Override
             public SingleMetric<Long> call() {
