@@ -2,13 +2,13 @@ package netflix.ocelli.client;
 
 import java.util.concurrent.ConcurrentMap;
 
+import rx.Observable;
+import rx.functions.Func1;
+import rx.subjects.PublishSubject;
+
 import com.google.common.collect.Maps;
 
-import rx.Observable;
-import rx.subjects.PublishSubject;
-import netflix.ocelli.FailureDetectorFactory;
-
-public class ManualFailureDetector implements FailureDetectorFactory<TestClient> {
+public class ManualFailureDetector implements Func1<TestClient, Observable<Throwable>> {
     private ConcurrentMap<TestClient, PublishSubject<Throwable>> clients = Maps.newConcurrentMap();
     
     @Override

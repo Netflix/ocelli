@@ -2,12 +2,12 @@ package netflix.ocelli.client;
 
 import java.util.concurrent.ConcurrentMap;
 
-import netflix.ocelli.ClientConnector;
 import rx.Observable;
+import rx.functions.Func1;
 
 import com.google.common.collect.Maps;
 
-public class TestClientConnectorFactory implements ClientConnector<TestClient> {
+public class TestClientConnectorFactory implements Func1<TestClient, Observable<TestClient>> {
     private ConcurrentMap<TestClient, TestClientConnector> connectors = Maps.newConcurrentMap();
     
     @Override

@@ -13,8 +13,8 @@ import rx.functions.Func1;
  */
 public abstract class Topologies {
 
-    public static <T, K extends Comparable<K>> RingTopology<T,K> ring(K id, Func1<T, K> idFunc, Func1<Integer, Integer> countFunc) {
-        return new RingTopology<T, K>(id, idFunc, countFunc);
+    public static <T, K extends Comparable<K>> RingTopology<K, T> ring(K id, Func1<T, K> idFunc, Func1<Integer, Integer> countFunc) {
+        return new RingTopology<K, T>(id, idFunc, countFunc);
     }
         
 }

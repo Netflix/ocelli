@@ -1,4 +1,4 @@
-package netflix.ocelli;
+package netflix.ocelli.util;
 
 /**
  * Contract for tracking a single Metric.  For example, a SingleMetric may track an exponential moving

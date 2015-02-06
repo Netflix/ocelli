@@ -1,18 +1,24 @@
 package netflix.ocelli.functions;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
-import junit.framework.Assert;
+import netflix.ocelli.CloseableMember;
 import netflix.ocelli.Host;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.Instance;
+import netflix.ocelli.InstanceCollector;
+import netflix.ocelli.Member;
+import netflix.ocelli.MemberToInstance;
+import netflix.ocelli.topologies.RingTopology;
+import netflix.ocelli.util.RxUtil;
 
 import org.junit.Test;
 
-import rx.Observable;
+import rx.functions.Action0;
 import rx.functions.Func1;
-
-import com.google.common.collect.Lists;
+import rx.functions.Func2;
+import rx.subjects.BehaviorSubject;
+import rx.subjects.PublishSubject;
 
 public class TopologiesTest {
     public static class HostWithId extends Host {
@@ -33,76 +39,55 @@ public class TopologiesTest {
     }
     
     @Test
-    public void test() {
-        int me = 81;
-        List<HostWithId> hosts = Lists.newArrayList();
+    public void test2() {
+        CloseableMember<Integer> m1 = CloseableMember.from(1);
+        CloseableMember<Integer> m2 = CloseableMember.from(2);
+        CloseableMember<Integer> m3 = CloseableMember.from(3);
+        CloseableMember<Integer> m4 = CloseableMember.from(4);
+        CloseableMember<Integer> m6 = CloseableMember.from(6);
+        CloseableMember<Integer> m7 = CloseableMember.from(7);
+        CloseableMember<Integer> m8 = CloseableMember.from(8);
+        CloseableMember<Integer> m9 = CloseableMember.from(9);
+        CloseableMember<Integer> m10 = CloseableMember.from(10);
+        CloseableMember<Integer> m11 = CloseableMember.from(11);
         
-        HostWithId h1 = new HostWithId("host10", 8080, 10);
-        HostWithId h2 = new HostWithId("host20", 8080, 20);
-        HostWithId h3 = new HostWithId("host30", 8080, 30);
-        HostWithId h4 = new HostWithId("host40", 8080, 40);
-        HostWithId h5 = new HostWithId("host50", 8080, 50);
-        HostWithId h6 = new HostWithId("host60", 8080, 60);
-        HostWithId h7 = new HostWithId("host70", 8080, 70);
-        HostWithId h8 = new HostWithId("host80", 8080, 80);
-        HostWithId h9 = new HostWithId("host90", 8080, 90);
-        HostWithId h10 = new HostWithId("host100", 8080, 100);
+        PublishSubject<Member<Integer>> members = PublishSubject.create();
         
-        hosts.add(h5);
-        hosts.add(h7);
-        hosts.add(h1);
-        hosts.add(h2);
-        hosts.add(h4);
-        hosts.add(h3);
-        hosts.add(h8);
-        hosts.add(h10);
-        hosts.add(h9);
-        hosts.add(h6);
+        RingTopology<Integer, Integer> mapper = new RingTopology<Integer, Integer>(5, new Func1<Integer, Integer>() {
+            @Override
+            public Integer call(Integer t1) {
+                return t1;
+            }
+        }, Functions.memoize(3));
         
-        final List<MembershipEvent<HostWithId>> actual = Observable
-            .from(hosts)
-            .map(MembershipEvent.<HostWithId>toEvent(EventType.ADD))
-            .concatWith(Observable.from(Lists.reverse(hosts)).map(MembershipEvent.<HostWithId>toEvent(EventType.REMOVE)))
-            .lift(Topologies.ring(
-                me,
-                new Func1<HostWithId, Integer>() {
+        AtomicReference<List<Integer>> current = new AtomicReference<List<Integer>>();
+        
+        members
+               .doOnNext(RxUtil.info("add"))
+               .compose(mapper)
+               .map(MemberToInstance.from(new Func2<Integer, Action0, Instance<Integer>>() {
                     @Override
-                    public Integer call(HostWithId t1) {
-                        return t1.id;
+                    public Instance<Integer> call(Integer key, Action0 shutdown) {
+                        return Instance.from(key, BehaviorSubject.create(true));
                     }
-                },
-                new Func1<Integer, Integer>() {
-                    @Override
-                    public Integer call(Integer t1) {
-                        return 2;
-                    }
-                }))
-            .toList().toBlocking().first();
-        
-        List<MembershipEvent<HostWithId>> expected = Lists.newArrayList(
-                MembershipEvent.create(h5, EventType.ADD),
-                MembershipEvent.create(h7, EventType.ADD),
-                MembershipEvent.create(h1, EventType.ADD),
-                MembershipEvent.create(h7, EventType.REMOVE),
-                MembershipEvent.create(h2, EventType.ADD),
-                MembershipEvent.create(h5, EventType.REMOVE),
-                MembershipEvent.create(h10, EventType.ADD),
-                MembershipEvent.create(h2, EventType.REMOVE),
-                MembershipEvent.create(h9, EventType.ADD),
-                MembershipEvent.create(h1, EventType.REMOVE),
+               }))
+               .compose(new InstanceCollector<Integer>())
+               .doOnNext(RxUtil.info("current"))
+               .subscribe(RxUtil.set(current));
+               
+        members.onNext(m11);
+        members.onNext(m7);
+        members.onNext(m1);
+        members.onNext(m2);
+        members.onNext(m4);
+        members.onNext(m3);
+        members.onNext(m8);
+        members.onNext(m10);
+        members.onNext(m9);
+        members.onNext(m6);
 
-                MembershipEvent.create(h1, EventType.ADD),
-                MembershipEvent.create(h9, EventType.REMOVE),
-                MembershipEvent.create(h2, EventType.ADD),
-                MembershipEvent.create(h10, EventType.REMOVE),
-                MembershipEvent.create(h5, EventType.ADD),
-                MembershipEvent.create(h2, EventType.REMOVE),
-                MembershipEvent.create(h7, EventType.ADD),
-                MembershipEvent.create(h1, EventType.REMOVE),
-                MembershipEvent.create(h7, EventType.REMOVE),
-                MembershipEvent.create(h5, EventType.REMOVE)
-                );
-        
-        Assert.assertEquals(actual, expected);
+        m6.close();
+        m9.close();
+        m8.close();
     }
 }

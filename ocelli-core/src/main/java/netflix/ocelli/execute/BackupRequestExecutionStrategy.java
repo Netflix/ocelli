@@ -5,17 +5,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.SingleMetric;
-import netflix.ocelli.Stopwatch;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.functions.Retrys;
 import netflix.ocelli.functions.Stopwatches;
+import netflix.ocelli.util.SingleMetric;
+import netflix.ocelli.util.Stopwatch;
 import rx.Observable;
 import rx.Observable.Operator;
 import rx.Scheduler;
 import rx.Subscriber;
 import rx.functions.Func0;
 import rx.functions.Func1;
+import rx.functions.Func2;
 import rx.observers.SafeSubscriber;
 import rx.schedulers.Schedulers;
 
@@ -29,9 +30,8 @@ import rx.schedulers.Schedulers;
  *
  * @param <C>
  */
-public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
-    public static Func0<Stopwatch>   DEFAULT_CLOCK          = Stopwatches.systemNano();
-    
+public class BackupRequestExecutionStrategy<C, I, O> implements ExecutionStrategy<I, O> {
+    public static Func0<Stopwatch>        DEFAULT_CLOCK   = Stopwatches.systemNano();
     public static Func1<Boolean, Boolean> DEFAULT_LIMITER = new Func1<Boolean, Boolean>() {
         @Override
         public Boolean call(Boolean isPrimary) {
@@ -45,17 +45,29 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
     private final Func1<Throwable, Boolean> retriableError;
     private final Scheduler                 scheduler;
     private final Func1<Boolean, Boolean>   limiter;
+    private final Func2<C, I, Observable<O>> operation;
     
-    public static class Builder<C> {
+    public static class Builder<C, I, O> {
         private final LoadBalancer<C>     lb;
         private Func0<Stopwatch>          sw             = DEFAULT_CLOCK;
         private SingleMetric<Long>        metric         = Metrics.memoize(10L);
         private Func1<Boolean, Boolean>   limiter        = DEFAULT_LIMITER;
         private Func1<Throwable, Boolean> retriableError = Retrys.ALWAYS;
         private Scheduler                 scheduler      = Schedulers.computation();
+        private Func2<C, I, Observable<O>> operation;
 
         private Builder(LoadBalancer<C> lb) {
             this.lb = lb;
+        }
+        
+        /**
+         * Function that executes the request I on specific client instance C
+         * @param operation
+         * @return
+         */
+        public Builder<C, I, O> withClientFunc(Func2<C, I, Observable<O>> operation) {
+            this.operation = operation;
+            return this;
         }
         
         /**
@@ -65,7 +77,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
          * request will be ignored to allow the other request to complete.
          * @param retriableError
          */
-        public Builder<C> withIsRetriableFunc(Func1<Throwable, Boolean> retriableError) {
+        public Builder<C, I, O> withIsRetriableFunc(Func1<Throwable, Boolean> retriableError) {
             this.retriableError = retriableError;
             return this;
         }
@@ -75,7 +87,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
          * @param func
          * @param units
          */
-        public Builder<C> withTimeoutMetric(SingleMetric<Long> metric) {
+        public Builder<C, I, O> withTimeoutMetric(SingleMetric<Long> metric) {
             this.metric = metric;
             return this;
         }
@@ -86,7 +98,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
          * 
          * @param scheduler
          */
-        public Builder<C> withScheduler(Scheduler scheduler) {
+        public Builder<C, I, O> withScheduler(Scheduler scheduler) {
             this.scheduler = scheduler;
             return this;
         }
@@ -97,7 +109,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
          * or backup request and returns whether the operation is allowed.  
          * @param limiter
          */
-        public Builder<C> withLimiter(Func1<Boolean, Boolean> limiter) {
+        public Builder<C, I, O> withLimiter(Func1<Boolean, Boolean> limiter) {
             this.limiter = limiter;
             return this;
         }
@@ -106,39 +118,46 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
          * Factory for creating stopwatches.  A new stopwatch is created per operation.
          * @param clock
          */
-        public Builder<C> withStopwatch(Func0<Stopwatch> sw) {
+        public Builder<C, I, O> withStopwatch(Func0<Stopwatch> sw) {
             this.sw = sw;
             return this;
         }
         
-        public BackupRequestExecutionStrategy<C> build() {
-            return new BackupRequestExecutionStrategy<C>(this);
+        public BackupRequestExecutionStrategy<C, I, O> build() {
+            assert operation != null;
+            return new BackupRequestExecutionStrategy<C, I, O>(this);
         }
     }
     
-    public static <C> Builder<C> builder(LoadBalancer<C> lb) {
-        return new Builder<C>(lb);
+    public static <C, I, O> Builder<C, I, O> builder(LoadBalancer<C> lb) {
+        return new Builder<C, I, O>(lb);
     }
     
-    private BackupRequestExecutionStrategy(Builder<C> builder) {
+    private BackupRequestExecutionStrategy(Builder<C, I, O> builder) {
         this.lb             = Observable.create(builder.lb);
         this.metric         = builder.metric;
         this.retriableError = builder.retriableError;
         this.scheduler      = builder.scheduler;
         this.limiter        = builder.limiter;
         this.sw             = builder.sw;
+        this.operation      = builder.operation;
     }
-
+    
     @Override
-    public <R> Observable<R> execute(final Func1<C, Observable<R>> operation) {
-        final Observable<R> o = lb
-                .concatMap(operation)
-                .lift(new Operator<R, R>() {
+    public Observable<O> call(final I request) {
+        final Observable<O> o = lb
+                .concatMap(new Func1<C, Observable<O>>() {
+                    @Override
+                    public Observable<O> call(C t1) {
+                        return operation.call(t1, request);
+                    }
+                })
+                .lift(new Operator<O, O>() {
                     private AtomicBoolean first = new AtomicBoolean(true);
                     private AtomicBoolean isPrimaryCondition = new AtomicBoolean(true);
                     
                     @Override
-                    public Subscriber<? super R> call(final Subscriber<? super R> s) {
+                    public Subscriber<? super O> call(final Subscriber<? super O> s) {
                         final boolean isPrimaryRequest = isPrimaryCondition.compareAndSet(true, false);
                         
                         if (!limiter.call(isPrimaryRequest)) {
@@ -147,7 +166,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
                         
                         final Stopwatch timer = sw.call();
                         
-                        return new SafeSubscriber<R>(s) {
+                        return new SafeSubscriber<O>(s) {
                             private AtomicBoolean hasOnNext = new AtomicBoolean(false);
                             
                             @Override
@@ -175,7 +194,7 @@ public class BackupRequestExecutionStrategy<C> extends ExecutionStrategy<C> {
                             }
 
                             @Override
-                            public void onNext(R t) {
+                            public void onNext(O t) {
                                 if (hasOnNext.compareAndSet(false, true)) {
                                     metric.add(timer.elapsed(TimeUnit.MILLISECONDS));
                                 }

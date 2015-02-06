@@ -5,12 +5,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
-import netflix.ocelli.ClientCollector;
-import netflix.ocelli.ClientLifecycleFactory;
-import netflix.ocelli.FailureDetectingClientLifecycleFactory;
+import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
@@ -42,7 +42,7 @@ public class BackupRequestExecutionStrategyTest {
     private PublishSubject<TestClient> hosts = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
-    private BackupRequestExecutionStrategy<TestClient> executor;
+    private BackupRequestExecutionStrategy<TestClient, String, String> executor;
     
     private final static long BACKUP_REQUEST_TIMEOUT = 10;
     private final static long HALF_BACKUP_REQUEST_TIMEOUT = BACKUP_REQUEST_TIMEOUT/2;
@@ -77,19 +77,23 @@ public class BackupRequestExecutionStrategyTest {
     
     @Before
     public void before() {
-        ClientLifecycleFactory<TestClient> factory =
-                FailureDetectingClientLifecycleFactory.<TestClient>builder()
+        FailureDetectingInstanceFactory<TestClient> factory =
+                FailureDetectingInstanceFactory.<TestClient>builder()
                 .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
                 .withFailureDetector(failureDetector)
                 .withClientConnector(clientConnector)
                 .build();
     
-        this.lb = RoundRobinLoadBalancer.create(
-                hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD)).lift(ClientCollector.create(factory)));  
+        this.lb = RoundRobinLoadBalancer.from(
+                hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
+                     .compose(new MembershipEventToMember<TestClient>())
+                     .map(TestClient.memberToInstance(factory))  
+                     .compose(new InstanceCollector<TestClient>()));  
         
-        this.executor = BackupRequestExecutionStrategy.builder(lb)
+        this.executor = BackupRequestExecutionStrategy.<TestClient, String, String>builder(lb)
                 .withTimeoutMetric(Metrics.memoize(BACKUP_REQUEST_TIMEOUT))
                 .withScheduler(scheduler)
+                .withClientFunc(TestClient.func())
                 .build();
         
         this.op = new Func1<TestClient, Observable<String>>() {
@@ -164,7 +168,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(fastResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(HALF_BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
@@ -190,7 +194,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(delayedResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
         Assert.assertEquals(0, fastResponse1.getOnNextCount());
@@ -217,7 +221,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(fastResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
         Assert.assertEquals(0, fastResponse1.getOnNextCount());
@@ -244,7 +248,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(fastResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
         Assert.assertEquals(0, fastResponse1.getOnNextCount());
@@ -272,7 +276,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(fastError2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
         Assert.assertEquals(0, fastResponse1.getOnNextCount());
@@ -304,7 +308,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(fastResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
         Assert.assertEquals(0, emptyResponse1.getOnNextCount());
@@ -327,7 +331,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(emptyResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT*3, TimeUnit.MILLISECONDS);
         
@@ -343,7 +347,7 @@ public class BackupRequestExecutionStrategyTest {
         hosts.onNext(emptyResponse2);
 
         TestObserver<String> response = new TestObserver<String>();
-        this.executor.execute(this.op).subscribe(response);
+        this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT+1, TimeUnit.MILLISECONDS);
         

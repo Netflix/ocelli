@@ -5,109 +5,90 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import junit.framework.Assert;
 import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.util.RxUtil;
 
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import rx.subjects.PublishSubject;
 
 import com.google.common.collect.Lists;
 
-import rx.functions.Action1;
-import rx.subjects.PublishSubject;
-
 public class ClientFactoryTest {
+    private final static Logger LOG = LoggerFactory.getLogger(ClientFactoryTest.class);
+    
     @Test
     public void testAddAndRemove() {
-        PoolingHostToClientLifecycleFactory<Integer, String> factory 
-            = new PoolingHostToClientLifecycleFactory<Integer, String>(
-                new HostToClient<Integer, String>() {
-                    public String call(Integer host) {
-                        return "Client-" + host;
-                    }
-                },
-                FailureDetectingClientLifecycleFactory.<String>builder()
-                    .build());
+        MemberToInstance<Integer, String> memberToInstance = MemberToInstance.from(new IntegerToStringLifecycleFactory());
 
         PublishSubject<MembershipEvent<Integer>> events = PublishSubject.create();
         
+        final AtomicReference<List<String>> current = new AtomicReference<List<String>>();
+        
         events
-            .lift(new HostToClientCollector<Integer, String>(factory))
-            .subscribe(new Action1<List<String>>() {
-                @Override
-                public void call(List<String> t1) {
-                    System.out.println(t1);
-                }
-            });
+            .compose(new MembershipEventToMember<Integer>())
+            .map(memberToInstance)
+            .compose(new InstanceCollector<String>())
+            .subscribe(RxUtil.set(current));
 
         events.onNext(MembershipEvent.create(0, EventType.ADD));
+        Assert.assertEquals(Lists.newArrayList("Client-0"), current.get());
         events.onNext(MembershipEvent.create(1, EventType.ADD));
+        Assert.assertEquals(Lists.newArrayList("Client-1", "Client-0"), current.get());
         events.onNext(MembershipEvent.create(1, EventType.ADD));
+        Assert.assertEquals(Lists.newArrayList("Client-1", "Client-0"), current.get());
         events.onNext(MembershipEvent.create(1, EventType.REMOVE));
+        Assert.assertEquals(Lists.newArrayList("Client-0"), current.get());
         events.onNext(MembershipEvent.create(1, EventType.ADD));
+        Assert.assertEquals(Lists.newArrayList("Client-1", "Client-0"), current.get());
         events.onNext(MembershipEvent.create(0, EventType.REMOVE));
+        Assert.assertEquals(Lists.newArrayList("Client-1"), current.get());
         events.onNext(MembershipEvent.create(1, EventType.REMOVE));
+        Assert.assertEquals(Lists.newArrayList(), current.get());
     }
     
     @Test
     public void testReferenceCounting() {
-        final List<String> removed = Lists.newArrayList();
-        final List<String> created = Lists.newArrayList();
-                
-        PoolingHostToClientLifecycleFactory<Integer, String> factory 
-            = new PoolingHostToClientLifecycleFactory<Integer, String>(
-                new HostToClient<Integer, String>() {
-                    public String call(Integer host) {
-                        String client = "Client-" + host;
-                        created.add(client);
-                        return client;
-                    }
-                },
-                FailureDetectingClientLifecycleFactory.<String>builder()
-                    .withClientShutdown(new Action1<String>() {
-                        @Override
-                        public void call(String t1) {
-                            removed.add(t1);
-                        }
-                    })
-                    .build());
-
+        IntegerToStringLifecycleFactory lifecycle = new IntegerToStringLifecycleFactory();
+        
+        MemberToInstance<Integer, String> memberToInstance = MemberToInstance.from(lifecycle);
+        
         PublishSubject<MembershipEvent<Integer>> events = PublishSubject.create();
         
         final AtomicReference<List<String>> lb1Clients = new AtomicReference<List<String>>();
         final AtomicReference<List<String>> lb2Clients = new AtomicReference<List<String>>();
         
         events
-            .lift(new HostToClientCollector<Integer, String>(factory))
-            .subscribe(new Action1<List<String>>() {
-                @Override
-                public void call(List<String> t1) {
-                    lb1Clients.set(t1);
-                }
-            });
-        
-        events
-            .lift(new HostToClientCollector<Integer, String>(factory))
-            .subscribe(new Action1<List<String>>() {
-                @Override
-                public void call(List<String> t1) {
-                    lb2Clients.set(t1);
-                }
-            });
+            .compose(new MembershipEventToMember<Integer>())
+            .map(memberToInstance)
+            .compose(new InstanceCollector<String>())
+            .subscribe(RxUtil.set(lb1Clients));
 
-        Assert.assertEquals(0,  created.size());
+        events
+            .compose(new MembershipEventToMember<Integer>())
+            .map(memberToInstance)
+            .compose(new InstanceCollector<String>())
+            .subscribe(RxUtil.set(lb2Clients));
+        
+        Assert.assertEquals(0,  lifecycle.added().size());
         events.onNext(MembershipEvent.create(0, EventType.ADD));
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb2Clients.get());
-        Assert.assertEquals(0,  removed.size());
+        Assert.assertEquals(0,  lifecycle.removed().size());
         events.onNext(MembershipEvent.create(0, EventType.REMOVE));
         Assert.assertEquals(Lists.<String>newArrayList(), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList(), lb2Clients.get());
-        Assert.assertEquals(1,  removed.size());
+        Assert.assertEquals(1,  lifecycle.removed().size());
         events.onNext(MembershipEvent.create(0, EventType.ADD));
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb2Clients.get());
-        Assert.assertEquals(1,  removed.size());
+        Assert.assertEquals(1,  lifecycle.removed().size());
+        Assert.assertEquals(2,  lifecycle.added().size());
         events.onNext(MembershipEvent.create(0, EventType.REMOVE));
         Assert.assertEquals(Lists.<String>newArrayList(), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList(), lb2Clients.get());
-        Assert.assertEquals(2,  removed.size());
+        Assert.assertEquals(2,  lifecycle.removed().size());
+        Assert.assertEquals(2,  lifecycle.added().size());
     }
 }

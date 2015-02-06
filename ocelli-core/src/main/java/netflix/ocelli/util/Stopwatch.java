@@ -1,4 +1,4 @@
-package netflix.ocelli;
+package netflix.ocelli.util;
 
 import java.util.concurrent.TimeUnit;
 

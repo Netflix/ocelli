@@ -10,6 +10,7 @@ import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.functions.Func1;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 public class NettyServerFarmResource extends ExternalResource {
@@ -28,9 +30,16 @@ public class NettyServerFarmResource extends ExternalResource {
         
     private final int count;
     private final HashMap<Host, HttpServer<ByteBuf, ByteBuf>> servers = Maps.newHashMap();
+    private final List<ImmutableMap<String, String>> attributes;
+    
+    public NettyServerFarmResource(List<ImmutableMap<String, String>> arrayList) {
+        this.count = arrayList.size();
+        this.attributes = arrayList;
+    }
     
     public NettyServerFarmResource(int count) {
         this.count = count;
+        this.attributes = null;
     }
     
     @Override
@@ -41,7 +50,7 @@ public class NettyServerFarmResource extends ExternalResource {
             
             LOG.info("Starting server: localhost:" + server.getServerPort());
             servers.put(
-                new Host("localhost", server.getServerPort()),
+                new Host("localhost", server.getServerPort(), attributes != null ? attributes.get(i) : null),
                 server);
         }
     }

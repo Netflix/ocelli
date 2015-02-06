@@ -1,17 +1,18 @@
 package netflix.ocelli.rxnetty;
 
 import io.reactivex.netty.metrics.HttpClientMetricEventsListener;
-import netflix.ocelli.FailureDetectorFactory;
+
+import java.util.concurrent.TimeUnit;
+
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
-
-import java.util.concurrent.TimeUnit;
+import rx.functions.Func1;
 
 /**
  * A failure detector for RxNetty that detects failures which determine host health.
  */
-public class RxNettyFailureDetector<I, O> implements FailureDetectorFactory<HttpClientHolder<I, O>>{
+public class RxNettyFailureDetector<I, O> implements Func1<HttpClientHolder<I, O>, Observable<Throwable>>{
 
     @Override
     public Observable<Throwable> call(final HttpClientHolder<I, O> holder) {

@@ -1,5 +1,7 @@
 package netflix.ocelli;
 
+import java.util.Map;
+
 
 /**
  * A class for expressing a host.
@@ -10,10 +12,17 @@ public class Host {
 
     private String hostName;
     private int port;
-
+    private Map<String, String> attributes;
+    
     public Host(String hostName, int port) {
         this.hostName = hostName;
         this.port = port;
+    }
+
+    public Host(String hostName, int port, Map<String, String> attributes) {
+        this.hostName = hostName;
+        this.port = port;
+        this.attributes = attributes;
     }
 
     public String getHostName() {
@@ -22,6 +31,13 @@ public class Host {
 
     public int getPort() {
         return port;
+    }
+    
+    public String getAttributes(String key, String defaultValue) {
+        if (attributes != null && attributes.containsKey(key)) {
+            return attributes.get(key);
+        }
+        return defaultValue;
     }
     
     @Override
@@ -47,6 +63,14 @@ public class Host {
     
     @Override
     public String toString() {
-        return "Host [hostName=" + hostName + ", port=" + port + "]";
+        StringBuilder sb = new StringBuilder();
+        sb.append("Host [")
+          .append("hostName=").append(hostName)
+          .append(", port=").append(port);
+        
+        if (attributes != null && attributes.isEmpty()) {
+            sb.append(", attr=").append(attributes);
+        }
+        return sb.append("]").toString();
     }
 }

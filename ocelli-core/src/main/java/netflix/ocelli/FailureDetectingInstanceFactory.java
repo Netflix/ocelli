@@ -10,35 +10,22 @@ import netflix.ocelli.functions.Failures;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import rx.Notification;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.Subscription;
-import rx.functions.Action0;
 import rx.functions.Action1;
-import rx.functions.Actions;
 import rx.functions.Func1;
 import rx.subscriptions.SerialSubscription;
-import rx.subscriptions.Subscriptions;
 
-/**
- * ClientFactory with built in failure detector.  ClientFactoryWithFailureDetector to use functions
- * instead of inheritance to manage a client.  This decouples the implementation form a specific
- * client interface, which may not be accessible to this API. 
- * 
- * @author elandau
- *
- * @param <C>   Client type
- */
-public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycleFactory<C> {
-    private static final Logger LOG = LoggerFactory.getLogger(FailureDetectingClientLifecycleFactory.class);
+public class FailureDetectingInstanceFactory<C> implements Func1<C, Observable<Boolean>> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FailureDetectingInstanceFactory.class);
 
     public static class Builder<C> {
-        private Func1<Integer, Long>        quarantineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
-        private FailureDetectorFactory<C>   failureDetector         = Failures.never();
-        private ClientConnector<C>          clientConnector         = Connectors.immediate();
-        private Action1<C>                  clientShutdown          = Actions.empty();
+        private Func1<Integer, Long>            quarantineDelayStrategy = Delays.fixed(10, TimeUnit.SECONDS);
+        private Func1<C, Observable<Throwable>> failureDetector         = Failures.never();
+        private Func1<C, Observable<C>>         clientConnector         = Connectors.immediate();
 
         /**
          * Strategy used to determine the delay time in msec based on the quarantine 
@@ -55,7 +42,7 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
          * failure of the client.  The load balancer will quarantine the client in response.
          * @param failureDetector
          */
-        public Builder<C> withFailureDetector(FailureDetectorFactory<C> failureDetector) {
+        public Builder<C> withFailureDetector(Func1<C, Observable<Throwable>> failureDetector) {
             this.failureDetector = failureDetector;
             return this;
         }
@@ -65,24 +52,13 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
          * pool.  
          * @param clientConnector
          */
-        public Builder<C> withClientConnector(ClientConnector<C> clientConnector) {
+        public Builder<C> withClientConnector(Func1<C, Observable<C>> clientConnector) {
             this.clientConnector = clientConnector;
             return this;
         }
         
-        /**
-         * Strategy for shutting down a client.
-         * @param clientShutdown
-         * @return
-         */
-        public Builder<C> withClientShutdown(Action1<C> clientShutdown) {
-            this.clientShutdown = clientShutdown;
-            return this;
-        }
-        
-        public FailureDetectingClientLifecycleFactory<C> build() {
-            return new FailureDetectingClientLifecycleFactory<C>(
-                    clientShutdown,
+        public FailureDetectingInstanceFactory<C> build() {
+            return new FailureDetectingInstanceFactory<C>(
                     clientConnector, 
                     failureDetector, 
                     quarantineDelayStrategy);
@@ -93,27 +69,24 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
         return new Builder<C>();
     }
     
-    private final Action1<C>                clientShutdown;
-    private final FailureDetectorFactory<C> failureDetector;
-    private final ClientConnector<C>        clientConnector;
-    private final Func1<Integer, Long>      quarantineDelayStrategy;
+    private final Func1<C, Observable<Throwable>> failureDetector;
+    private final Func1<C, Observable<C>>         clientConnector;
+    private final Func1<Integer, Long>            quarantineDelayStrategy;
 
-    public FailureDetectingClientLifecycleFactory(
-            Action1<C>                 clientShutdown,
-            ClientConnector<C>         clientConnector, 
-            FailureDetectorFactory<C>  failureDetector, 
+    public FailureDetectingInstanceFactory(
+            Func1<C, Observable<C>>    clientConnector, 
+            Func1<C, Observable<Throwable>>  failureDetector, 
             Func1<Integer, Long>       quarantineDelayStrategy) {
         this.quarantineDelayStrategy = quarantineDelayStrategy;
         this.failureDetector         = failureDetector;
         this.clientConnector         = clientConnector;
-        this.clientShutdown          = clientShutdown;
     }
     
     @Override
-    public Observable<Notification<C>> call(final C client) {
-        return Observable.create(new OnSubscribe<C>() {
+    public Observable<Boolean> call(final C client) {
+        return Observable.create(new OnSubscribe<Boolean>() {
             @Override
-            public void call(final Subscriber<? super C> s) {
+            public void call(final Subscriber<? super Boolean> s) {
                 LOG.info("Creating client {}", client);
                 final AtomicInteger quarantineCounter = new AtomicInteger();
                 final SerialSubscription connectSubscription = new SerialSubscription();
@@ -126,25 +99,15 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
                     public void call(Throwable t1) {
                         LOG.info("Client {} failed. {}", client, t1.getMessage());
                         quarantineCounter.incrementAndGet();
-                        s.onError(t1);
+                        s.onNext(false);
                         connectSubscription.set(connect(connectSubscription, quarantineCounter, client, s));
-                    }
-                }));
-                
-                // Shutdown hook
-                s.add(Subscriptions.create(new Action0() {
-                    @Override
-                    public void call() {
-                        LOG.info("Client {} shutting down", client);
-                        clientShutdown.call(client);
-                        s.onCompleted();
                     }
                 }));
                 
                 connectSubscription.set(connect(connectSubscription, quarantineCounter, client, s));
             }
             
-            private Subscription connect(final SerialSubscription connectSubscription, final AtomicInteger quarantineCounter, final C client, final Subscriber<? super C> s) {
+            private Subscription connect(final SerialSubscription connectSubscription, final AtomicInteger quarantineCounter, final C client, final Subscriber<? super Boolean> s) {
                 Observable<C> o = clientConnector.call(client);
                 int delayCount = quarantineCounter.get();
                 if (delayCount > 0) { 
@@ -157,7 +120,7 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
                             LOG.info("Client {} connected", client);
                             
                             quarantineCounter.set(0);
-                            s.onNext(client);
+                            s.onNext(true);
                         }
                     },
                     new Action1<Throwable>() {
@@ -170,11 +133,10 @@ public class FailureDetectingClientLifecycleFactory<C> implements ClientLifecycl
                         }
                     });
             }
-        })
-        .materialize();
+        });
     }
 
     public String toString() {
-        return "ClientFactoryWithFailureDetector[]";
+        return "FailureDetectingInstanceFactory[]";
     }
 }
