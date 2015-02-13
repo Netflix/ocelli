@@ -7,11 +7,11 @@ import rx.functions.Func1;
 
 import com.google.common.collect.Maps;
 
-public class TestClientConnectorFactory implements Func1<TestClient, Observable<TestClient>> {
+public class TestClientConnectorFactory implements Func1<TestClient, Observable<Void>> {
     private ConcurrentMap<TestClient, TestClientConnector> connectors = Maps.newConcurrentMap();
     
     @Override
-    public Observable<TestClient> call(TestClient client) {
+    public Observable<Void> call(TestClient client) {
         return Observable.create(get(client));
     }
     

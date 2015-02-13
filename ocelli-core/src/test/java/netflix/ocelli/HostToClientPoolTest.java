@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import rx.Subscription;
 import rx.functions.Action1;
+import rx.subjects.BehaviorSubject;
 import rx.subjects.PublishSubject;
 
 import com.google.common.collect.Lists;
@@ -23,13 +24,13 @@ public class HostToClientPoolTest {
     
     @Test
     public void testSimpleConvert() {
-        PublishSubject<Member<Integer>> members1 = PublishSubject.create();
-        PublishSubject<Member<Integer>> members2 = PublishSubject.create();
+        PublishSubject<Instance<Integer>> members1 = PublishSubject.create();
+        PublishSubject<Instance<Integer>> members2 = PublishSubject.create();
         
         final ConcurrentMap<Integer, Instance<Integer>> instances = new ConcurrentHashMap<Integer, Instance<Integer>>();
         final AtomicReference<List<Integer>> active = new AtomicReference<List<Integer>>();
 
-        MemberToInstance<Integer, String> memberToInstance = MemberToInstance.from(new IntegerToStringLifecycleFactory());
+        CachingInstanceTransformer<Integer, String> memberToInstance = new IntegerToStringTransformer();
         
         members1
             .doOnNext(RxUtil.info("member1:   "))
@@ -47,9 +48,9 @@ public class HostToClientPoolTest {
             .doOnNext(RxUtil.info("active2:   "))
             .subscribe();
         
-        CloseableMember<Integer> i1 = CloseableMember.from(1);
-        CloseableMember<Integer> i2 = CloseableMember.from(2);
-        CloseableMember<Integer> i3 = CloseableMember.from(3);
+        MutableInstance<Integer> i1 = MutableInstance.from(1);
+        MutableInstance<Integer> i2 = MutableInstance.from(2);
+        MutableInstance<Integer> i3 = MutableInstance.from(3);
       
         members1.onNext(i1);
         members1.onNext(i2);
@@ -61,14 +62,14 @@ public class HostToClientPoolTest {
         i2.close();
         i3.close();
       
-        CloseableMember<Integer> i1_2 = CloseableMember.from(1);
+        MutableInstance<Integer> i1_2 = MutableInstance.from(1);
         members1.onNext(i1_2);
     }
     
     @Test
     public void testCollector() {
-        PublishSubject<Boolean> s1 = PublishSubject.create();
-        Instance<Integer> i1 = new Instance<Integer>(1, s1);
+        BehaviorSubject<Boolean> s1 = BehaviorSubject.create();
+        Instance<Integer> i1 = MutableInstance.from(1, s1);
         
         PublishSubject<Instance<Integer>> source = PublishSubject.create();
         

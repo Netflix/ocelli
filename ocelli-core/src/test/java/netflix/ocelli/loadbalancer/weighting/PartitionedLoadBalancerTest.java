@@ -4,10 +4,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 import junit.framework.Assert;
+import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
 import netflix.ocelli.Instance;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.Member;
 import netflix.ocelli.MembershipEvent;
 import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.PartitionedLoadBalancer;
@@ -15,7 +15,6 @@ import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
-import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 import netflix.ocelli.util.RxUtil;
 
 import org.junit.Rule;
@@ -47,23 +46,26 @@ public class PartitionedLoadBalancerTest {
         TestClient h3 = TestClient.create("h3", Connects.immediate(), Behaviors.immediate()).withVip("a").withVip("b");
         TestClient h4 = TestClient.create("h4", Connects.immediate(), Behaviors.immediate()).withVip("b");
         
-        final FailureDetectingInstanceFactory<TestClient> factory =
+        final CachingInstanceTransformer<TestClient, TestClient> transformer = CachingInstanceTransformer.create(
                 FailureDetectingInstanceFactory.<TestClient>builder()
                 .withFailureDetector(failureDetector)
-                .build();
+                .build());
 
         PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
         
         hostSource
             .compose(new MembershipEventToMember<TestClient>())
-            .compose(Member.partitionBy(TestClient.byVip()))
-            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+            .compose(Instance.partitionBy(TestClient.byVip()))
+            .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
-                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Instance<TestClient>> group) {
                     return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
                         @Override
                         public void call(Subscriber<? super Instance<TestClient>> t1) {
-                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                            group
+                                .doOnNext(RxUtil.info("Adding to group " + group.getKey()))
+                                .map(transformer)
+                                .subscribe(t1);
                         }
                     });
                 }
@@ -135,10 +137,10 @@ public class PartitionedLoadBalancerTest {
     
     @Test
     public void testVipHostFailure() {
-        final FailureDetectingInstanceFactory<TestClient> factory =
+        final CachingInstanceTransformer<TestClient, TestClient> transformer = CachingInstanceTransformer.create(
                 FailureDetectingInstanceFactory.<TestClient>builder()
                 .withFailureDetector(failureDetector)
-                .build();
+                .build());
         
         PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
         
@@ -148,14 +150,17 @@ public class PartitionedLoadBalancerTest {
         
         hostSource
             .compose(new MembershipEventToMember<TestClient>())
-            .compose(Member.partitionBy(TestClient.byVip()))
-            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+            .compose(Instance.partitionBy(TestClient.byVip()))
+            .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
-                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Instance<TestClient>> group) {
                     return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
                         @Override
                         public void call(Subscriber<? super Instance<TestClient>> t1) {
-                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                            group
+                                .doOnNext(RxUtil.info("Adding to group " + group.getKey()))
+                                .map(transformer)
+                                .subscribe(t1);
                         }
                     });
                 }
@@ -196,10 +201,10 @@ public class PartitionedLoadBalancerTest {
     
     @Test
     public void retryOnceEachPartition() {
-        final FailureDetectingInstanceFactory<TestClient> factory =
+        final CachingInstanceTransformer<TestClient, TestClient> transformer = CachingInstanceTransformer.create(
                 FailureDetectingInstanceFactory.<TestClient>builder()
                 .withFailureDetector(failureDetector)
-                .build();
+                .build());
         
         PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
         
@@ -211,14 +216,14 @@ public class PartitionedLoadBalancerTest {
         
         hostSource
             .compose(new MembershipEventToMember<TestClient>())
-            .compose(Member.partitionBy(TestClient.byRack()))
-            .map(new Func1<GroupedObservable<String,Member<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
+            .compose(Instance.partitionBy(TestClient.byRack()))
+            .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
-                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Member<TestClient>> group) {
+                public GroupedObservable<String, Instance<TestClient>> call(final GroupedObservable<String, Instance<TestClient>> group) {
                     return GroupedObservable.create(group.getKey(), new OnSubscribe<Instance<TestClient>>() {
                         @Override
                         public void call(Subscriber<? super Instance<TestClient>> t1) {
-                            group.map(TestClient.memberToInstance(factory)).subscribe(t1);
+                            group.map(transformer).subscribe(t1);
                         }
                     });
                 }

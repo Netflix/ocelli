@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
+import rx.Subscription;
 import rx.functions.Func1;
 
 /**
@@ -19,12 +20,14 @@ public class RxNettyFailureDetector<I, O> implements Func1<HttpClientHolder<I, O
         return Observable.create(new OnSubscribe<Throwable>() {
             @Override
             public void call(final Subscriber<? super Throwable> sub) {
-                holder.getClient().subscribe(new HttpClientMetricEventsListener() {
+                Subscription s = holder.getClient().subscribe(new HttpClientMetricEventsListener() {
                     @Override
                     protected void onConnectFailed(long duration, TimeUnit timeUnit, Throwable throwable) {
                         sub.onNext(throwable);
                     }
                 });
+                
+                sub.add(s);
             }
         });
     }

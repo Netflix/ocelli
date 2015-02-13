@@ -16,25 +16,26 @@ import rx.functions.Func1;
  * @author elandau
  *
  */
-public class MembershipEventToMember<C> implements Transformer<MembershipEvent<C>, Member<C>> {
+@Deprecated
+public class MembershipEventToMember<C> implements Transformer<MembershipEvent<C>, Instance<C>> {
     @Override
-    public Observable<Member<C>> call(Observable<MembershipEvent<C>> o) {
-        final ConcurrentMap<C, CloseableMember<C>> clients = new ConcurrentHashMap<C, CloseableMember<C>>();
+    public Observable<Instance<C>> call(Observable<MembershipEvent<C>> o) {
+        final ConcurrentMap<C, MutableInstance<C>> clients = new ConcurrentHashMap<C, MutableInstance<C>>();
         
         return o
-            .flatMap(new Func1<MembershipEvent<C>, Observable<Member<C>>>() {
+            .flatMap(new Func1<MembershipEvent<C>, Observable<Instance<C>>>() {
                 @Override
-                public Observable<Member<C>> call(MembershipEvent<C> t) {
+                public Observable<Instance<C>> call(MembershipEvent<C> t) {
                     switch (t.getType()) {
                     case ADD: {
-                            CloseableMember<C> member = CloseableMember.from(t.getClient());
+                            MutableInstance<C> member = MutableInstance.from(t.getClient());
                             if (null == clients.putIfAbsent(t.getClient(), member)) {
-                                return Observable.<Member<C>>just(member);
+                                return Observable.<Instance<C>>just(member);
                             }
                             break;
                         }
                     case REMOVE: {
-                            CloseableMember<C> member = clients.remove(t.getClient());
+                            MutableInstance<C> member = clients.remove(t.getClient());
                             if (member != null) {
                                 member.close();
                             }
@@ -43,13 +44,13 @@ public class MembershipEventToMember<C> implements Transformer<MembershipEvent<C
                     default:
                         break;
                     }
-                    return Observable.<Member<C>>empty();
+                    return Observable.<Instance<C>>empty();
                 }
             })
             .doOnUnsubscribe(new Action0() {
                 @Override
                 public void call() {
-                    for (CloseableMember<C> client : clients.values()) {
+                    for (MutableInstance<C> client : clients.values()) {
                         client.close();
                     }
                     clients.clear();

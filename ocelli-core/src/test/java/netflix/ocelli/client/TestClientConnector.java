@@ -5,7 +5,7 @@ import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.subjects.PublishSubject;
 
-public class TestClientConnector implements OnSubscribe<TestClient> {
+public class TestClientConnector implements OnSubscribe<Void> {
 
     private final PublishSubject<TestClient> stream = PublishSubject.create();
     private final TestClient client;
@@ -15,8 +15,7 @@ public class TestClientConnector implements OnSubscribe<TestClient> {
     }
     
     @Override
-    public void call(Subscriber<? super TestClient> s) {
-        s.onNext(client);
+    public void call(Subscriber<? super Void> s) {
         s.onCompleted();
         stream.onNext(client);
     }

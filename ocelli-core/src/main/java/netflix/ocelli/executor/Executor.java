@@ -12,5 +12,5 @@ import rx.functions.Func1;
  *
  * @param <C>
  */
-public interface Executor<I, O> extends Func1<I, Observable<O>>{
+public interface Executor<I, O> extends Func1<I, Observable<O>> {
 }

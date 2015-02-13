@@ -2,8 +2,6 @@ package netflix.ocelli.loadbalancer.weighting;
 
 import java.util.List;
 
-import com.google.common.collect.Iterables;
-
 
 public class ClientsAndWeights<C> {
     private final List<C> clients;
@@ -33,7 +31,7 @@ public class ClientsAndWeights<C> {
     public int getTotalWeights() {
         if (weights == null || weights.size() == 0)
             return 0;
-        return Iterables.getLast(weights);
+        return weights.get(weights.size() -1);
     }
 
     public C getClient(int index) {

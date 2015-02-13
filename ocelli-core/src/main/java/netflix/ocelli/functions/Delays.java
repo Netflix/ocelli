@@ -52,4 +52,13 @@ public abstract class Delays {
             }
         };
     }
+
+    public static Func1<Integer, Long> immediate() {
+        return new Func1<Integer, Long>() {
+            @Override
+            public Long call(Integer t1) {
+                return 0L;
+            }
+        };
+    }
 }

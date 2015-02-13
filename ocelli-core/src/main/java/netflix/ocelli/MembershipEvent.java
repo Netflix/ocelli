@@ -2,6 +2,7 @@ package netflix.ocelli;
 
 import rx.functions.Func1;
 
+@Deprecated
 public class MembershipEvent<Client> {
     public enum EventType {
         // A new host was added

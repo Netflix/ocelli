@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
 import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.MembershipEvent;
@@ -78,7 +79,7 @@ public class BackupExecutorTest {
     
     @Before
     public void before() {
-        FailureDetectingInstanceFactory<TestClient> factory =
+        final FailureDetectingInstanceFactory<TestClient> factory =
                 FailureDetectingInstanceFactory.<TestClient>builder()
                 .withQuarantineStrategy(Delays.fixed(1, TimeUnit.SECONDS))
                 .withFailureDetector(failureDetector)
@@ -88,7 +89,13 @@ public class BackupExecutorTest {
         this.lb = RoundRobinLoadBalancer.from(
                 hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
                      .compose(new MembershipEventToMember<TestClient>())
-                     .map(TestClient.memberToInstance(factory))  
+                     .map(new Func1<Instance<TestClient>, Instance<TestClient>>() {
+                        @Override
+                        public Instance<TestClient> call(Instance<TestClient> t1) {
+                            return factory.call(t1.getValue());
+                        }
+                     })
+//                     .map(TestClient.memberToInstance(factory))  
                      .compose(new InstanceCollector<TestClient>()));  
         
         this.executor = BackupExecutor.<TestClient, String, String>builder(lb)
