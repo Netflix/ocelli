@@ -13,8 +13,8 @@ import io.reactivex.netty.protocol.http.server.RequestHandler;
 import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
+import netflix.ocelli.Instance;
+import netflix.ocelli.MutableInstance;
 import netflix.ocelli.executor.Executor;
 
 import org.junit.After;
@@ -51,9 +51,8 @@ public class RxNettyIntegrationTest {
 
     @Test
     public void testSimple() throws Exception {
-        Observable<MembershipEvent<Host>> clientSource = Observable
-                .just(new Host("127.0.0.1", httpServer.getServerPort()))
-                .map(MembershipEvent.<Host>toEvent(EventType.ADD))
+        Observable<Instance<Host>> clientSource = Observable
+                .<Instance<Host>>just(MutableInstance.from(new Host("127.0.0.1", httpServer.getServerPort())))
                 ;
 
         
@@ -71,9 +70,8 @@ public class RxNettyIntegrationTest {
     
     @Test
     public void testZoneFallback() throws Exception {
-        Observable<MembershipEvent<Host>> clientSource = Observable
-                .just(new Host("127.0.0.1", httpServer.getServerPort()))
-                .map(MembershipEvent.<Host>toEvent(EventType.ADD))
+        Observable<Instance<Host>> clientSource = Observable
+                .<Instance<Host>>just(MutableInstance.from(new Host("127.0.0.1", httpServer.getServerPort())))
                 ;
 
         Executor<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();

@@ -9,14 +9,11 @@ import netflix.ocelli.FailureDetectingInstanceFactory;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipEventToMember;
+import netflix.ocelli.MutableInstance;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
-import netflix.ocelli.executor.BackupExecutor;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
@@ -41,7 +38,7 @@ public class BackupExecutorTest {
     private static final Logger LOG = LoggerFactory.getLogger(BackupExecutorTest.class);
     
     private LoadBalancer<TestClient> lb;
-    private PublishSubject<TestClient> hosts = PublishSubject.create();
+    private PublishSubject<Instance<TestClient>> hosts = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
     private BackupExecutor<TestClient, String, String> executor;
@@ -51,23 +48,23 @@ public class BackupExecutorTest {
     
     private final TestScheduler scheduler = Schedulers.test();
     
-    private final TestClient fastResponse1 = TestClient.create("host-1", Behaviors.delay(1, TimeUnit.MILLISECONDS, scheduler));
-    private final TestClient fastResponse2 = TestClient.create("host-2", Behaviors.delay(1, TimeUnit.MILLISECONDS, scheduler));
+    private final Instance<TestClient> fastResponse1 = MutableInstance.from(TestClient.create("host-1", Behaviors.delay(1, TimeUnit.MILLISECONDS, scheduler)));
+    private final Instance<TestClient> fastResponse2 = MutableInstance.from(TestClient.create("host-2", Behaviors.delay(1, TimeUnit.MILLISECONDS, scheduler)));
     
-    private final TestClient emptyResponse1 = TestClient.create("host-1", Behaviors.empty());
-    private final TestClient emptyResponse2 = TestClient.create("host-2", Behaviors.empty());
+    private final Instance<TestClient> emptyResponse1 = MutableInstance.from(TestClient.create("host-1", Behaviors.empty()));
+    private final Instance<TestClient> emptyResponse2 = MutableInstance.from(TestClient.create("host-2", Behaviors.empty()));
     
-    private final TestClient slowResponse1 = TestClient.create("host-1", Behaviors.delay(BACKUP_REQUEST_TIMEOUT * 3, TimeUnit.MILLISECONDS, scheduler));
-    private final TestClient slowResponse2 = TestClient.create("host-2", Behaviors.delay(BACKUP_REQUEST_TIMEOUT * 3, TimeUnit.MILLISECONDS, scheduler));
+    private final Instance<TestClient> slowResponse1 = MutableInstance.from(TestClient.create("host-1", Behaviors.delay(BACKUP_REQUEST_TIMEOUT * 3, TimeUnit.MILLISECONDS, scheduler)));
+    private final Instance<TestClient> slowResponse2 = MutableInstance.from(TestClient.create("host-2", Behaviors.delay(BACKUP_REQUEST_TIMEOUT * 3, TimeUnit.MILLISECONDS, scheduler)));
     
-    private final TestClient delayedResponse1 = TestClient.create("host-1", Behaviors.delay(BACKUP_REQUEST_TIMEOUT + 2, TimeUnit.MILLISECONDS, scheduler));
-    private final TestClient delayedResponse2 = TestClient.create("host-2", Behaviors.delay(BACKUP_REQUEST_TIMEOUT + 2, TimeUnit.MILLISECONDS, scheduler));
+    private final Instance<TestClient> delayedResponse1 = MutableInstance.from(TestClient.create("host-1", Behaviors.delay(BACKUP_REQUEST_TIMEOUT + 2, TimeUnit.MILLISECONDS, scheduler)));
+    private final Instance<TestClient> delayedResponse2 = MutableInstance.from(TestClient.create("host-2", Behaviors.delay(BACKUP_REQUEST_TIMEOUT + 2, TimeUnit.MILLISECONDS, scheduler)));
     
-    private final TestClient fastError1 = TestClient.create("host-1", Behaviors.failure(1, TimeUnit.MILLISECONDS, scheduler));
-    private final TestClient fastError2 = TestClient.create("host-2", Behaviors.failure(1, TimeUnit.MILLISECONDS, scheduler));
+    private final Instance<TestClient> fastError1 = MutableInstance.from(TestClient.create("host-1", Behaviors.failure(1, TimeUnit.MILLISECONDS, scheduler)));
+    private final Instance<TestClient> fastError2 = MutableInstance.from(TestClient.create("host-2", Behaviors.failure(1, TimeUnit.MILLISECONDS, scheduler)));
     
-    private final TestClient delayedError1 = TestClient.create("host-1", Behaviors.failure(BACKUP_REQUEST_TIMEOUT + 1, TimeUnit.MILLISECONDS, scheduler));
-    private final TestClient delayedError2 = TestClient.create("host-2", Behaviors.failure(BACKUP_REQUEST_TIMEOUT + 1, TimeUnit.MILLISECONDS, scheduler));
+    private final Instance<TestClient> delayedError1 = MutableInstance.from(TestClient.create("host-1", Behaviors.failure(BACKUP_REQUEST_TIMEOUT + 1, TimeUnit.MILLISECONDS, scheduler)));
+    private final Instance<TestClient> delayedError2 = MutableInstance.from(TestClient.create("host-2", Behaviors.failure(BACKUP_REQUEST_TIMEOUT + 1, TimeUnit.MILLISECONDS, scheduler)));
     
     @Rule
     public TestName testName = new TestName();
@@ -87,9 +84,7 @@ public class BackupExecutorTest {
                 .build();
     
         this.lb = RoundRobinLoadBalancer.from(
-                hosts.map(MembershipEvent.<TestClient>toEvent(EventType.ADD))
-                     .compose(new MembershipEventToMember<TestClient>())
-                     .map(new Func1<Instance<TestClient>, Instance<TestClient>>() {
+                hosts.map(new Func1<Instance<TestClient>, Instance<TestClient>>() {
                         @Override
                         public Instance<TestClient> call(Instance<TestClient> t1) {
                             return factory.call(t1.getValue());
@@ -183,17 +178,17 @@ public class BackupExecutorTest {
         
         Assert.assertEquals("host-1", response.first());
         
-        Assert.assertEquals(1, fastResponse1.getExecuteCount());
-        Assert.assertEquals(1, fastResponse1.getOnSubscribeCount());
-        Assert.assertEquals(0, fastResponse1.getOnErrorCount());
-        Assert.assertEquals(1, fastResponse1.getOnNextCount());
-        Assert.assertEquals(1, fastResponse1.getOnCompletedCount());
+        Assert.assertEquals(1, fastResponse1.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastResponse1.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, fastResponse1.getValue().getOnErrorCount());
+        Assert.assertEquals(1, fastResponse1.getValue().getOnNextCount());
+        Assert.assertEquals(1, fastResponse1.getValue().getOnCompletedCount());
         
-        Assert.assertEquals(0, fastResponse2.getExecuteCount());
-        Assert.assertEquals(0, fastResponse2.getOnSubscribeCount());
-        Assert.assertEquals(0, fastResponse2.getOnErrorCount());
-        Assert.assertEquals(0, fastResponse2.getOnNextCount());
-        Assert.assertEquals(0, fastResponse2.getOnCompletedCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getExecuteCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnErrorCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnNextCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnCompletedCount());
     }
     
     @Test
@@ -205,22 +200,22 @@ public class BackupExecutorTest {
         this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(0, fastResponse1.getOnNextCount());
+        Assert.assertEquals(0, fastResponse1.getValue().getOnNextCount());
         scheduler.advanceTimeBy(2, TimeUnit.MILLISECONDS);
         
         Assert.assertEquals("host-1", response.first());
         
-        Assert.assertEquals(1, delayedResponse1.getExecuteCount());
-        Assert.assertEquals(1, delayedResponse1.getOnSubscribeCount());
-        Assert.assertEquals(0, delayedResponse1.getOnErrorCount());
-        Assert.assertEquals(1, delayedResponse1.getOnNextCount());
-        Assert.assertEquals(1, delayedResponse1.getOnCompletedCount());
+        Assert.assertEquals(1, delayedResponse1.getValue().getExecuteCount());
+        Assert.assertEquals(1, delayedResponse1.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, delayedResponse1.getValue().getOnErrorCount());
+        Assert.assertEquals(1, delayedResponse1.getValue().getOnNextCount());
+        Assert.assertEquals(1, delayedResponse1.getValue().getOnCompletedCount());
         
-        Assert.assertEquals(1, delayedResponse2.getExecuteCount());
-        Assert.assertEquals(1, delayedResponse2.getOnSubscribeCount());
-        Assert.assertEquals(0, delayedResponse2.getOnErrorCount());
-        Assert.assertEquals(0, delayedResponse2.getOnNextCount());
-        Assert.assertEquals(0, delayedResponse2.getOnCompletedCount());        
+        Assert.assertEquals(1, delayedResponse2.getValue().getExecuteCount());
+        Assert.assertEquals(1, delayedResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, delayedResponse2.getValue().getOnErrorCount());
+        Assert.assertEquals(0, delayedResponse2.getValue().getOnNextCount());
+        Assert.assertEquals(0, delayedResponse2.getValue().getOnCompletedCount());        
     }
 
     @Test
@@ -232,22 +227,22 @@ public class BackupExecutorTest {
         this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(0, fastResponse1.getOnNextCount());
+        Assert.assertEquals(0, fastResponse1.getValue().getOnNextCount());
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
         
         Assert.assertEquals("host-2", response.first());
         
-        Assert.assertEquals(1, slowResponse1.getExecuteCount());
-        Assert.assertEquals(1, slowResponse1.getOnSubscribeCount());
-        Assert.assertEquals(0, slowResponse1.getOnErrorCount());
-        Assert.assertEquals(0, slowResponse1.getOnNextCount());
-        Assert.assertEquals(0, slowResponse1.getOnCompletedCount());
+        Assert.assertEquals(1, slowResponse1.getValue().getExecuteCount());
+        Assert.assertEquals(1, slowResponse1.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, slowResponse1.getValue().getOnErrorCount());
+        Assert.assertEquals(0, slowResponse1.getValue().getOnNextCount());
+        Assert.assertEquals(0, slowResponse1.getValue().getOnCompletedCount());
         
-        Assert.assertEquals(1, fastResponse2.getExecuteCount());
-        Assert.assertEquals(1, fastResponse2.getOnSubscribeCount());
-        Assert.assertEquals(0, fastResponse2.getOnErrorCount());
-        Assert.assertEquals(1, fastResponse2.getOnNextCount());
-        Assert.assertEquals(1, fastResponse2.getOnCompletedCount());        
+        Assert.assertEquals(1, fastResponse2.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnErrorCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnNextCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnCompletedCount());        
     }
 
     @Test
@@ -259,23 +254,23 @@ public class BackupExecutorTest {
         this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(0, fastResponse1.getOnNextCount());
+        Assert.assertEquals(0, fastResponse1.getValue().getOnNextCount());
         
-        Assert.assertTrue(fastError1.hasError());
+        Assert.assertTrue(fastError1.getValue().hasError());
         Assert.assertFalse(response.hasError());
         
-        Assert.assertEquals(1, fastError1.getExecuteCount());
-        Assert.assertEquals(1, fastError1.getOnSubscribeCount());
-        Assert.assertEquals(1, fastError1.getOnErrorCount());
-        Assert.assertEquals(0, fastError1.getOnNextCount());
-        Assert.assertEquals(0, fastError1.getOnCompletedCount());
+        Assert.assertEquals(1, fastError1.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastError1.getValue().getOnSubscribeCount());
+        Assert.assertEquals(1, fastError1.getValue().getOnErrorCount());
+        Assert.assertEquals(0, fastError1.getValue().getOnNextCount());
+        Assert.assertEquals(0, fastError1.getValue().getOnCompletedCount());
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(1, fastResponse2.getExecuteCount());
-        Assert.assertEquals(1, fastResponse2.getOnSubscribeCount());
-        Assert.assertEquals(0, fastResponse2.getOnErrorCount());
-        Assert.assertEquals(1, fastResponse2.getOnNextCount());
-        Assert.assertEquals(1, fastResponse2.getOnCompletedCount());        
+        Assert.assertEquals(1, fastResponse2.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnErrorCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnNextCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnCompletedCount());        
     }
     
     @Test
@@ -287,24 +282,24 @@ public class BackupExecutorTest {
         this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(0, fastResponse1.getOnNextCount());
+        Assert.assertEquals(0, fastResponse1.getValue().getOnNextCount());
         
-        Assert.assertTrue(fastError1.hasError());
+        Assert.assertTrue(fastError1.getValue().hasError());
         Assert.assertFalse(response.hasError());
         
-        Assert.assertEquals(1, fastError1.getExecuteCount());
-        Assert.assertEquals(1, fastError1.getOnSubscribeCount());
-        Assert.assertEquals(1, fastError1.getOnErrorCount());
-        Assert.assertEquals(0, fastError1.getOnNextCount());
-        Assert.assertEquals(0, fastError1.getOnCompletedCount());
+        Assert.assertEquals(1, fastError1.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastError1.getValue().getOnSubscribeCount());
+        Assert.assertEquals(1, fastError1.getValue().getOnErrorCount());
+        Assert.assertEquals(0, fastError1.getValue().getOnNextCount());
+        Assert.assertEquals(0, fastError1.getValue().getOnCompletedCount());
         Assert.assertFalse(response.hasError());
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(1, fastError2.getExecuteCount());
-        Assert.assertEquals(1, fastError2.getOnSubscribeCount());
-        Assert.assertEquals(1, fastError2.getOnErrorCount());
-        Assert.assertEquals(0, fastError2.getOnNextCount());
-        Assert.assertEquals(0, fastError2.getOnCompletedCount());        
+        Assert.assertEquals(1, fastError2.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastError2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(1, fastError2.getValue().getOnErrorCount());
+        Assert.assertEquals(0, fastError2.getValue().getOnNextCount());
+        Assert.assertEquals(0, fastError2.getValue().getOnCompletedCount());        
         
         Assert.assertTrue(response.hasError());
         
@@ -319,16 +314,16 @@ public class BackupExecutorTest {
         this.executor.call(testName.getMethodName()).subscribe(response);
         
         scheduler.advanceTimeBy(1, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(0, emptyResponse1.getOnNextCount());
-        Assert.assertEquals(1, emptyResponse1.getOnCompletedCount());
+        Assert.assertEquals(0, emptyResponse1.getValue().getOnNextCount());
+        Assert.assertEquals(1, emptyResponse1.getValue().getOnCompletedCount());
         
-        Assert.assertEquals(0, fastResponse2.getOnUnSubscribeCount());
+        Assert.assertEquals(0, fastResponse2.getValue().getOnUnSubscribeCount());
         Assert.assertFalse(response.isCompleted());
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT+1, TimeUnit.MILLISECONDS);
-        Assert.assertEquals(1, fastResponse2.getOnSubscribeCount());
-        Assert.assertEquals(1, fastResponse2.getExecuteCount());
-        Assert.assertEquals(1, fastResponse2.getOnNextCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getExecuteCount());
+        Assert.assertEquals(1, fastResponse2.getValue().getOnNextCount());
         
         Assert.assertEquals(response.first(), "host-2");
     }
@@ -343,8 +338,8 @@ public class BackupExecutorTest {
         
         scheduler.advanceTimeBy(BACKUP_REQUEST_TIMEOUT*3, TimeUnit.MILLISECONDS);
         
-        Assert.assertEquals(1, emptyResponse2.getOnSubscribeCount());
-        Assert.assertEquals(0, emptyResponse2.getOnNextCount());
+        Assert.assertEquals(1, emptyResponse2.getValue().getOnSubscribeCount());
+        Assert.assertEquals(0, emptyResponse2.getValue().getOnNextCount());
         
         Assert.assertEquals(response.first(), "host-1");
     }

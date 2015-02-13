@@ -4,10 +4,10 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEventToMember;
+import netflix.ocelli.MutableInstance;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
@@ -36,7 +36,7 @@ import rx.subjects.PublishSubject;
 public class DefaultLoadBalancerTest {
     
     private LoadBalancer<TestClient> lb;
-    private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
+    private PublishSubject<Instance<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
     
@@ -54,7 +54,6 @@ public class DefaultLoadBalancerTest {
 
         this.lb = RandomWeightedLoadBalancer.create(
                     hostEvents
-                        .compose(new MembershipEventToMember<TestClient>())
                         .map(CachingInstanceTransformer.create(factory))  
                         .compose(new InstanceCollector<TestClient>()),
                     new LinearWeightingStrategy<TestClient>(
@@ -75,7 +74,7 @@ public class DefaultLoadBalancerTest {
         CountDownAction<TestClient> counter = new CountDownAction<TestClient>(1);
         clientConnector.get(client).stream().subscribe(counter);
         
-        hostEvents.onNext(MembershipEvent.create(client, MembershipEvent.EventType.ADD));
+        hostEvents.onNext(MutableInstance.from(client));
         
         counter.await(1, TimeUnit.SECONDS);
         
@@ -94,10 +93,12 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromSource() {
         TestClient client = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        hostEvents.onNext(MembershipEvent.create(client, MembershipEvent.EventType.ADD));
+        MutableInstance<TestClient> instance = MutableInstance.from(client);
+        
+        hostEvents.onNext(instance);
 //        Assert.assertEquals(1, (int)this.lb.listActiveClients().count().toBlocking().first());
         
-        hostEvents.onNext(MembershipEvent.create(client, MembershipEvent.EventType.REMOVE));
+        instance.close();
 //        Assert.assertEquals(0, (int)this.lb.listActiveClients().count().toBlocking().first());
     }
     
@@ -105,7 +106,7 @@ public class DefaultLoadBalancerTest {
     public void removeClientFromFailure() {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         
-        hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
+        hostEvents.onNext(MutableInstance.from(h1));
 //        Assert.assertEquals(1, (int)this.lb.listActiveClients().count().toBlocking().first());
         
         failureDetector.get(h1).onNext(new Throwable("failed"));
@@ -120,7 +121,7 @@ public class DefaultLoadBalancerTest {
     public void oneBadConnectHost() throws InterruptedException {
         TestClient h1 = TestClient.create("h1", Connects.failure(1, TimeUnit.SECONDS), Behaviors.immediate());
         
-        hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
+        hostEvents.onNext(MutableInstance.from(h1));
     }
     
     @Test
@@ -128,7 +129,7 @@ public class DefaultLoadBalancerTest {
     public void oneBadResponseHost() throws Throwable {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.failure(1, TimeUnit.SECONDS));
 
-        hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
+        hostEvents.onNext(MutableInstance.from(h1));
         
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
@@ -146,7 +147,7 @@ public class DefaultLoadBalancerTest {
     public void failFirstResponse() throws Throwable {
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.failFirst(1));
         
-        hostEvents.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
+        hostEvents.onNext(MutableInstance.from(h1));
         
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
