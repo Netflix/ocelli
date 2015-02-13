@@ -2,6 +2,7 @@ package netflix.ocelli.loadbalancer;
 
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
@@ -54,7 +55,7 @@ public class DefaultLoadBalancerTest {
         this.lb = RandomWeightedLoadBalancer.create(
                     hostEvents
                         .compose(new MembershipEventToMember<TestClient>())
-                        .map(TestClient.memberToInstance(factory))  
+                        .map(CachingInstanceTransformer.create(factory))  
                         .compose(new InstanceCollector<TestClient>()),
                     new LinearWeightingStrategy<TestClient>(
                         TestClient.byPendingRequestCount()));

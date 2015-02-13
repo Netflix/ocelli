@@ -5,12 +5,9 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
-import netflix.ocelli.HostToClientMapper;
-import netflix.ocelli.MemberToInstance;
 import netflix.ocelli.util.RxUtil;
 import rx.Observable;
 import rx.Observer;
-import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
@@ -50,22 +47,6 @@ public class TestClient {
         };
     }
     
-    public static MemberToInstance<TestClient, TestClient> memberToInstance(Func1<TestClient, Observable<Boolean>> failureDetectorFactory) {
-        return new MemberToInstance<TestClient, TestClient>(new HostToClientMapper<TestClient, TestClient>(
-            new Func1<TestClient, TestClient>() {
-                @Override
-                public TestClient call(TestClient t1) {
-                    return t1;
-                }
-            },
-            new Action1<TestClient>() {
-                @Override
-                public void call(TestClient t1) {
-                }
-            },
-            failureDetectorFactory));
-    }
-
     public static TestClient create(String id, Observable<Void> connect, Func1<TestClient, Observable<TestClient>> behavior) {
         return new TestClient(id, connect, behavior);
     }
@@ -183,7 +164,6 @@ public class TestClient {
     }
     
     public String toString() {
-//      return "Host[id=" + id + ", pending=" + (concurrency - sem.availablePermits()) + ", vip=" + vips + " rack=" + rack + "]";
         return "Host[id=" + id + "]";
     }
 

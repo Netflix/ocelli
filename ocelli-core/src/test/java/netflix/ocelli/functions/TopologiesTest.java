@@ -3,12 +3,11 @@ package netflix.ocelli.functions;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.CloseableMember;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
-import netflix.ocelli.Member;
-import netflix.ocelli.MemberToInstance;
+import netflix.ocelli.CachingInstanceTransformer;
+import netflix.ocelli.MutableInstance;
 import netflix.ocelli.topologies.RingTopology;
 import netflix.ocelli.util.RxUtil;
 
@@ -40,18 +39,18 @@ public class TopologiesTest {
     
     @Test
     public void test2() {
-        CloseableMember<Integer> m1 = CloseableMember.from(1);
-        CloseableMember<Integer> m2 = CloseableMember.from(2);
-        CloseableMember<Integer> m3 = CloseableMember.from(3);
-        CloseableMember<Integer> m4 = CloseableMember.from(4);
-        CloseableMember<Integer> m6 = CloseableMember.from(6);
-        CloseableMember<Integer> m7 = CloseableMember.from(7);
-        CloseableMember<Integer> m8 = CloseableMember.from(8);
-        CloseableMember<Integer> m9 = CloseableMember.from(9);
-        CloseableMember<Integer> m10 = CloseableMember.from(10);
-        CloseableMember<Integer> m11 = CloseableMember.from(11);
+        MutableInstance<Integer> m1 = MutableInstance.from(1);
+        MutableInstance<Integer> m2 = MutableInstance.from(2);
+        MutableInstance<Integer> m3 = MutableInstance.from(3);
+        MutableInstance<Integer> m4 = MutableInstance.from(4);
+        MutableInstance<Integer> m6 = MutableInstance.from(6);
+        MutableInstance<Integer> m7 = MutableInstance.from(7);
+        MutableInstance<Integer> m8 = MutableInstance.from(8);
+        MutableInstance<Integer> m9 = MutableInstance.from(9);
+        MutableInstance<Integer> m10 = MutableInstance.from(10);
+        MutableInstance<Integer> m11 = MutableInstance.from(11);
         
-        PublishSubject<Member<Integer>> members = PublishSubject.create();
+        PublishSubject<Instance<Integer>> members = PublishSubject.create();
         
         RingTopology<Integer, Integer> mapper = new RingTopology<Integer, Integer>(5, new Func1<Integer, Integer>() {
             @Override
@@ -65,12 +64,7 @@ public class TopologiesTest {
         members
                .doOnNext(RxUtil.info("add"))
                .compose(mapper)
-               .map(MemberToInstance.from(new Func2<Integer, Action0, Instance<Integer>>() {
-                    @Override
-                    public Instance<Integer> call(Integer key, Action0 shutdown) {
-                        return Instance.from(key, BehaviorSubject.create(true));
-                    }
-               }))
+               .map(CachingInstanceTransformer.<Integer>create())
                .compose(new InstanceCollector<Integer>())
                .doOnNext(RxUtil.info("current"))
                .subscribe(RxUtil.set(current));

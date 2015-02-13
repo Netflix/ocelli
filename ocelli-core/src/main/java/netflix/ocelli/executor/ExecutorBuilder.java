@@ -3,14 +3,11 @@ package netflix.ocelli.executor;
 import java.util.Collection;
 import java.util.List;
 
+import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
-import netflix.ocelli.HostToClientMapper;
+import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.Member;
-import netflix.ocelli.MemberToInstance;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 import rx.Observable;
 import rx.functions.Action1;
@@ -26,19 +23,14 @@ public class ExecutorBuilder<H, C, I, O> {
     private FailureDetectingInstanceFactory.Builder<C> fdBuilder = FailureDetectingInstanceFactory.builder();
     
     private Func1<H, C>                     hostToClient;
-    private Observable<Member<H>>           hosts;
+    private Observable<Instance<H>>         instances;
     private Func2<C, I, Observable<O>>      operation;
     private Action1<C>                      clientShutdown = Actions.empty();
     private Func1<Observable<List<C>>, LoadBalancer<C>> lbFactory = RoundRobinLoadBalancer.factory();
     private Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, Executor<I, O>> strategy = SimpleExecutor.factory();
 
-    public ExecutorBuilder<H, C, I, O> withSourceEvent(Observable<MembershipEvent<H>> hosts) {
-        this.hosts = hosts.compose(new MembershipEventToMember<H>());
-        return this;
-    }
-    
-    public ExecutorBuilder<H, C, I, O> withMemberSource(Observable<Member<H>> hosts) {
-        this.hosts = hosts;
+    public ExecutorBuilder<H, C, I, O> withInstances(Observable<Instance<H>> hosts) {
+        this.instances = hosts;
         return this;
     }
     
@@ -47,7 +39,7 @@ public class ExecutorBuilder<H, C, I, O> {
         return this;
     }
     
-    public ExecutorBuilder<H, C, I, O> withClientConnector(Func1<C, Observable<C>> clientConnector) {
+    public ExecutorBuilder<H, C, I, O> withClientConnector(Func1<C, Observable<Void>> clientConnector) {
         this.fdBuilder.withClientConnector(clientConnector);
         return this;
     }
@@ -83,14 +75,14 @@ public class ExecutorBuilder<H, C, I, O> {
     }
     
     public Executor<I, O> build() {
-        MemberToInstance<H, C> memberToInstance = MemberToInstance.from(new HostToClientMapper<H, C>(
-                hostToClient, 
-                clientShutdown, 
-                fdBuilder.build()));
+        CachingInstanceTransformer<H, C> memberToInstance = CachingInstanceTransformer.from(
+                hostToClient,
+                clientShutdown,
+                fdBuilder.build());
            
         return strategy.call(
                 lbFactory.call(
-                        hosts
+                        instances
                            .map(memberToInstance)
                            .compose(new InstanceCollector<C>())), 
                 operation);

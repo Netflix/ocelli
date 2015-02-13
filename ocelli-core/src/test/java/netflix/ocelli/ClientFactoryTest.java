@@ -20,7 +20,7 @@ public class ClientFactoryTest {
     
     @Test
     public void testAddAndRemove() {
-        MemberToInstance<Integer, String> memberToInstance = MemberToInstance.from(new IntegerToStringLifecycleFactory());
+        CachingInstanceTransformer<Integer, String> memberToInstance = new IntegerToStringTransformer();
 
         PublishSubject<MembershipEvent<Integer>> events = PublishSubject.create();
         
@@ -50,9 +50,7 @@ public class ClientFactoryTest {
     
     @Test
     public void testReferenceCounting() {
-        IntegerToStringLifecycleFactory lifecycle = new IntegerToStringLifecycleFactory();
-        
-        MemberToInstance<Integer, String> memberToInstance = MemberToInstance.from(lifecycle);
+        IntegerToStringTransformer memberToInstance = new IntegerToStringTransformer();
         
         PublishSubject<MembershipEvent<Integer>> events = PublishSubject.create();
         
@@ -71,24 +69,24 @@ public class ClientFactoryTest {
             .compose(new InstanceCollector<String>())
             .subscribe(RxUtil.set(lb2Clients));
         
-        Assert.assertEquals(0,  lifecycle.added().size());
+        Assert.assertEquals(0,  memberToInstance.added().size());
         events.onNext(MembershipEvent.create(0, EventType.ADD));
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb2Clients.get());
-        Assert.assertEquals(0,  lifecycle.removed().size());
+        Assert.assertEquals(0,  memberToInstance.removed().size());
         events.onNext(MembershipEvent.create(0, EventType.REMOVE));
         Assert.assertEquals(Lists.<String>newArrayList(), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList(), lb2Clients.get());
-        Assert.assertEquals(1,  lifecycle.removed().size());
+        Assert.assertEquals(1,  memberToInstance.removed().size());
         events.onNext(MembershipEvent.create(0, EventType.ADD));
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList("Client-0"), lb2Clients.get());
-        Assert.assertEquals(1,  lifecycle.removed().size());
-        Assert.assertEquals(2,  lifecycle.added().size());
+        Assert.assertEquals(1,  memberToInstance.removed().size());
+        Assert.assertEquals(2,  memberToInstance.added().size());
         events.onNext(MembershipEvent.create(0, EventType.REMOVE));
         Assert.assertEquals(Lists.<String>newArrayList(), lb1Clients.get());
         Assert.assertEquals(Lists.<String>newArrayList(), lb2Clients.get());
-        Assert.assertEquals(2,  lifecycle.removed().size());
-        Assert.assertEquals(2,  lifecycle.added().size());
+        Assert.assertEquals(2,  memberToInstance.removed().size());
+        Assert.assertEquals(2,  memberToInstance.added().size());
     }
 }

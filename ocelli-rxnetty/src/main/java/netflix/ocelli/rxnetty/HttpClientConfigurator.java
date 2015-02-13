@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.MembershipEvent;
+import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.executor.ExecutorBuilder;
 import netflix.ocelli.executor.ExecutorBuilder.Configurator;
 import netflix.ocelli.functions.Delays;
@@ -37,7 +38,7 @@ public class HttpClientConfigurator implements Configurator<Host, HttpClientHold
         };
         
         builder
-            .withSourceEvent(hosts)
+            .withInstances(hosts.compose(new MembershipEventToMember<Host>()))
             .withClientFactory(
                 new Func1<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
                     @Override

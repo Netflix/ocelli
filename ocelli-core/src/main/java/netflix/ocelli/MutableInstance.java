@@ -1,5 +1,6 @@
 package netflix.ocelli;
 
+import rx.Subscriber;
 import rx.functions.Func1;
 import rx.subjects.BehaviorSubject;
 
@@ -32,16 +33,21 @@ public class MutableInstance<T> extends Instance<T> {
 
     private final BehaviorSubject<Boolean> events;
     
-    private MutableInstance(T value, BehaviorSubject<Boolean> events) {
-        super(value, events);
+    private MutableInstance(T value, final BehaviorSubject<Boolean> events) {
+        super(value, new OnSubscribe<Boolean>() {
+            @Override
+            public void call(Subscriber<? super Boolean> s) {
+                events.subscribe(s);
+            }
+        });
         this.events = events;
     }
 
-    public void shutdown() {
+    public void close() {
         events.onCompleted();
     }
     
-    public void setIsUp(boolean isUp) {
+    public void setState(boolean isUp) {
         events.onNext(isUp);
     }
 }

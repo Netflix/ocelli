@@ -27,13 +27,13 @@ public class FailureEnjectingExecutor<I, O> implements Executor<I, O> {
         
         Throwable error = getError();
         if (error != null) {
-            o = delegate.call(request);
+            o = Observable.error(error);
         }
         else if (otherResponse != null) {
             o = otherResponse;
         }
         else {
-            o = Observable.error(error);
+            o = delegate.call(request);
         }
         
         long delay = getDelay();

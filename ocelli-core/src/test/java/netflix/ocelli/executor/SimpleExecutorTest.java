@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.MembershipEvent;
@@ -81,7 +82,7 @@ public class SimpleExecutorTest {
         this.lb = RoundRobinLoadBalancer.from(
                 hostEvents
                     .compose(new MembershipEventToMember<TestClient>())
-                    .map(TestClient.memberToInstance(factory))  
+                    .map(CachingInstanceTransformer.create(factory))
                     .compose(new InstanceCollector<TestClient>()));  
 
         Executor<String, String> execution = new SimpleExecutor<TestClient, String, String>(lb, TestClient.func());
