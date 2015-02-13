@@ -6,17 +6,14 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
+import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
-import netflix.ocelli.MembershipEventToMember;
+import netflix.ocelli.MutableInstance;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.ManualFailureDetector;
 import netflix.ocelli.client.TestClient;
 import netflix.ocelli.client.TestClientConnectorFactory;
-import netflix.ocelli.executor.Executor;
-import netflix.ocelli.executor.SimpleExecutor;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
@@ -41,9 +38,9 @@ public class SimpleExecutorTest {
     }
     
     private static final int NUM_HOSTS = 10;
-    private static Observable<MembershipEvent<TestClient>> source;
+    private static Observable<Instance<TestClient>> source;
     
-    private PublishSubject<MembershipEvent<TestClient>> hostEvents = PublishSubject.create();
+    private PublishSubject<Instance<TestClient>> hostEvents = PublishSubject.create();
     private TestClientConnectorFactory clientConnector = new TestClientConnectorFactory();
     private ManualFailureDetector failureDetector = new ManualFailureDetector();
     
@@ -53,14 +50,12 @@ public class SimpleExecutorTest {
     
     @BeforeClass
     public static void setup() {
-        List<TestClient> hosts = new ArrayList<TestClient>();
+        List<Instance<TestClient>> hosts = new ArrayList<Instance<TestClient>>();
         for (int i = 0; i < NUM_HOSTS; i++) {
-            hosts.add(TestClient.create("host-"+i, Connects.immediate(), Behaviors.immediate()));
+            hosts.add(MutableInstance.from(TestClient.create("host-"+i, Connects.immediate(), Behaviors.immediate())));
         }
         
-        source = Observable
-            .from(hosts)
-            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
+        source = Observable.from(hosts);
     }
     
     @After
@@ -81,7 +76,6 @@ public class SimpleExecutorTest {
     
         this.lb = RoundRobinLoadBalancer.from(
                 hostEvents
-                    .compose(new MembershipEventToMember<TestClient>())
                     .map(CachingInstanceTransformer.create(factory))
                     .compose(new InstanceCollector<TestClient>()));  
 

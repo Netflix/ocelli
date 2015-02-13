@@ -2,17 +2,11 @@ package netflix.ocelli.perf;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEvent.EventType;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
-import netflix.ocelli.client.TrackingOperation;
-import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 
 import org.junit.After;
 import org.junit.BeforeClass;
@@ -21,15 +15,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import rx.Observable;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
-
 public class PerfTest {
     private static final Logger LOG = LoggerFactory.getLogger(PerfTest.class);
     
     private static final int NUM_HOSTS = 1000;
-    private static Observable<MembershipEvent<TestClient>> source;
 
     private LoadBalancer<TestClient> selector;
     
@@ -44,9 +33,9 @@ public class PerfTest {
         
 //        hosts.add(TestHost.create("degrading", Connects.immediate(), Behaviors.degradation(100, 50, TimeUnit.MILLISECONDS)));
         
-        source = Observable
-            .from(hosts)
-            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
+//        source = Observable
+//            .from(hosts)
+//            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
     }
     
     @After

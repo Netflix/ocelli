@@ -8,8 +8,7 @@ import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEventToMember;
+import netflix.ocelli.Instance;
 import netflix.ocelli.executor.ExecutorBuilder;
 import netflix.ocelli.executor.ExecutorBuilder.Configurator;
 import netflix.ocelli.functions.Delays;
@@ -22,9 +21,9 @@ import rx.functions.Func2;
 
 public class HttpClientConfigurator implements Configurator<Host, HttpClientHolder<ByteBuf, ByteBuf>, HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> {
 
-    private final Observable<MembershipEvent<Host>> hosts;
+    private final Observable<Instance<Host>> hosts;
     
-    public HttpClientConfigurator(Observable<MembershipEvent<Host>> hosts) {
+    public HttpClientConfigurator(Observable<Instance<Host>> hosts) {
         this.hosts = hosts;
     }
     
@@ -38,7 +37,7 @@ public class HttpClientConfigurator implements Configurator<Host, HttpClientHold
         };
         
         builder
-            .withInstances(hosts.compose(new MembershipEventToMember<Host>()))
+            .withInstances(hosts)
             .withClientFactory(
                 new Func1<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
                     @Override

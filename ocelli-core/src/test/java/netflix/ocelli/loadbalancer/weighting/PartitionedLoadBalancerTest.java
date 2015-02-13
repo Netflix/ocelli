@@ -7,9 +7,8 @@ import junit.framework.Assert;
 import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
 import netflix.ocelli.Instance;
+import netflix.ocelli.InstanceSubject;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.MembershipEvent;
-import netflix.ocelli.MembershipEventToMember;
 import netflix.ocelli.PartitionedLoadBalancer;
 import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
@@ -26,7 +25,6 @@ import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 import rx.functions.Func1;
 import rx.observables.GroupedObservable;
-import rx.subjects.PublishSubject;
 
 import com.google.common.collect.Sets;
 
@@ -39,7 +37,7 @@ public class PartitionedLoadBalancerTest {
     
     @Test
     public void testVip() throws InterruptedException {
-        PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
+        InstanceSubject<TestClient> hostSource = InstanceSubject.create();
         
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.immediate());
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
@@ -54,7 +52,6 @@ public class PartitionedLoadBalancerTest {
         PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
         
         hostSource
-            .compose(new MembershipEventToMember<TestClient>())
             .compose(Instance.partitionBy(TestClient.byVip()))
             .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
@@ -82,10 +79,10 @@ public class PartitionedLoadBalancerTest {
         LoadBalancer<TestClient> lbAll = plb.get("*");
         
         // Add 4 hosts
-        hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
-        hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
-        hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.ADD));
-        hostSource.onNext(MembershipEvent.create(h4, MembershipEvent.EventType.ADD));
+        hostSource.add(h1);
+        hostSource.add(h2);
+        hostSource.add(h3);
+        hostSource.add(h4);
         
         Assert.assertNotNull(lbA);
         Assert.assertNotNull(lbB);
@@ -103,7 +100,7 @@ public class PartitionedLoadBalancerTest {
         
         //////////////////////////
         // Step 2: Remove h1 host
-        hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.REMOVE));
+        hostSource.remove(h1);
         
         // List all hosts
         hostsA = new HashSet<TestClient>(lbA.all().toList().toBlocking().first());
@@ -117,7 +114,7 @@ public class PartitionedLoadBalancerTest {
         
         //////////////////////////
         // Step 2: Remove h3 host
-        hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.REMOVE));
+        hostSource.remove(h3);
         
         // List all hosts
         hostsA = new HashSet<TestClient>(lbA.all().toList().toBlocking().first());
@@ -142,14 +139,13 @@ public class PartitionedLoadBalancerTest {
                 .withFailureDetector(failureDetector)
                 .build());
         
-        PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
+        InstanceSubject<TestClient> hostSource = InstanceSubject.create();
         
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withVip("a");
         
         PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
         
         hostSource
-            .compose(new MembershipEventToMember<TestClient>())
             .compose(Instance.partitionBy(TestClient.byVip()))
             .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
@@ -176,7 +172,7 @@ public class PartitionedLoadBalancerTest {
         LoadBalancer<TestClient> lbAll = plb.get("*");
         
         // Add 4 hosts
-        hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
+        hostSource.add(h2);
         
         // List all hosts
         Set<TestClient> hostsA = new HashSet<TestClient>(lbA.all().toList().toBlocking().first());
@@ -206,7 +202,7 @@ public class PartitionedLoadBalancerTest {
                 .withFailureDetector(failureDetector)
                 .build());
         
-        PublishSubject<MembershipEvent<TestClient>> hostSource = PublishSubject.create();
+        InstanceSubject<TestClient> hostSource = InstanceSubject.create();
         
         TestClient h1 = TestClient.create("h1", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1a");
         TestClient h2 = TestClient.create("h2", Connects.immediate(), Behaviors.immediate()).withRack("us-east-1c");
@@ -215,7 +211,6 @@ public class PartitionedLoadBalancerTest {
         PartitionedLoadBalancer<String, TestClient> plb = new PartitionedLoadBalancer<String, TestClient>();
         
         hostSource
-            .compose(new MembershipEventToMember<TestClient>())
             .compose(Instance.partitionBy(TestClient.byRack()))
             .map(new Func1<GroupedObservable<String,Instance<TestClient>>, GroupedObservable<String, Instance<TestClient>>>() {
                 @Override
@@ -231,10 +226,9 @@ public class PartitionedLoadBalancerTest {
             })
             .subscribe(plb);
 
-        
-        hostSource.onNext(MembershipEvent.create(h1, MembershipEvent.EventType.ADD));
-        hostSource.onNext(MembershipEvent.create(h2, MembershipEvent.EventType.ADD));
-        hostSource.onNext(MembershipEvent.create(h3, MembershipEvent.EventType.ADD));
+        hostSource.add(h1);
+        hostSource.add(h2);
+        hostSource.add(h3);
 
         LoadBalancer<TestClient> zoneA = plb.get("us-east-1a");
         LoadBalancer<TestClient> zoneB = plb.get("us-east-1b");
