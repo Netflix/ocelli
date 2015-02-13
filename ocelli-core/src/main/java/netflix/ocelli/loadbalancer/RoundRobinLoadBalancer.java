@@ -40,7 +40,7 @@ public class RoundRobinLoadBalancer<C> extends BaseLoadBalancer<C> {
     
     RoundRobinLoadBalancer(final Observable<List<C>> source, int seedPosition) {
         super(source);
-        position = new AtomicInteger(-1);
+        position = new AtomicInteger(seedPosition);
     }
 
     @Override
