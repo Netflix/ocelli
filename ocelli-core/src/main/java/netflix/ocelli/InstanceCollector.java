@@ -17,8 +17,15 @@ import rx.functions.Func1;
  * @author elandau
  *
  * @param <T>
+ * 
+ * TODO:  Use scan()
  */
 public class InstanceCollector<T> implements Transformer<Instance<T>, List<T>> {
+    
+    public static <T> InstanceCollector<T> create() {
+        return new InstanceCollector<T>();
+    }
+
     @Override
     public Observable<List<T>> call(Observable<Instance<T>> o) {
         final Set<T> instances = new HashSet<T>();

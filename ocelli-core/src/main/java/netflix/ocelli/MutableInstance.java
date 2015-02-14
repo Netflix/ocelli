@@ -15,7 +15,11 @@ import rx.subjects.BehaviorSubject;
 public class MutableInstance<T> extends Instance<T> {
     
     public static <T> MutableInstance<T> from(T value) {
-        return new MutableInstance<T>(value, BehaviorSubject.<Boolean>create(true));
+        return from(value, true);
+    }
+    
+    public static <T> MutableInstance<T> from(T value, boolean initialState) {
+        return from(value, BehaviorSubject.<Boolean>create(initialState));
     }
     
     public static <T> MutableInstance<T> from(T value, BehaviorSubject<Boolean> subject) {
