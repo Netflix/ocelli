@@ -1,5 +1,6 @@
 package netflix.ocelli;
 
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -12,39 +13,46 @@ import rx.subjects.PublishSubject;
  */
 public class InstanceSubject<T> extends Observable<Instance<T>> {
 
-    private PublishSubject<Instance<T>> subject = PublishSubject.create();
-    private ConcurrentMap<T, MutableInstance<T>> instances = new ConcurrentHashMap<T, MutableInstance<T>>();
+    private final PublishSubject<Instance<T>> subject;
+    private final ConcurrentMap<T, MutableInstance<T>> instances;
     
     public static <T> InstanceSubject<T> create() {
         return new InstanceSubject<T>();
     }
     
     public InstanceSubject() {
-        this(PublishSubject.<Instance<T>>create());
+        this(PublishSubject.<Instance<T>>create(), new ConcurrentHashMap<T, MutableInstance<T>>());
     }
     
-    private InstanceSubject(final PublishSubject<Instance<T>> subject) {
+    private InstanceSubject(final PublishSubject<Instance<T>> subject, final ConcurrentMap<T, MutableInstance<T>> instances) {
         super(new OnSubscribe<Instance<T>>() {
             @Override
-            public void call(Subscriber<? super Instance<T>> t1) {
-                subject.subscribe(t1);
+            public void call(Subscriber<? super Instance<T>> s) {
+                Observable
+                    .from(new ArrayList<Instance<T>>(instances.values()))
+                    .concatWith(subject).subscribe(s);
             }
         });
         this.subject = subject;
+        this.instances = instances;
     }
     
-    public void add(T t) {
+    public MutableInstance<T> add(T t) {
         MutableInstance<T> member = MutableInstance.from(t);
-        if (null == instances.putIfAbsent(t, member)) {
+        MutableInstance<T> existing = instances.putIfAbsent(t, member);
+        if (null == existing) {
             subject.onNext(member);
+            return member;
         }
+        return existing;
     }
     
-    public void remove(T t) {
+    public MutableInstance<T> remove(T t) {
         MutableInstance<T> member = instances.remove(t);
         if (member != null) {
             member.close();
         }
+        return member;
     }
 
     public void clear() {
