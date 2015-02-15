@@ -30,11 +30,11 @@ import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
  * @author Nitesh Kant
  */
 @RunWith(MockitoJUnitRunner.class)
-public class EurekaMembershipSourceTest {
+public class Eureka2InterestManagerTest {
 
     @Mock
     private EurekaClient clientMock;
-    private EurekaMembershipSource membershipSource;
+    private Eureka2InterestManager membershipSource;
 
     public static final InstanceInfo INSTANCE_1 = new InstanceInfo.Builder()
             .withId("id_serviceA")
@@ -62,7 +62,7 @@ public class EurekaMembershipSourceTest {
 
     @Before
     public void setUp() throws Exception {
-        membershipSource = new EurekaMembershipSource(clientMock);
+        membershipSource = new Eureka2InterestManager(clientMock);
     }
 
     @Test
