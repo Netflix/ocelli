@@ -23,7 +23,7 @@ import com.netflix.discovery.DiscoveryClient;
 import com.netflix.discovery.shared.Application;
 
 @RunWith(MockitoJUnitRunner.class)
-public class EurekaClientTest {
+public class EurekaInterestManagerTest {
     @Mock
     private DiscoveryClient client;
     
@@ -42,7 +42,7 @@ public class EurekaClientTest {
         AtomicReference<List<InstanceInfo>> result = new AtomicReference<List<InstanceInfo>>();
         
         TestScheduler scheduler = new TestScheduler();
-        EurekaClient eureka = new EurekaClient(client);
+        EurekaInterestManager eureka = new EurekaInterestManager(client);
         eureka.newInterest()
             .forApplication("foo")
             .withRefreshInterval(1, TimeUnit.SECONDS)

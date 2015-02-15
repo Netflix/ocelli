@@ -2,6 +2,8 @@ package netflix.ocelli.eureka2;
 
 import java.util.HashSet;
 
+import javax.inject.Inject;
+
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceSubject;
@@ -23,16 +25,17 @@ import com.netflix.eureka2.registry.ServicePort;
 /**
  * @author Nitesh Kant
  */
-public class EurekaMembershipSource {
+public class Eureka2InterestManager {
 
     private final EurekaClient client;
     private static final DefaultMapper defaultMapper = new DefaultMapper();
 
-    public EurekaMembershipSource(ServerResolver eurekaResolver) {
+    public Eureka2InterestManager(ServerResolver eurekaResolver) {
         this.client = Eureka.newClient(eurekaResolver);
     }
 
-    public EurekaMembershipSource(EurekaClient client) {
+    @Inject
+    public Eureka2InterestManager(EurekaClient client) {
         this.client = client;
     }
 

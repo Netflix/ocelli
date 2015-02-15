@@ -20,10 +20,24 @@ import com.netflix.discovery.DiscoveryClient;
  * Wrapper for v1 DisoveryClient which offers a convenient DSL to express interests 
  * in host streams.
  * 
+ * {@code
+ * <pre>
+ *    EurekaInterestManager manager = new EurekaInterestMangaer(discoveryClient);
+ *    Observable<List<InstanceInfo>> instances = manager
+ *          .newInterest()
+ *              .forApplication("applicationName")
+ *              .withRefreshInterval(30, TimeUnit.SECONDS)
+ *              .withScheduler(scheduler)
+ *              .asObservable()
+ *          .compose(InstanceCollector.<InstanceInfo>create());
+ *          
+ *    RoundRobinLoadBalancer lb = new RoundRobinLoadBalancer(instances);
+ * </pre>
+ * }
+ * 
  * @author elandau
- *
  */
-public class EurekaClient {
+public class EurekaInterestManager {
     private static final int DEFAULT_REFRESH_RATE = 30;
     
     private final DiscoveryClient client;
@@ -36,7 +50,7 @@ public class EurekaClient {
     };
     
     @Inject
-    public EurekaClient(DiscoveryClient client) {
+    public EurekaInterestManager(DiscoveryClient client) {
         this.client = client;
     }
     
@@ -44,6 +58,11 @@ public class EurekaClient {
         return new InterestDsl(client);
     }
     
+    /**
+     * DSL to simplify specifying the interest 
+     * 
+     * @author elandau
+     */
     public static class InterestDsl {
         private final DiscoveryClient client;
         

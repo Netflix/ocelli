@@ -3,6 +3,7 @@ package netflix.ocelli.executor;
 import java.util.concurrent.TimeUnit;
 
 import rx.Observable;
+import rx.functions.Func1;
 
 /**
  * Basic decorator to an Executor that can be used to inject failures.  
@@ -23,17 +24,18 @@ public class FailureEnjectingExecutor<I, O> implements Executor<I, O> {
     @Override
     public Observable<O> call(I request) {
         Observable<O> o;
-        Observable<O> otherResponse = getOtherResponse();
         
         Throwable error = getError();
         if (error != null) {
             o = Observable.error(error);
         }
-        else if (otherResponse != null) {
-            o = otherResponse;
-        }
         else {
             o = delegate.call(request);
+        }
+        
+        Func1<O, O> transformer = getResponseTransformer();
+        if (transformer != null) {
+            o = o.map(transformer);
         }
         
         long delay = getDelay();
@@ -45,9 +47,9 @@ public class FailureEnjectingExecutor<I, O> implements Executor<I, O> {
     }
     
     /**
-     * @return A different response Observable to be used instead of calling the delegate
+     * @return Function to modify a successful response
      */
-    private Observable<O> getOtherResponse() {
+    private Func1<O, O> getResponseTransformer() {
         return null;
     }
 
