@@ -6,7 +6,6 @@ import java.util.NoSuchElementException;
 
 import junit.framework.Assert;
 import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
-import netflix.ocelli.loadbalancer.weighting.InverseMaxWeightingStrategy;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
 
@@ -30,10 +29,11 @@ public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testEmptyClients() throws Throwable {
         PublishSubject<List<IntClientAndMetrics>> subject = PublishSubject.create();
         
-        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create( 
                 new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
         
         List<IntClientAndMetrics> clients = create();
+        subject.subscribe(selector);
         subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.size(), 1000), 100));
@@ -45,10 +45,11 @@ public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testOneClient() throws Throwable {
         PublishSubject<List<IntClientAndMetrics>> subject = PublishSubject.create();
         
-        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create( 
                 new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
         
         List<IntClientAndMetrics> clients = create(10);
+        subject.subscribe(selector);
         subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.size(), 1000), 100));
@@ -60,10 +61,11 @@ public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testEqualsWeights() throws Throwable {
         PublishSubject<List<IntClientAndMetrics>> subject = PublishSubject.create();
         
-        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create( 
                 new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
         
         List<IntClientAndMetrics> clients = create(1,1,1,1);
+        subject.subscribe(selector);
         subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.size(), 4000), 100));
@@ -75,10 +77,11 @@ public class InverseMaxWeightingStrategyTest extends BaseWeightingStrategyTest {
     public void testDifferentWeights() throws Throwable {
         PublishSubject<List<IntClientAndMetrics>> subject = PublishSubject.create();
         
-        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create(subject, 
+        RandomWeightedLoadBalancer<IntClientAndMetrics> selector = RandomWeightedLoadBalancer.create( 
                 new InverseMaxWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC));
         
         List<IntClientAndMetrics> clients = create(1,2,3,4);
+        subject.subscribe(selector);
         subject.onNext(clients);
         
         List<Integer> counts = Arrays.<Integer>asList(roundToNearest(simulate(selector, clients.size(), 4000), 100));

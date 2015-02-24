@@ -134,7 +134,7 @@ public class BackupExecutor<C, I, O> implements Executor<I, O> {
     }
     
     private BackupExecutor(Builder<C, I, O> builder) {
-        this.lb             = Observable.create(builder.lb);
+        this.lb             = builder.lb;
         this.metric         = builder.metric;
         this.retriableError = builder.retriableError;
         this.scheduler      = builder.scheduler;
