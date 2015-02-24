@@ -10,7 +10,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-import rx.Observable;
 import rx.functions.Func2;
 import rx.subjects.PublishSubject;
 
@@ -30,36 +29,39 @@ public class ChoiceOfTwoLoadBalancerTest {
     @Test(expected=NoSuchElementException.class)
     public void testEmpty() {
         PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
         
+        source.subscribe(lb);
         source.onNext(Lists.<Integer>newArrayList());
         
-        Observable.create(lb).toBlocking().single();
+        lb.toBlocking().single();
     }
     
     @Test
     public void testOne() {
         PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
         
+        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0));
-        
+
         for (int i = 0; i < 100; i++) {
-            Assert.assertEquals(0, (int)Observable.create(lb).toBlocking().single());
+            Assert.assertEquals(0, (int)lb.toBlocking().single());
         }
     }
     
     @Test
     public void testTwo() {
         PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
         
+        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
         for (int i = 0; i < 100; i++) {
-            counts.incrementAndGet(Observable.create(lb).toBlocking().single());
+            counts.incrementAndGet(lb.toBlocking().single());
         }
         Assert.assertEquals(counts.get(0), 0);
         Assert.assertEquals(counts.get(1), 100);
@@ -68,14 +70,15 @@ public class ChoiceOfTwoLoadBalancerTest {
     @Test
     public void testMany() {
         PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
         
+        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1,2,3,4,5,6,7,8,9));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         
         for (int i = 0; i < 100000; i++) {
-            counts.incrementAndGet(Observable.create(lb).toBlocking().single());
+            counts.incrementAndGet(lb.toBlocking().single());
         }
         Double[] pct = new Double[counts.length()];
         for (int i = 0; i < counts.length(); i++) {

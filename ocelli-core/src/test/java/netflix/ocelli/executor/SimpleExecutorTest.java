@@ -60,9 +60,6 @@ public class SimpleExecutorTest {
     
     @After
     public void afterTest() {
-        if (this.lb != null) {
-            this.lb.shutdown();
-        }
     }
     
     @Test
@@ -74,10 +71,12 @@ public class SimpleExecutorTest {
                 .withClientConnector(clientConnector)
                 .build();
     
-        this.lb = RoundRobinLoadBalancer.from(
-                hostEvents
-                    .map(CachingInstanceTransformer.create(factory))
-                    .compose(new InstanceCollector<TestClient>()));  
+        this.lb = RoundRobinLoadBalancer.create();
+        
+        hostEvents
+            .map(CachingInstanceTransformer.create(factory))
+            .compose(new InstanceCollector<TestClient>())
+            .subscribe(lb);  
 
         Executor<String, String> execution = new SimpleExecutor<TestClient, String, String>(lb, TestClient.func());
         source.subscribe(hostEvents);

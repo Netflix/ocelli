@@ -1,7 +1,6 @@
 package netflix.ocelli.executor;
 
 import java.util.Collection;
-import java.util.List;
 
 import netflix.ocelli.CachingInstanceTransformer;
 import netflix.ocelli.FailureDetectingInstanceFactory;
@@ -26,7 +25,7 @@ public class ExecutorBuilder<H, C, I, O> {
     private Observable<Instance<H>>         instances;
     private Func2<C, I, Observable<O>>      operation;
     private Action1<C>                      clientShutdown = Actions.empty();
-    private Func1<Observable<List<C>>, LoadBalancer<C>> lbFactory = RoundRobinLoadBalancer.factory();
+    private LoadBalancer<C>                 lb = RoundRobinLoadBalancer.create();
     private Func2<LoadBalancer<C>, Func2<C, I, Observable<O>>, Executor<I, O>> strategy = SimpleExecutor.factory();
 
     public ExecutorBuilder<H, C, I, O> withInstances(Observable<Instance<H>> hosts) {
@@ -64,8 +63,8 @@ public class ExecutorBuilder<H, C, I, O> {
         return this;
     }
     
-    public ExecutorBuilder<H, C, I, O> withLoadBalancer(Func1<Observable<List<C>>, LoadBalancer<C>> factory) {
-        this.lbFactory = factory;
+    public ExecutorBuilder<H, C, I, O> withLoadBalancer(LoadBalancer<C> lb) {
+        this.lb = lb;
         return this;
     }
     
@@ -79,14 +78,13 @@ public class ExecutorBuilder<H, C, I, O> {
                 hostToClient,
                 clientShutdown,
                 fdBuilder.build());
-           
-        return strategy.call(
-                lbFactory.call(
-                        instances
-                           .map(memberToInstance)
-                           .compose(new InstanceCollector<C>())), 
-                operation);
 
+        instances
+            .map(memberToInstance)
+            .compose(new InstanceCollector<C>())
+            .subscribe(this.lb);
+
+        return strategy.call(lb, operation);
     }
     
     public static <H, C, I, O> ExecutorBuilder<H, C, I, O> builder() {

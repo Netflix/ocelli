@@ -22,7 +22,6 @@ import netflix.ocelli.loadbalancer.weighting.LinearWeightingStrategy;
 import netflix.ocelli.util.CountDownAction;
 import netflix.ocelli.util.RxUtil;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -53,18 +52,14 @@ public class DefaultLoadBalancerTest {
                 .build();
 
         this.lb = RandomWeightedLoadBalancer.create(
-                    hostEvents
-                        .map(CachingInstanceTransformer.create(factory))  
-                        .compose(new InstanceCollector<TestClient>()),
                     new LinearWeightingStrategy<TestClient>(
                         TestClient.byPendingRequestCount()));
-    }
+
+        hostEvents
+        .map(CachingInstanceTransformer.create(factory))  
+        .compose(new InstanceCollector<TestClient>())
+        .subscribe(lb);
     
-    @After
-    public void afterTest() {
-        if (this.lb != null) {
-            this.lb.shutdown();
-        }
     }
     
     @Test
@@ -81,7 +76,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        Observable.create(lb)
+        lb
             .concatMap(operation)
             .retry()
             .subscribe(response);
@@ -134,7 +129,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        Observable.create(lb)
+        lb
             .concatMap(operation)
             .retry()
             .subscribe(response);
@@ -152,7 +147,7 @@ public class DefaultLoadBalancerTest {
         TrackingOperation operation = Operations.tracking("foo");
         ResponseObserver response = new ResponseObserver();
         
-        Observable.create(lb)   
+        lb
             .concatMap(operation)
             .single()
             .retry()

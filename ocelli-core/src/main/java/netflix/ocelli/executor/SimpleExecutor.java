@@ -27,7 +27,7 @@ public class SimpleExecutor<C, I, O> implements Executor<I, O> {
         };
     }
     public SimpleExecutor(final LoadBalancer<C> lb, final Func2<C, I, Observable<O>> operation) {
-        this.lb = Observable.create(lb);
+        this.lb = lb;
         this.operation = operation;
     }
 

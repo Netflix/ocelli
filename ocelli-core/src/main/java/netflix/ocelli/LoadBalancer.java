@@ -1,27 +1,23 @@
 package netflix.ocelli;
 
+import java.util.List;
+
 import rx.Observable;
-import rx.Observable.OnSubscribe;
+import rx.functions.Action1;
 
 /**
- * Base for all LoadBalancers will emit a single C based on the load balancing
- * strategy when subscribed to.
+ * Contract for the LoadBalancer.  
+ * 
+ * The LoadBalancer contract is similar to a Subject in that it receives (and caches) input
+ * in the form of a List of active clients and emits a single client from that list based 
+ * on the load balancing strategy for each subscription.
  * 
  * @author elandau
  *
  * @param <C>
  */
-public abstract class LoadBalancer<C> implements OnSubscribe<C> {
-    /**
-     * Shut down the load balancer
-     * 
-     * TODO: Re-implement using ConnectableObservable
-     */
-    public abstract void shutdown();
-    
-    /**
-     * @return  Observable that when subscribed to will emit all currently active
-     *          clients in the load balancer
-     */
-    public abstract Observable<C> all();
+public abstract class LoadBalancer<C> extends Observable<C> implements Action1<List<C>> {
+    protected LoadBalancer(OnSubscribe<C> f) {
+        super(f);
+    }
 }

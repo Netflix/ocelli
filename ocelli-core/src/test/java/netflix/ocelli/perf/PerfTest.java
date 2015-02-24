@@ -8,7 +8,6 @@ import netflix.ocelli.client.Behaviors;
 import netflix.ocelli.client.Connects;
 import netflix.ocelli.client.TestClient;
 
-import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -36,13 +35,6 @@ public class PerfTest {
 //        source = Observable
 //            .from(hosts)
 //            .map(MembershipEvent.<TestClient>toEvent(EventType.ADD));
-    }
-    
-    @After
-    public void afterTest() {
-        if (this.selector != null) {
-            this.selector.shutdown();
-        }
     }
     
     @Test

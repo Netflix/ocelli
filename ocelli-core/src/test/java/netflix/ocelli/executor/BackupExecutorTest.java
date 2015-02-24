@@ -83,15 +83,17 @@ public class BackupExecutorTest {
                 .withClientConnector(clientConnector)
                 .build();
     
-        this.lb = RoundRobinLoadBalancer.from(
-                hosts.map(new Func1<Instance<TestClient>, Instance<TestClient>>() {
-                        @Override
-                        public Instance<TestClient> call(Instance<TestClient> t1) {
-                            return factory.call(t1.getValue());
-                        }
-                     })
+        this.lb = RoundRobinLoadBalancer.<TestClient>create();
+        
+        hosts.map(new Func1<Instance<TestClient>, Instance<TestClient>>() {
+                @Override
+                public Instance<TestClient> call(Instance<TestClient> t1) {
+                    return factory.call(t1.getValue());
+                }
+             })
 //                     .map(TestClient.memberToInstance(factory))  
-                     .compose(new InstanceCollector<TestClient>()));  
+             .compose(new InstanceCollector<TestClient>())
+             .subscribe(this.lb);  
         
         this.executor = BackupExecutor.<TestClient, String, String>builder(lb)
                 .withTimeoutMetric(Metrics.memoize(BACKUP_REQUEST_TIMEOUT))
@@ -115,9 +117,6 @@ public class BackupExecutorTest {
     
     @After
     public void afterTest() {
-        if (this.lb != null) {
-            this.lb.shutdown();
-        }
     }
     
     public static class TestObserver<T> implements Observer<T> {
