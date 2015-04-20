@@ -22,16 +22,19 @@ import com.netflix.discovery.DiscoveryClient;
  * 
  * {@code
  * <pre>
+ *    RoundRobinLoadBalancer lb = RoundRobinLoadBalancer.create();
+ *    
  *    EurekaInterestManager manager = new EurekaInterestMangaer(discoveryClient);
- *    Observable<List<InstanceInfo>> instances = manager
+ *    Subscription sub = manager
  *          .newInterest()
  *              .forApplication("applicationName")
  *              .withRefreshInterval(30, TimeUnit.SECONDS)
  *              .withScheduler(scheduler)
  *              .asObservable()
- *          .compose(InstanceCollector.<InstanceInfo>create());
- *          
- *    RoundRobinLoadBalancer lb = new RoundRobinLoadBalancer(instances);
+ *          .compose(InstanceCollector.<InstanceInfo>create())
+ *          .subscribe(lb);
+ *    
+ *    lb.flatMap(operation);
  * </pre>
  * }
  * 

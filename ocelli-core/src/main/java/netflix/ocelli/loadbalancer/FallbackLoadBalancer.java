@@ -81,7 +81,7 @@ public class FallbackLoadBalancer<C> extends LoadBalancer<C> {
     
     @Override
     public void call(List<C> t1) {
-        // No op
+        throw new UnsupportedOperationException();
     }
 
 }

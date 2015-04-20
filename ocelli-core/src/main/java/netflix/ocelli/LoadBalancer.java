@@ -6,8 +6,6 @@ import rx.Observable;
 import rx.functions.Action1;
 
 /**
- * Contract for the LoadBalancer.  
- * 
  * The LoadBalancer contract is similar to a Subject in that it receives (and caches) input
  * in the form of a List of active clients and emits a single client from that list based 
  * on the load balancing strategy for each subscription.
@@ -20,4 +18,6 @@ public abstract class LoadBalancer<C> extends Observable<C> implements Action1<L
     protected LoadBalancer(OnSubscribe<C> f) {
         super(f);
     }
+    
+    
 }

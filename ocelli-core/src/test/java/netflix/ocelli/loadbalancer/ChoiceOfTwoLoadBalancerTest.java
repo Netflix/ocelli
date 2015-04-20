@@ -89,4 +89,5 @@ public class ChoiceOfTwoLoadBalancerTest {
             Assert.assertTrue(counts.get(i) > counts.get(i-1));
         }
     }
+
 }

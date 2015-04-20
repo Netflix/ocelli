@@ -23,26 +23,26 @@ import rx.functions.Func2;
  * 
  * @author elandau
  *
- * @param <C>
+ * @param <T>
  */
-public class ChoiceOfTwoLoadBalancer<C> extends LoadBalancer<C> {
+public class ChoiceOfTwoLoadBalancer<T> extends LoadBalancer<T> {
     public static <C> ChoiceOfTwoLoadBalancer<C> create(final Func2<C, C, C> func) {
         return new ChoiceOfTwoLoadBalancer<C>(func);
     }
 
-    private final AtomicReference<List<C>> clients;
+    private final AtomicReference<List<T>> clients;
     
-    ChoiceOfTwoLoadBalancer(final Func2<C, C, C> func) {
-        this(func, new AtomicReference<List<C>>(new ArrayList<C>()));
+    ChoiceOfTwoLoadBalancer(final Func2<T, T, T> func) {
+        this(func, new AtomicReference<List<T>>(new ArrayList<T>()));
     }
     
-    private ChoiceOfTwoLoadBalancer(final Func2<C, C, C> func, final AtomicReference<List<C>> clients) {
-        super(new OnSubscribe<C>() {
+    private ChoiceOfTwoLoadBalancer(final Func2<T, T, T> func, final AtomicReference<List<T>> clients) {
+        super(new OnSubscribe<T>() {
             private final Random rand = new Random();
             
             @Override
-            public void call(final Subscriber<? super C> s) {
-                List<C> local = clients.get();
+            public void call(final Subscriber<? super T> s) {
+                List<T> local = clients.get();
                 if (local.isEmpty()) {
                     s.onError(new NoSuchElementException("No servers available in the load balancer"));
                 }
@@ -64,7 +64,7 @@ public class ChoiceOfTwoLoadBalancer<C> extends LoadBalancer<C> {
     }
 
     @Override
-    public void call(List<C> t) {
+    public void call(List<T> t) {
         this.clients.set(t);
     }
 }

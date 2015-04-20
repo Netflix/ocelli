@@ -6,14 +6,16 @@ import io.reactivex.netty.protocol.http.client.HttpClientRequest;
 import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
+import netflix.ocelli.Instance;
 import netflix.ocelli.util.SingleMetric;
 import rx.Observable;
-import rx.Observable.OnSubscribe;
-import rx.Subscriber;
 import rx.functions.Action1;
+import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.functions.Func2;
+import rx.subjects.BehaviorSubject;
 
 /**
  * An extension of {@link MetricAwareClientHolder} for HTTP.
@@ -22,8 +24,17 @@ import rx.functions.Func2;
  */
 public class HttpClientHolder<I, O> extends MetricAwareClientHolder<HttpClientRequest<I>, HttpClientResponse<O>, HttpClient<I, O>, HttpMetricListener> {
     
+    private AtomicReference<BehaviorSubject<Void>> lifecycle = new AtomicReference<BehaviorSubject<Void>>(BehaviorSubject.<Void>create());
+    
     public HttpClientHolder(HttpClient<I, O> client, SingleMetric<Long> metric) {
         super(client, new HttpMetricListener(metric));
+        
+        client.subscribe(new HttpClientMetricEventsListener() {
+            @Override
+            protected void onConnectFailed(long duration, TimeUnit timeUnit, Throwable throwable) {
+                lifecycle.get().onCompleted();
+            }
+        });
     }
 
     @Override
@@ -31,21 +42,20 @@ public class HttpClientHolder<I, O> extends MetricAwareClientHolder<HttpClientRe
         return super.getListener();
     }
     
-    public static <I, O> Func1<HttpClientHolder<I, O>, Observable<Throwable>> failureDetector() {
-        return new Func1<HttpClientHolder<I, O>, Observable<Throwable>>() {
+    public static <I, O> Func1<HttpClientHolder<I, O>, Observable<Instance<HttpClientHolder<I, O>>>> factory() {
+        return new Func1<HttpClientHolder<I, O>, Observable<Instance<HttpClientHolder<I, O>>>>() {
             @Override
-            public Observable<Throwable> call(final HttpClientHolder<I, O> holder) {
-                return Observable.create(new OnSubscribe<Throwable>() {
-                    @Override
-                    public void call(final Subscriber<? super Throwable> sub) {
-                        holder.getClient().subscribe(new HttpClientMetricEventsListener() {
-                            @Override
-                            protected void onConnectFailed(long duration, TimeUnit timeUnit, Throwable throwable) {
-                                sub.onNext(throwable);
-                            }
-                        });
-                    }
-                });
+            public Observable<Instance<HttpClientHolder<I, O>>> call(final HttpClientHolder<I, O> client) {
+                return Observable
+                    .defer(new Func0<Observable<Instance<HttpClientHolder<I, O>>>>() {
+                        @Override
+                        public Observable<Instance<HttpClientHolder<I, O>>> call() {
+                            BehaviorSubject<Void> subject = BehaviorSubject.<Void>create();
+                            client.lifecycle.set(subject);
+                            return Observable.just(Instance.from(client, subject));
+                        }
+                    })
+                    .delaySubscription(1, TimeUnit.SECONDS);
             }
         };
     }
@@ -89,5 +99,9 @@ public class HttpClientHolder<I, O> extends MetricAwareClientHolder<HttpClientRe
                 t1.getClient().shutdown();
             }
         };
+    }
+
+    public void fail() {
+        lifecycle.get().onCompleted();
     }
 }

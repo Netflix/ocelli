@@ -1,6 +1,7 @@
 package netflix.ocelli;
 
 import rx.Observable;
+import rx.Observable.Transformer;
 import rx.functions.Func1;
 import rx.observables.GroupedObservable;
 
@@ -14,9 +15,7 @@ import rx.observables.GroupedObservable;
  *
  * @param <T>
  */
-public class Instance<T> extends Observable<Boolean> {
-    private final T value;
-    
+public abstract class Instance<T> {
     private static class KeyedInstance<K, T> {
         private final K key;
         private final Instance<T> member;
@@ -95,16 +94,43 @@ public class Instance<T> extends Observable<Boolean> {
         };
     }
 
-    public Instance(T value, OnSubscribe<Boolean> state) {
-        super(state);
-        this.value = value;
+    public static <T, S> Func1<Instance<T>, Instance<S>> transform(final Func1<T, S> func) {
+        return new Func1<Instance<T>, Instance<S>>() {
+            @Override
+            public Instance<S> call(final Instance<T> t1) {
+                return Instance.<S>from(func.call(t1.getValue()), t1.getLifecycle());
+            }
+        };
     }
     
-    public T getValue() {
-        return this.value;
+    public static <T> Instance<T> from(final T value, final Observable<Void> lifecycle) {
+        return new Instance<T>() {
+            @Override
+            public Observable<Void> getLifecycle() {
+                return lifecycle;
+            }
+
+            @Override
+            public T getValue() {
+                return value;
+            }
+            
+        };
     }
+    
+    /**
+     * Return the lifecycle for this object
+     * @return
+     */
+    public abstract Observable<Void> getLifecycle();
+
+    /**
+     * Return the instance object which could be an address or an actual client implementation
+     * @return
+     */
+    public abstract T getValue();
     
     public String toString() {
-        return "Member[" + value + "]";
+        return "Instance[" + getValue() + "]";
     }
 }
