@@ -66,7 +66,7 @@ public class BaseWeightingStrategyTest {
         // Run simulation
         for (int i = 0; i < count; i++) {
             try {
-                select.subscribe(new Action1<IntClientAndMetrics>() {
+                select.toObservable().subscribe(new Action1<IntClientAndMetrics>() {
                     @Override
                     public void call(IntClientAndMetrics t1) {
                         counts[t1.getClient()] = counts[t1.getClient()] + 1;

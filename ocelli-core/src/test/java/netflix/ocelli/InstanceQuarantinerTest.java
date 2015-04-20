@@ -146,7 +146,7 @@ public class InstanceQuarantinerTest {
         instances.add(1);
         
         // Load balancer now has one instance
-        Client c = lb.toBlocking().first();
+        Client c = lb.toObservable().toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(0, c.counter.get());
         
@@ -155,7 +155,7 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toBlocking().first();
+            c = lb.toObservable().toBlocking().first();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
@@ -163,7 +163,7 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(1, TimeUnit.SECONDS);
-        c = lb.toBlocking().first();
+        c = lb.toObservable().toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(1, c.counter.get());
         
@@ -172,7 +172,7 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toBlocking().first();
+            c = lb.toObservable().toBlocking().first();
             Assert.assertEquals(2, c.counter.get());
             Assert.fail("Load balancer should be empty");
         }
@@ -181,14 +181,14 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.toBlocking().first();
+        c = lb.toObservable().toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(2, c.counter.get());
         
         // Remove the instance entirely
         instances.remove(1);
         try {
-            c = lb.toBlocking().first();
+            c = lb.toObservable().toBlocking().first();
             Assert.fail();
         }
         catch (NoSuchElementException e) {
@@ -225,6 +225,7 @@ public class InstanceQuarantinerTest {
                 @Override
                 public Observable<String> call(final Long counter) {
                     return lb
+                        .toObservable()
                         .concatMap(new Func1<Client, Observable<String>>() {
                             @Override
                             public Observable<String> call(Client instance) {
@@ -263,10 +264,10 @@ public class InstanceQuarantinerTest {
             .subscribe(lb);
 
         instances.add(1);
-        Client client = lb.toBlocking().first();
+        Client client = lb.toObservable().toBlocking().first();
         
         instances.add(2);
-        client = lb.toBlocking().first();
+        client = lb.toObservable().toBlocking().first();
         
     }
 }

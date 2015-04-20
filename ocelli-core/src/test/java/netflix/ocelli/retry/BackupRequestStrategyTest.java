@@ -9,6 +9,7 @@ import junit.framework.Assert;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.loadbalancer.SettableLoadBalancer;
 import netflix.ocelli.retrys.BackupRequestRetryStrategy;
 import netflix.ocelli.util.RxUtil;
 
@@ -43,7 +44,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void firstSucceedsFast() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.just(1),
@@ -53,7 +54,7 @@ public class BackupRequestStrategyTest {
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb
+        lb  .toObservable()
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -69,7 +70,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void firstNeverSecondSucceeds() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.<Integer>never(),
@@ -79,7 +80,7 @@ public class BackupRequestStrategyTest {
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb
+        lb  .toObservable()
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -95,7 +96,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void firstFailsSecondSucceeds() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.<Integer>error(new Exception("1")),
@@ -105,7 +106,7 @@ public class BackupRequestStrategyTest {
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb
+        lb  .toObservable() 
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -121,7 +122,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void bothDelayed() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.just(1).delaySubscription(2, TimeUnit.SECONDS, scheduler),
@@ -131,7 +132,7 @@ public class BackupRequestStrategyTest {
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb
+        lb  .toObservable()
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -148,7 +149,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void bothFailed() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.<Integer>error(new Exception("1")),
@@ -159,7 +160,7 @@ public class BackupRequestStrategyTest {
         final AtomicReference<String> result = new AtomicReference<String>();
         final AtomicBoolean failed = new AtomicBoolean(false);
         
-        lb
+        lb  .toObservable()
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -182,7 +183,7 @@ public class BackupRequestStrategyTest {
     
     @Test
     public void firstSucceedsSecondFailsAfterBackupStarted() {
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
+        SettableLoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create();
         
         lb.call(Lists.newArrayList(
                 Observable.just(1).delaySubscription(2, TimeUnit.SECONDS, scheduler),
@@ -192,7 +193,7 @@ public class BackupRequestStrategyTest {
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb
+        lb  .toObservable()
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)

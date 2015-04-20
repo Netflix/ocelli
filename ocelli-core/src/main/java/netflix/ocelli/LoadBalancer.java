@@ -1,9 +1,10 @@
 package netflix.ocelli;
 
-import java.util.List;
+import java.util.NoSuchElementException;
 
 import rx.Observable;
-import rx.functions.Action1;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
 
 /**
  * The LoadBalancer contract is similar to a Subject in that it receives (and caches) input
@@ -12,12 +13,23 @@ import rx.functions.Action1;
  * 
  * @author elandau
  *
- * @param <C>
+ * @param <T>
  */
-public abstract class LoadBalancer<C> extends Observable<C> implements Action1<List<C>> {
-    protected LoadBalancer(OnSubscribe<C> f) {
-        super(f);
+public abstract class LoadBalancer<T> {
+    public abstract T next() throws NoSuchElementException;
+    
+    public Observable<T> toObservable() {
+        return Observable.create(new OnSubscribe<T>() {
+            @Override
+            public void call(final Subscriber<? super T> s) {
+                try {
+                    s.onNext(next());
+                    s.onCompleted();
+                }
+                catch (Exception e) {
+                    s.onError(e);
+                }
+            }
+        });
     }
-    
-    
 }

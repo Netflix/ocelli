@@ -82,6 +82,7 @@ public class RxNettyIntegrationTest {
 
         // Execute a single request
         HttpClientResponse<ByteBuf> response = lb
+                .toObservable()
                 .flatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                     @Override
                     public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> t1) {
@@ -96,11 +97,12 @@ public class RxNettyIntegrationTest {
                 .get(3, TimeUnit.SECONDS);
 
         // Force failure
-        lb.toBlocking().first().fail();
+        lb.next().fail();
         
         // Execute a single request
         try {
             response = lb
+                    .toObservable()
                     .flatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                         @Override
                         public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> t1) {
@@ -121,6 +123,7 @@ public class RxNettyIntegrationTest {
         
         // Execute a single request
         response = lb
+                .toObservable()
                 .flatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                     @Override
                     public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> t1) {
@@ -139,6 +142,7 @@ public class RxNettyIntegrationTest {
         
         try {
             response = lb
+                    .toObservable()
                     .flatMap(new Func1<HttpClientHolder<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                         @Override
                         public Observable<HttpClientResponse<ByteBuf>> call(HttpClientHolder<ByteBuf, ByteBuf> t1) {

@@ -34,7 +34,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         source.subscribe(lb);
         source.onNext(Lists.<Integer>newArrayList());
         
-        lb.toBlocking().single();
+        lb.next();
     }
     
     @Test
@@ -46,7 +46,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         source.onNext(Lists.newArrayList(0));
 
         for (int i = 0; i < 100; i++) {
-            Assert.assertEquals(0, (int)lb.toBlocking().single());
+            Assert.assertEquals(0, (int)lb.next());
         }
     }
     
@@ -61,7 +61,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
         for (int i = 0; i < 100; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(lb.next());
         }
         Assert.assertEquals(counts.get(0), 0);
         Assert.assertEquals(counts.get(1), 100);
@@ -78,7 +78,7 @@ public class ChoiceOfTwoLoadBalancerTest {
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         
         for (int i = 0; i < 100000; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(lb.next());
         }
         Double[] pct = new Double[counts.length()];
         for (int i = 0; i < counts.length(); i++) {

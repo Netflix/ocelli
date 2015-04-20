@@ -11,9 +11,9 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 
 public class FallbackLoadBalancerTest {
-    private static LoadBalancer<Integer> lb1 = RoundRobinLoadBalancer.create();
-    private static LoadBalancer<Integer> lb2 = RoundRobinLoadBalancer.create();
-    private static LoadBalancer<Integer> lb3 = RoundRobinLoadBalancer.create();
+    private static SettableLoadBalancer<Integer> lb1 = RoundRobinLoadBalancer.create();
+    private static SettableLoadBalancer<Integer> lb2 = RoundRobinLoadBalancer.create();
+    private static SettableLoadBalancer<Integer> lb3 = RoundRobinLoadBalancer.create();
     
     @BeforeClass
     public static void before() {
@@ -22,36 +22,36 @@ public class FallbackLoadBalancerTest {
     
     @Test
     public void firstHasClient() {
-        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.newArrayList(lb3, lb1, lb2));
-        int value = lb.toBlocking().single();
+        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.<LoadBalancer<Integer>>newArrayList(lb3, lb1, lb2));
+        int value = lb.next();
         Assert.assertEquals(1, value);
     }
     
     @Test
     public void middleHasClient() {
-        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.newArrayList(lb1, lb3, lb2));
-        int value = lb.toBlocking().single();
+        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.<LoadBalancer<Integer>>newArrayList(lb1, lb3, lb2));
+        int value = lb.next();
         Assert.assertEquals(1, value);
     }
     
     @Test
     public void lastHasClient() {
-        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.newArrayList(lb1, lb2, lb3));
-        int value = lb.toBlocking().single();
+        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.<LoadBalancer<Integer>>newArrayList(lb1, lb2, lb3));
+        int value = lb.next();
         Assert.assertEquals(1, value);
     }
     
     @Test(expected=NoSuchElementException.class)
     public void noneHaveClient() {
-        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.newArrayList(lb1, lb2, lb2));
-        int value = lb.toBlocking().single();
+        FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer<Integer>(Lists.<LoadBalancer<Integer>>newArrayList(lb1, lb2, lb2));
+        int value = lb.next();
         Assert.assertEquals(1, value);
     }
     
     @Test(expected=NoSuchElementException.class)
     public void noLbs() {
         FallbackLoadBalancer<Integer> lb = new FallbackLoadBalancer(Lists.newArrayList());
-        int value = lb.toBlocking().single();
+        int value = lb.next();
         Assert.assertEquals(1, value);
     }
 }
