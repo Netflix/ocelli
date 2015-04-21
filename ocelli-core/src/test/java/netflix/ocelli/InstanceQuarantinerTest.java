@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.util.RxUtil;
 
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -29,13 +30,13 @@ public class InstanceQuarantinerTest {
     
     final static TestScheduler scheduler = new TestScheduler();
     
-    public static class Client implements EventListener{
+    public static class Client implements EventListener, Instance<Client> {
         
-        public static Func1<Integer, Client> factory() {
-            return new Func1<Integer, Client>() {
+        public static Func1<Instance<Integer>, Client> factory() {
+            return new Func1<Instance<Integer>, Client>() {
                 @Override
-                public Client call(Integer t1) {
-                    return new Client(t1);
+                public Client call(Instance<Integer> t1) {
+                    return new Client(t1.getValue(), t1.getLifecycle());
                 }
             };
         }
@@ -49,17 +50,16 @@ public class InstanceQuarantinerTest {
             };
         }
         
-        public static Func1<Client, Observable<Instance<Client>>> failureDetector() {
-            return new Func1<Client, Observable<Instance<Client>>>() {
+        public static Func1<Instance<Client>, Observable<Instance<Client>>> failureDetector() {
+            return new Func1<Instance<Client>, Observable<Instance<Client>>>() {
                 @Override
-                public Observable<Instance<Client>> call(Client t1) {
-                    t1 = t1.clone();
-                    Observable<Instance<Client>> o = Observable
-                            .just(Instance.from(t1, t1.lifecycle));
+                public Observable<Instance<Client>> call(Instance<Client> i) {
+                    i = new Client(i.getValue());
+                    Observable<Instance<Client>> o = Observable.just(i);
 
-                    long delay = t1.counter.get();
+                    long delay = i.getValue().counter.get();
                     if (delay > 0) {
-                        o = o.delaySubscription(t1.counter.get(), TimeUnit.SECONDS, scheduler);
+                        o = o.delaySubscription(i.getValue().counter.get(), TimeUnit.SECONDS, scheduler);
                     }
                     
                     return o;
@@ -68,19 +68,21 @@ public class InstanceQuarantinerTest {
         }
         
         private Integer address;
-        private BehaviorSubject<Void> lifecycle = BehaviorSubject.create();
+        private final BehaviorSubject<Void> control = BehaviorSubject.create();
+        private final Observable<Void> lifecycle;
         private AtomicLong counter = new AtomicLong();
         private AtomicInteger score = new AtomicInteger();
 
-        public Client(Integer address) {
+        public Client(Integer address, Observable<Void> lifecycle) {
             this.address = address;
             this.counter = new AtomicLong();
-            System.out.println("Create client " + address);
+            this.lifecycle = lifecycle;
         }
         
-        public Client(Client client) {
-            this.address = client.address;
-            this.counter = client.counter;
+        Client(Client client) {
+            this.address   = client.address;
+            this.counter   = client.counter;
+            this.lifecycle = client.lifecycle.ambWith(control).cache();
         }
         
         @Override
@@ -96,8 +98,9 @@ public class InstanceQuarantinerTest {
         
         @Override
         public void onFailed() {
+            System.out.println("onFailed");
             counter.incrementAndGet();
-            lifecycle.onCompleted();
+            control.onCompleted();
         }
         
         public Integer getAddress() {
@@ -112,10 +115,6 @@ public class InstanceQuarantinerTest {
             return address.toString();
         }
         
-        public Client clone() {
-            return new Client(this);
-        }
-
         public static Func2<Client, Client, Client> compareByMetric() {
             return new Func2<Client, Client, Client>() {
                 @Override
@@ -126,6 +125,16 @@ public class InstanceQuarantinerTest {
                 }
             };
         }
+
+        @Override
+        public Observable<Void> getLifecycle() {
+            return lifecycle;
+        }
+
+        @Override
+        public Client getValue() {
+            return this;
+        }
     }
     
     @Test
@@ -135,18 +144,21 @@ public class InstanceQuarantinerTest {
         
         instances
             // Convert instances from address 'Integer' to implementation 'Instance'
-            .map(Instance.transform(Client.factory()))
+            .map(Client.factory())
+            .doOnNext(RxUtil.info("Primary"))
             // Reconnect logic
-            .flatMap(InstanceQuarantiner.<Client>create(Client.failureDetector()))
+            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
+            .doOnNext(RxUtil.info("Secondary"))
             // Aggregate into a List
             .compose(InstanceCollector.<Client>create())
+            .doOnNext(RxUtil.info("Pool"))
             // Forward to the load balancer
             .subscribe(lb);
 
         instances.add(1);
         
         // Load balancer now has one instance
-        Client c = lb.toObservable().toBlocking().first();
+        Client c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(0, c.counter.get());
         
@@ -155,15 +167,15 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toObservable().toBlocking().first();
+            c = lb.next();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
         }
         
         // Advance past quarantine time
-        scheduler.advanceTimeBy(1, TimeUnit.SECONDS);
-        c = lb.toObservable().toBlocking().first();
+        scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
+        c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(1, c.counter.get());
         
@@ -172,7 +184,7 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toObservable().toBlocking().first();
+            c = lb.next();
             Assert.assertEquals(2, c.counter.get());
             Assert.fail("Load balancer should be empty");
         }
@@ -181,14 +193,14 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.toObservable().toBlocking().first();
+        c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(2, c.counter.get());
         
         // Remove the instance entirely
         instances.remove(1);
         try {
-            c = lb.toObservable().toBlocking().first();
+            c = lb.next();
             Assert.fail();
         }
         catch (NoSuchElementException e) {
@@ -206,9 +218,9 @@ public class InstanceQuarantinerTest {
         
         instances
             // Convert instances from address 'Integer' to implementation 'Instance'
-            .map(Instance.transform(Client.factory()))
+            .map(Client.factory())
             // Reconnect logic
-            .flatMap(InstanceQuarantiner.<Client>create(Client.failureDetector()))
+            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
             // Aggregate into a List
             .compose(InstanceCollector.<Client>create())
             // Forward to the load balancer
@@ -255,19 +267,19 @@ public class InstanceQuarantinerTest {
         
         instances
             // Convert from address 'Integer' to implementation 'Instance'
-            .map(Instance.transform(Client.factory()))
+            .map(Client.factory())
             // Reconnect logic
-            .flatMap(InstanceQuarantiner.<Client>create(Client.failureDetector()))
+            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
             // Aggregate into a List
             .compose(InstanceCollector.<Client>create())
             // Forward to the load balancer
             .subscribe(lb);
 
         instances.add(1);
-        Client client = lb.toObservable().toBlocking().first();
+        Client client = lb.next();
         
         instances.add(2);
-        client = lb.toObservable().toBlocking().first();
+        client = lb.next();
         
     }
 }

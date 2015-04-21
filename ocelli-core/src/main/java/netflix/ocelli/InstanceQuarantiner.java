@@ -17,39 +17,39 @@ import rx.functions.Func1;
  *
  * @param <T>
  */
-public class InstanceQuarantiner<T> implements Func1<Instance<T>, Observable<Instance<T>>> {
-    private final Func1<T, Observable<Instance<T>>> factory;
+public class InstanceQuarantiner<I extends Instance<?>> implements Func1<I, Observable<I>> {
+    private final Func1<I, Observable<I>> factory;
     
     /**
      * Create a new InstanceQuaratiner
      * 
      * @param failureActionSetter Function to call to associate the failure callback with a T
      */
-    public static <T> InstanceQuarantiner<T> create(Func1<T, Observable<Instance<T>>> factory) {
-        return new InstanceQuarantiner<T>(factory);
+    public static <I extends Instance<?>> InstanceQuarantiner<I> create(Func1<I, Observable<I>> factory) {
+        return new InstanceQuarantiner<I>(factory);
     }
     
-    public InstanceQuarantiner(Func1<T, Observable<Instance<T>>> factory) {
+    public InstanceQuarantiner(Func1<I, Observable<I>> factory) {
         this.factory = factory;
     }
     
     @Override
-    public Observable<Instance<T>> call(final Instance<T> primaryInstance) {
-        return Observable.create(new OnSubscribe<Instance<T>>() {
+    public Observable<I> call(final I primaryInstance) {
+        return Observable.create(new OnSubscribe<I>() {
             @Override
-            public void call(final Subscriber<? super Instance<T>> s) {
+            public void call(final Subscriber<? super I> s) {
                 s.add(Observable
-                    .defer(new Func0<Observable<Instance<T>>>() {
+                    .defer(new Func0<Observable<I>>() {
                         @Override
-                        public Observable<Instance<T>> call() {
-                            return factory.call(primaryInstance.getValue());
+                        public Observable<I> call() {
+                            return factory.call(primaryInstance);
                         }
                     })
-                    .switchMap(new Func1<Instance<T>, Observable<Void>>() {
+                    .switchMap(new Func1<I, Observable<Void>>() {
                         @Override
-                        public Observable<Void> call(Instance<T> secondaryInstance) {
-                            s.onNext(Instance.from(secondaryInstance.getValue(), secondaryInstance.getLifecycle().ambWith(primaryInstance.getLifecycle())));
-                            return secondaryInstance.getLifecycle();
+                        public Observable<Void> call(I instance) {
+                            s.onNext(instance);
+                            return instance.getLifecycle();
                         }
                     })
                     .repeat()

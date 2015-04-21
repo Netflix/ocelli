@@ -2,21 +2,30 @@ package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.RxNetty;
+import io.reactivex.netty.client.ClientMetricsEvent;
 import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 
+import java.util.concurrent.TimeUnit;
+
+import netflix.ocelli.Host;
+import netflix.ocelli.Instance;
+import netflix.ocelli.InstanceQuarantiner;
+import netflix.ocelli.InstanceSubject;
+import netflix.ocelli.functions.Metrics;
+import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import rx.Observable;
+import rx.functions.Func1;
 
-/**
- * @author Nitesh Kant
- */
-public class RxNettyIntegrationTest {
+public class ServerPoolTest {
 
     private HttpServer<ByteBuf, ByteBuf> httpServer;
 
@@ -40,28 +49,44 @@ public class RxNettyIntegrationTest {
 
     @Test
     public void testSimple() throws Exception {
-//        final InstanceSubject<Host> instances = InstanceSubject.create();
-//
-//        final RoundRobinLoadBalancer<HttpClientHolder<ByteBuf, ByteBuf>> lb = RoundRobinLoadBalancer.create();
-//        
-//        instances
-//            .map(Instance.transform(new Func1<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
-//                @Override
-//                public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
-//                    return new HttpClientHolder<ByteBuf, ByteBuf>(
-//                            RxNetty.createHttpClient(host.getHostName(), host.getPort()),
-//                            Metrics.memoize(10L));
-//                }
-//            }))
-//            // Quarantine logic
-//            .flatMap(InstanceQuarantiner.<HttpClientHolder<ByteBuf, ByteBuf>>create(HttpClientHolder.<ByteBuf, ByteBuf>factory()))
-//            // Aggregate into a List
-//            .compose(InstanceCollector.<HttpClientHolder<ByteBuf, ByteBuf>>create())
-//            // Forward to the load balancer
-//            .subscribe(lb);
-//
-//        Host host = new Host("127.0.0.1", httpServer.getServerPort());
-//        instances.add(host);
+        final InstanceSubject<Host> instances = InstanceSubject.create();
+
+        final RoundRobinLoadBalancer<HttpServerImpl> lb = RoundRobinLoadBalancer.create();
+        
+        instances
+            .map(new Func1<Instance<Host>, HttpServerImpl>() {
+                @Override
+                public HttpServerImpl call(Instance<Host> t1) {
+                    return new HttpServerImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
+                }
+            })
+            // Quarantine logic
+            .flatMap(InstanceQuarantiner.create(HttpServerImpl.failureDetector()))
+            // Aggregate into a List
+            .compose(ServerCollector.<HttpServerImpl>create())
+            // Forward to the load balancer
+            .subscribe(lb)
+            ;
+
+        Host host = new Host("127.0.0.1", httpServer.getServerPort());
+        instances.add(host);
+        
+        HttpServerImpl server = lb.next();
+        Assert.assertNotNull(server);
+        
+        server.onEvent(ClientMetricsEvent.CONNECT_FAILED, 0, TimeUnit.MILLISECONDS, new RuntimeException("Foo"), null);
+//        instances.remove(host);
+        lb.next();
+        
+//      .map(Instance.transform(new Func1<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
+//      @Override
+//      public HttpClientHolder<ByteBuf, ByteBuf> call(Host host) {
+//          return new HttpClientHolder<ByteBuf, ByteBuf>(
+//                  RxNetty.createHttpClient(host.getHostName(), host.getPort()),
+//                  Metrics.memoize(10L));
+//      }
+//  }))
+
 //
 //        // Execute a single request
 //        HttpClientResponse<ByteBuf> response = lb
@@ -143,22 +168,4 @@ public class RxNettyIntegrationTest {
 //        }
 
     }
-    
-//    @Test
-//    public void testZoneFallback() throws Exception {
-//        Observable<Instance<Host>> clientSource = Observable
-//                .<Instance<Host>>just(CloseableInstance.from(new Host("127.0.0.1", httpServer.getServerPort())))
-//                ;
-//
-//        Executor<HttpClientRequest<ByteBuf>, HttpClientResponse<ByteBuf>> executor = ExecutionStrategies.newHttpClient(clientSource).build();
-//        
-//        // Execute a single request
-//        HttpClientResponse<ByteBuf> response = executor
-//                .call(HttpClientRequest.createGet("/"))
-//                .toBlocking()
-//                .toFuture()
-//                .get(1, TimeUnit.MINUTES);
-//
-//        Assert.assertEquals("Unexpected response status.", HttpResponseStatus.OK, response.getStatus());
-//    }
 }

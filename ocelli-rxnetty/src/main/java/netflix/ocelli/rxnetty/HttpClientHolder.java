@@ -8,6 +8,7 @@ import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import netflix.ocelli.CloseableInstance;
 import netflix.ocelli.Instance;
 import netflix.ocelli.util.SingleMetric;
 import rx.Observable;
@@ -52,7 +53,7 @@ public class HttpClientHolder<I, O> extends MetricAwareClientHolder<HttpClientRe
                         public Observable<Instance<HttpClientHolder<I, O>>> call() {
                             BehaviorSubject<Void> subject = BehaviorSubject.<Void>create();
                             client.lifecycle.set(subject);
-                            return Observable.just(Instance.from(client, subject));
+                            return Observable.<Instance<HttpClientHolder<I, O>>>just(CloseableInstance.from(client, subject));
                         }
                     })
                     .delaySubscription(1, TimeUnit.SECONDS);
