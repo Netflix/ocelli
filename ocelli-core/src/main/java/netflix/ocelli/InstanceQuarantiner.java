@@ -21,46 +21,46 @@ import rx.functions.Func1;
  *
  * @param <T>
  */
-public class InstanceQuarantiner<I extends Instance<?>> implements Func1<I, Observable<I>> {
-    private final Func1<I, Observable<I>> factory;
-    private final Action1<I> shutdown;
+public class InstanceQuarantiner<T extends Instance<?>> implements Func1<T, Observable<T>> {
+    private final Func1<T, Observable<T>> factory;
+    private final Action1<T> shutdown;
     
     /**
      * Create a new InstanceQuaratiner
      * 
      * @param failureActionSetter Function to call to associate the failure callback with a T
      */
-    public static <I extends Instance<?>> InstanceQuarantiner<I> create(
-            Func1<I, Observable<I>> factory,
-            Action1<I> shutdown) {
-        return new InstanceQuarantiner<I>(factory, shutdown);
+    public static <T extends Instance<?>> InstanceQuarantiner<T> create(
+            Func1<T, Observable<T>> factory,
+            Action1<T> shutdown) {
+        return new InstanceQuarantiner<T>(factory, shutdown);
     }
     
-    public static <I extends Instance<?>> InstanceQuarantiner<I> create(
-            Func1<I, Observable<I>> factory) {
-        return new InstanceQuarantiner<I>(factory, null);
+    public static <T extends Instance<?>> InstanceQuarantiner<T> create(
+            Func1<T, Observable<T>> factory) {
+        return new InstanceQuarantiner<T>(factory, null);
     }
     
-    public InstanceQuarantiner(Func1<I, Observable<I>> factory, Action1<I> shutdown) {
+    public InstanceQuarantiner(Func1<T, Observable<T>> factory, Action1<T> shutdown) {
         this.factory = factory;
         this.shutdown = shutdown;
     }
     
     @Override
-    public Observable<I> call(final I primaryInstance) {
-        return Observable.create(new OnSubscribe<I>() {
+    public Observable<T> call(final T primaryInstance) {
+        return Observable.create(new OnSubscribe<T>() {
             @Override
-            public void call(final Subscriber<? super I> s) {
+            public void call(final Subscriber<? super T> s) {
                 s.add(Observable
-                    .defer(new Func0<Observable<I>>() {
+                    .defer(new Func0<Observable<T>>() {
                         @Override
-                        public Observable<I> call() {
+                        public Observable<T> call() {
                             return factory.call(primaryInstance);
                         }
                     })
-                    .switchMap(new Func1<I, Observable<Void>>() {
+                    .switchMap(new Func1<T, Observable<Void>>() {
                         @Override
-                        public Observable<Void> call(final I instance) {
+                        public Observable<Void> call(final T instance) {
                             s.onNext(instance);
                             return instance
                                     .getLifecycle()

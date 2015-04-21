@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import netflix.ocelli.InstanceToNotification.InstanceNotification;
 import rx.Observable;
 import rx.Observable.Transformer;
+import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.functions.Func2;
 
@@ -35,6 +38,21 @@ public class InstanceCollector<T extends Instance<?>> implements Transformer<T, 
                     newList.add(instance.getValue());
                 }
                 return newList;
+            }
+        };
+    }
+    
+    public static <K, T extends Instance<K>> Action1<T> toMap(final Map<K, T> map) {
+        return new Action1<T>() {
+            @Override
+            public void call(final T t1) {
+                map.put(t1.getValue(), t1);
+                t1.getLifecycle().doOnCompleted(new Action0() {
+                    @Override
+                    public void call() {
+                        map.remove(t1.getValue());
+                    }
+                });
             }
         };
     }

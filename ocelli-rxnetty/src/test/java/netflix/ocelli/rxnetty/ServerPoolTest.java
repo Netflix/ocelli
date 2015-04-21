@@ -31,8 +31,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import rx.Observable;
-import rx.functions.Action0;
-import rx.functions.Action1;
 import rx.functions.Func1;
 
 public class ServerPoolTest {
@@ -77,18 +75,8 @@ public class ServerPoolTest {
                     return new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
                 }
             })
-            .doOnNext(new Action1<HttpInstanceImpl>() {
-                @Override
-                public void call(final HttpInstanceImpl t1) {
-                    lookup.put(t1.getValue(), t1);
-                    t1.getLifecycle().doOnCompleted(new Action0() {
-                        @Override
-                        public void call() {
-                            lookup.remove(t1.getValue());
-                        }
-                    });
-                }
-            })
+            // For looking up state
+            .doOnNext(InstanceCollector.toMap(lookup))
             // Quarantine logic
             .flatMap(InstanceQuarantiner.create(HttpInstanceImpl.connector()))
             // Convert from HttpServer to an HttpClient while managing event subscriptions
