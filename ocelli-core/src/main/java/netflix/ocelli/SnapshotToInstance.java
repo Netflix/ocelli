@@ -22,11 +22,11 @@ import rx.functions.Func2;
  * @param <K>
  * @param <T>
  */
-public class ListToInstance<K, T> implements Transformer<List<T>, Instance<T>> {
+public class SnapshotToInstance<K, T> implements Transformer<List<T>, Instance<T>> {
     
     private final Func1<T, K> keyFunc;
 
-    public ListToInstance(Func1<T, K> keyFunc) {
+    public SnapshotToInstance(Func1<T, K> keyFunc) {
         this.keyFunc = keyFunc;
     }
     

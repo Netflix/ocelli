@@ -2,20 +2,28 @@ package netflix.ocelli.rxnetty;
 
 import io.netty.buffer.ByteBuf;
 import io.reactivex.netty.RxNetty;
-import io.reactivex.netty.client.ClientMetricsEvent;
+import io.reactivex.netty.protocol.http.client.HttpClient;
+import io.reactivex.netty.protocol.http.client.HttpClientRequest;
+import io.reactivex.netty.protocol.http.client.HttpClientResponse;
 import io.reactivex.netty.protocol.http.server.HttpServer;
 import io.reactivex.netty.protocol.http.server.HttpServerRequest;
 import io.reactivex.netty.protocol.http.server.HttpServerResponse;
 import io.reactivex.netty.protocol.http.server.RequestHandler;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
+import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.InstanceQuarantiner;
 import netflix.ocelli.InstanceSubject;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.util.RxUtil;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -23,6 +31,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import rx.Observable;
+import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.functions.Func1;
 
 public class ServerPoolTest {
@@ -43,7 +53,12 @@ public class ServerPoolTest {
     @After
     public void tearDown() throws Exception {
         if (null != httpServer) {
-            httpServer.shutdown();
+            try {
+                httpServer.shutdown();
+            }
+            catch (Exception e) {
+                
+            }
         }
     }
 
@@ -51,32 +66,96 @@ public class ServerPoolTest {
     public void testSimple() throws Exception {
         final InstanceSubject<Host> instances = InstanceSubject.create();
 
-        final RoundRobinLoadBalancer<HttpServerImpl> lb = RoundRobinLoadBalancer.create();
+        final RoundRobinLoadBalancer<HttpClient<ByteBuf, ByteBuf>> lb = RoundRobinLoadBalancer.create();
+        
+        final Map<Host, HttpInstanceImpl> lookup = new HashMap<Host, HttpInstanceImpl>();
         
         instances
-            .map(new Func1<Instance<Host>, HttpServerImpl>() {
+            .map(new Func1<Instance<Host>, HttpInstanceImpl>() {
                 @Override
-                public HttpServerImpl call(Instance<Host> t1) {
-                    return new HttpServerImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
+                public HttpInstanceImpl call(Instance<Host> t1) {
+                    return new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
+                }
+            })
+            .doOnNext(new Action1<HttpInstanceImpl>() {
+                @Override
+                public void call(final HttpInstanceImpl t1) {
+                    lookup.put(t1.getValue(), t1);
+                    t1.getLifecycle().doOnCompleted(new Action0() {
+                        @Override
+                        public void call() {
+                            lookup.remove(t1.getValue());
+                        }
+                    });
                 }
             })
             // Quarantine logic
-            .flatMap(InstanceQuarantiner.create(HttpServerImpl.failureDetector()))
+            .flatMap(InstanceQuarantiner.create(HttpInstanceImpl.connector()))
+            // Convert from HttpServer to an HttpClient while managing event subscriptions
+            .map(HttpInstanceImpl.toClient())
             // Aggregate into a List
-            .compose(ServerCollector.<HttpServerImpl>create())
+            .compose(InstanceCollector.<Instance<HttpClient<ByteBuf, ByteBuf>>>create())
+            // Discard the Instance wrapper
+            .map(InstanceCollector.<HttpClient<ByteBuf, ByteBuf>>unwrapInstances())
             // Forward to the load balancer
             .subscribe(lb)
             ;
 
+        // Case 1: Simple add
         Host host = new Host("127.0.0.1", httpServer.getServerPort());
         instances.add(host);
         
-        HttpServerImpl server = lb.next();
-        Assert.assertNotNull(server);
+        // Case 2: Attempt an operation
+        HttpClientResponse<ByteBuf> resp = lb.next()
+                .submit(HttpClientRequest.createGet("/"))
+                .timeout(1, TimeUnit.SECONDS)
+                .toBlocking()
+                .first();
+
+        Assert.assertEquals(200, resp.getStatus().code());
         
-        server.onEvent(ClientMetricsEvent.CONNECT_FAILED, 0, TimeUnit.MILLISECONDS, new RuntimeException("Foo"), null);
-//        instances.remove(host);
-        lb.next();
+        HttpInstanceImpl s1 = lookup.get(host);
+        Assert.assertNotNull(s1);
+        Assert.assertEquals(1, s1.getMetricListener().getIncarnationCount());
+
+        // Case 3: Remove the server
+        instances.remove(host);
+        try {
+            lb.next();
+            Assert.fail("Should have failed with no element");
+        }
+        catch (NoSuchElementException e) {
+        }
+        
+        // Case 4: Add a bad host and confirm retry counts
+        Host badHost = new Host("127.0.0.2", httpServer.getServerPort());
+        instances.add(badHost);
+        
+        AtomicInteger attemptCount = new AtomicInteger();
+        
+        try {
+            resp = lb.toObservable()
+                    .doOnNext(RxUtil.increment(attemptCount))
+                    .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
+                        @Override
+                        public Observable<HttpClientResponse<ByteBuf>> call(HttpClient<ByteBuf, ByteBuf> client) {
+                            return client.submit(HttpClientRequest.createGet("/"));
+                        }
+                    })
+                    .retry(1)
+                    .timeout(1, TimeUnit.SECONDS)
+                    .toBlocking()
+                    .first();
+            Assert.fail("Should have failed with connect timeout exception");
+        }
+        catch (Exception e) {
+            Assert.assertEquals(2, attemptCount.get());
+        }
+        
+        HttpInstanceImpl s2 = lookup.get(badHost);
+        Assert.assertEquals(3, s2.getMetricListener().getIncarnationCount());
+//        httpServer.start();
+        
         
 //      .map(Instance.transform(new Func1<Host, HttpClientHolder<ByteBuf, ByteBuf>>() {
 //      @Override

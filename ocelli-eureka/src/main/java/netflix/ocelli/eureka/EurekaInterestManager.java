@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import netflix.ocelli.Instance;
-import netflix.ocelli.ListToInstance;
+import netflix.ocelli.SnapshotToInstance;
 import rx.Observable;
 import rx.Scheduler;
 import rx.functions.Func0;
@@ -131,7 +131,7 @@ public class EurekaInterestManager {
                             }
                         }
                     })
-                    .compose(new ListToInstance<String, InstanceInfo>(INSTANCE_TO_ID));
+                    .compose(new SnapshotToInstance<String, InstanceInfo>(INSTANCE_TO_ID));
         }
         
         private Func0<List<InstanceInfo>> createLister() {

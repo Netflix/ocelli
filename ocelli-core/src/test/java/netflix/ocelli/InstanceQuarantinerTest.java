@@ -30,7 +30,7 @@ public class InstanceQuarantinerTest {
     
     final static TestScheduler scheduler = new TestScheduler();
     
-    public static class Client implements EventListener, Instance<Client> {
+    public static class Client implements EventListener, Instance<Integer> {
         
         public static Func1<Instance<Integer>, Client> factory() {
             return new Func1<Instance<Integer>, Client>() {
@@ -50,16 +50,16 @@ public class InstanceQuarantinerTest {
             };
         }
         
-        public static Func1<Instance<Client>, Observable<Instance<Client>>> failureDetector() {
-            return new Func1<Instance<Client>, Observable<Instance<Client>>>() {
+        public static Func1<Client, Observable<Client>> failureDetector() {
+            return new Func1<Client, Observable<Client>>() {
                 @Override
-                public Observable<Instance<Client>> call(Instance<Client> i) {
-                    i = new Client(i.getValue());
-                    Observable<Instance<Client>> o = Observable.just(i);
+                public Observable<Client> call(Client i) {
+                    i = new Client(i);
+                    Observable<Client> o = Observable.just(i);
 
-                    long delay = i.getValue().counter.get();
+                    long delay = i.counter.get();
                     if (delay > 0) {
-                        o = o.delaySubscription(i.getValue().counter.get(), TimeUnit.SECONDS, scheduler);
+                        o = o.delaySubscription(delay, TimeUnit.SECONDS, scheduler);
                     }
                     
                     return o;
@@ -103,7 +103,8 @@ public class InstanceQuarantinerTest {
             control.onCompleted();
         }
         
-        public Integer getAddress() {
+        @Override
+        public Integer getValue() {
             return address;
         }
         
@@ -129,11 +130,6 @@ public class InstanceQuarantinerTest {
         @Override
         public Observable<Void> getLifecycle() {
             return lifecycle;
-        }
-
-        @Override
-        public Client getValue() {
-            return this;
         }
     }
     
@@ -242,7 +238,7 @@ public class InstanceQuarantinerTest {
                             @Override
                             public Observable<String> call(Client instance) {
                                 instance.onBegin();
-                                if (1 == instance.getAddress()) {
+                                if (1 == instance.getValue()) {
                                     instance.onFailed();
                                     return Observable.error(new Exception("Failed"));
                                 }

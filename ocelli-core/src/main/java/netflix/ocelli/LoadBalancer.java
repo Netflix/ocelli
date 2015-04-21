@@ -2,17 +2,22 @@ package netflix.ocelli;
 
 import java.util.NoSuchElementException;
 
+import netflix.ocelli.loadbalancer.SettableLoadBalancer;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 
 /**
- * The LoadBalancer contract is similar to a Subject in that it receives (and caches) input
- * in the form of a List of active clients and emits a single client from that list based 
- * on the load balancing strategy for each subscription.
+ * The LoadBalancer provides simple access to any load balancing algorithm
+ * where the next best T is retrieved by calling next().  
+ * 
+ * There are no guarantees that calling next consecutively for retries will return a 
+ * different T
  * 
  * @author elandau
- *
+ * 
+ * @see {@link SettableLoadBalancer}
+ * 
  * @param <T>
  */
 public abstract class LoadBalancer<T> {

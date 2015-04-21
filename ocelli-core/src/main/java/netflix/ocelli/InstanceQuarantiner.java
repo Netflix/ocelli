@@ -1,8 +1,12 @@
 package netflix.ocelli;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
+import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.functions.Func0;
 import rx.functions.Func1;
 
@@ -19,18 +23,27 @@ import rx.functions.Func1;
  */
 public class InstanceQuarantiner<I extends Instance<?>> implements Func1<I, Observable<I>> {
     private final Func1<I, Observable<I>> factory;
+    private final Action1<I> shutdown;
     
     /**
      * Create a new InstanceQuaratiner
      * 
      * @param failureActionSetter Function to call to associate the failure callback with a T
      */
-    public static <I extends Instance<?>> InstanceQuarantiner<I> create(Func1<I, Observable<I>> factory) {
-        return new InstanceQuarantiner<I>(factory);
+    public static <I extends Instance<?>> InstanceQuarantiner<I> create(
+            Func1<I, Observable<I>> factory,
+            Action1<I> shutdown) {
+        return new InstanceQuarantiner<I>(factory, shutdown);
     }
     
-    public InstanceQuarantiner(Func1<I, Observable<I>> factory) {
+    public static <I extends Instance<?>> InstanceQuarantiner<I> create(
+            Func1<I, Observable<I>> factory) {
+        return new InstanceQuarantiner<I>(factory, null);
+    }
+    
+    public InstanceQuarantiner(Func1<I, Observable<I>> factory, Action1<I> shutdown) {
         this.factory = factory;
+        this.shutdown = shutdown;
     }
     
     @Override
@@ -47,9 +60,21 @@ public class InstanceQuarantiner<I extends Instance<?>> implements Func1<I, Obse
                     })
                     .switchMap(new Func1<I, Observable<Void>>() {
                         @Override
-                        public Observable<Void> call(I instance) {
+                        public Observable<Void> call(final I instance) {
                             s.onNext(instance);
-                            return instance.getLifecycle();
+                            return instance
+                                    .getLifecycle()
+                                    .doOnCompleted(new Action0() {
+                                        private AtomicBoolean done = new AtomicBoolean(false);
+                                        @Override
+                                        public void call() {
+                                            if (done.compareAndSet(false, true)) {
+                                                if (shutdown != null) {
+                                                    shutdown.call(instance);
+                                                }
+                                            }
+                                        }
+                                    });
                         }
                     })
                     .repeat()

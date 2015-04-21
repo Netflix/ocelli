@@ -17,7 +17,7 @@ import org.junit.Test;
 import rx.schedulers.TestScheduler;
 import rx.subjects.PublishSubject;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class TopologiesTest {
     public static class HostWithId extends Host {
@@ -61,36 +61,37 @@ public class TopologiesTest {
         members
                .doOnNext(RxUtil.info("add"))
                .compose(mapper)
-               .compose(new InstanceCollector<Integer>())
+               .compose(new InstanceCollector<Instance<Integer>>())
                .doOnNext(RxUtil.info("current"))
+               .map(InstanceCollector.<Integer>unwrapInstances())
                .subscribe(RxUtil.set(current));
                
         members.onNext(m11);
-        Assert.assertEquals(Lists.newArrayList(11)       , current.get());
+        Assert.assertEquals(Sets.newHashSet(11)       , Sets.newHashSet(current.get()));
         members.onNext(m7);
-        Assert.assertEquals(Lists.newArrayList(7, 11)    , current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 11)    , Sets.newHashSet(current.get()));
         members.onNext(m1);
-        Assert.assertEquals(Lists.newArrayList(1, 7, 11) , current.get());
+        Assert.assertEquals(Sets.newHashSet(1, 7, 11) , Sets.newHashSet(current.get()));
         members.onNext(m2);
-        Assert.assertEquals(Lists.newArrayList(1, 7, 11) , current.get());
+        Assert.assertEquals(Sets.newHashSet(1, 7, 11) , Sets.newHashSet(current.get()));
         members.onNext(m4);
-        Assert.assertEquals(Lists.newArrayList(1, 7, 11) , current.get());
+        Assert.assertEquals(Sets.newHashSet(1, 7, 11) , Sets.newHashSet(current.get()));
         members.onNext(m3);
-        Assert.assertEquals(Lists.newArrayList(1, 7, 11) , current.get());
+        Assert.assertEquals(Sets.newHashSet(1, 7, 11) , Sets.newHashSet(current.get()));
         members.onNext(m8);
-        Assert.assertEquals(Lists.newArrayList(7, 8, 11) , current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 8, 11) , Sets.newHashSet(current.get()));
         members.onNext(m10);
-        Assert.assertEquals(Lists.newArrayList(7, 8, 10),  current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 8, 10),  Sets.newHashSet(current.get()));
         members.onNext(m9);
-        Assert.assertEquals(Lists.newArrayList(7, 8, 9),   current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 8, 9),   Sets.newHashSet(current.get()));
         members.onNext(m6);
-        Assert.assertEquals(Lists.newArrayList(6, 7, 8),   current.get());
+        Assert.assertEquals(Sets.newHashSet(6, 7, 8),   Sets.newHashSet(current.get()));
 
         m6.close();
-        Assert.assertEquals(Lists.newArrayList(7, 8, 9),   current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 8, 9),   Sets.newHashSet(current.get()));
         m9.close();
-        Assert.assertEquals(Lists.newArrayList(7, 8, 10),  current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 8, 10),  Sets.newHashSet(current.get()));
         m8.close();
-        Assert.assertEquals(Lists.newArrayList(7, 10, 11), current.get());
+        Assert.assertEquals(Sets.newHashSet(7, 10, 11), Sets.newHashSet(current.get()));
     }
 }

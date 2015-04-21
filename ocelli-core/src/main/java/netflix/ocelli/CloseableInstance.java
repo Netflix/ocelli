@@ -46,5 +46,8 @@ public abstract class CloseableInstance<T> implements Instance<T> {
         };
     }
 
+    public String toString() {
+        return "CloseableInstance[" + getValue() + "]";
+    }
     public abstract void close();
 }

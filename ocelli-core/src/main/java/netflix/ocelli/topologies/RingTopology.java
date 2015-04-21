@@ -133,12 +133,12 @@ public class RingTopology<K extends Comparable<K>, T> implements Transformer<Ins
                 });
         }
         
-        public void add(T value) {
-            ring.add(new Entry(keyFunc.call(value), value));
+        public void add(Instance<T> value) {
+            ring.add(new Entry(keyFunc.call(value.getValue()), value.getValue()));
         }
         
-        public void remove(T value) {
-            K key = keyFunc.call(value);
+        public void remove(Instance<T> value) {
+            K key = keyFunc.call(value.getValue());
             int pos = Collections.binarySearch(ring, new Entry(key));
             if (pos >= 0) {
                 ring.remove(pos).closeInstance();
@@ -169,16 +169,16 @@ public class RingTopology<K extends Comparable<K>, T> implements Transformer<Ins
     @Override
     public Observable<Instance<T>> call(Observable<Instance<T>> o) {
         return o
-            .flatMap(InstanceToNotification.<T>create())
-            .scan(new State(), new Func2<State, InstanceNotification<T>, State>() {
+            .flatMap(InstanceToNotification.<Instance<T>>create())
+            .scan(new State(), new Func2<State, InstanceNotification<Instance<T>>, State>() {
                 @Override
-                public State call(State state, InstanceNotification<T> instance) {
+                public State call(State state, InstanceNotification<Instance<T>> instance) {
                     switch (instance.getKind()) {
                     case OnAdd:
-                        state.add(instance.getValue());
+                        state.add(instance.getInstance());
                         break;
                     case OnRemove:
-                        state.remove(instance.getValue());
+                        state.remove(instance.getInstance());
                         break;
                     }
                     return state;

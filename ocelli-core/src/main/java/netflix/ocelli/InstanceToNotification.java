@@ -5,9 +5,9 @@ import rx.Notification;
 import rx.Observable;
 import rx.functions.Func1;
 
-public class InstanceToNotification<T> implements Func1<Instance<T>, Observable<InstanceNotification<T>>> {
+public class InstanceToNotification<T extends Instance<?>> implements Func1<T, Observable<InstanceNotification<T>>> {
     
-    public static <T> InstanceToNotification<T> create() {
+    public static <T extends Instance<?>> InstanceToNotification<T> create() {
         return new InstanceToNotification<T>();
     }
     
@@ -16,7 +16,7 @@ public class InstanceToNotification<T> implements Func1<Instance<T>, Observable<
         OnRemove
     }
     
-    public static class InstanceNotification<T> {
+    public static class InstanceNotification<T extends Instance<?>> {
         private final T value;
         private final Kind kind;
         
@@ -29,7 +29,7 @@ public class InstanceToNotification<T> implements Func1<Instance<T>, Observable<
             return kind;
         }
         
-        public T getValue() {
+        public T getInstance() {
             return value;
         }
         
@@ -39,13 +39,13 @@ public class InstanceToNotification<T> implements Func1<Instance<T>, Observable<
     }
     
     @Override
-    public Observable<InstanceNotification<T>> call(final Instance<T> instance) {
+    public Observable<InstanceNotification<T>> call(final T instance) {
         return Observable
-                .just(new InstanceNotification<T>(instance.getValue(), Kind.OnAdd))
+                .just(new InstanceNotification<T>(instance, Kind.OnAdd))
                 .concatWith(instance.getLifecycle().materialize().map(new Func1<Notification<Void>, InstanceNotification<T>>() {
                     @Override
                     public InstanceNotification<T> call(Notification<Void> t1) {
-                        return new InstanceNotification<T>(instance.getValue(), Kind.OnRemove);
+                        return new InstanceNotification<T>(instance, Kind.OnRemove);
                     }
                 }));
     }
