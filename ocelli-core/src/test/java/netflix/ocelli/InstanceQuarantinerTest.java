@@ -136,21 +136,18 @@ public class InstanceQuarantinerTest {
     @Test
     public void basicTest() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
-        final RoundRobinLoadBalancer<Client> lb = RoundRobinLoadBalancer.create();
         
-        instances
-            // Convert instances from address 'Integer' to implementation 'Instance'
-            .map(Client.factory())
-            .doOnNext(RxUtil.info("Primary"))
-            // Reconnect logic
-            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-            .doOnNext(RxUtil.info("Secondary"))
-            // Aggregate into a List
-            .compose(InstanceCollector.<Client>create())
-            .doOnNext(RxUtil.info("Pool"))
-            // Forward to the load balancer
-            .subscribe(lb);
-
+        final LoadBalancer<Client> lb = RoundRobinLoadBalancer.create(instances
+                // Convert instances from address 'Integer' to implementation 'Instance'
+                .map(Client.factory())
+                .doOnNext(RxUtil.info("Primary"))
+                // Reconnect logic
+                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
+                .doOnNext(RxUtil.info("Secondary"))
+                // Aggregate into a List
+                .compose(InstanceCollector.<Client>create())
+                .doOnNext(RxUtil.info("Pool")));
+        
         instances.add(1);
         
         // Load balancer now has one instance
@@ -210,17 +207,14 @@ public class InstanceQuarantinerTest {
     public void test() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
         
-        final RoundRobinLoadBalancer<Client> lb = RoundRobinLoadBalancer.create();
-        
-        instances
-            // Convert instances from address 'Integer' to implementation 'Instance'
-            .map(Client.factory())
-            // Reconnect logic
-            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-            // Aggregate into a List
-            .compose(InstanceCollector.<Client>create())
-            // Forward to the load balancer
-            .subscribe(lb);
+        final RoundRobinLoadBalancer<Client> lb = RoundRobinLoadBalancer.create(
+                instances
+                // Convert instances from address 'Integer' to implementation 'Instance'
+                .map(Client.factory())
+                // Reconnect logic
+                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
+                // Aggregate into a List
+                .compose(InstanceCollector.<Client>create()));
         
         // Add to the load balancer
         instances.add(1);
@@ -232,8 +226,7 @@ public class InstanceQuarantinerTest {
             .concatMap(new Func1<Long, Observable<String>>() {
                 @Override
                 public Observable<String> call(final Long counter) {
-                    return lb
-                        .toObservable()
+                    return Observable.just(lb.next())
                         .concatMap(new Func1<Client, Observable<String>>() {
                             @Override
                             public Observable<String> call(Client instance) {
@@ -259,18 +252,16 @@ public class InstanceQuarantinerTest {
     @Test
     public void integrationTest() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
-        final ChoiceOfTwoLoadBalancer<Client> lb = ChoiceOfTwoLoadBalancer.create(Client.compareByMetric());
-        
-        instances
-            // Convert from address 'Integer' to implementation 'Instance'
-            .map(Client.factory())
-            // Reconnect logic
-            .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-            // Aggregate into a List
-            .compose(InstanceCollector.<Client>create())
-            // Forward to the load balancer
-            .subscribe(lb);
-
+        final ChoiceOfTwoLoadBalancer<Client> lb = ChoiceOfTwoLoadBalancer.create(instances
+                // Convert from address 'Integer' to implementation 'Instance'
+                .map(Client.factory())
+                // Reconnect logic
+                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
+                // Aggregate into a List
+                .compose(InstanceCollector.<Client>create()),
+                // Forward to the load balancer
+                Client.compareByMetric());
+ 
         instances.add(1);
         Client client = lb.next();
         

@@ -64,31 +64,27 @@ public class ServerPoolTest {
     public void testSimple() throws Exception {
         final InstanceSubject<Host> instances = InstanceSubject.create();
 
-        final RoundRobinLoadBalancer<HttpClient<ByteBuf, ByteBuf>> lb = RoundRobinLoadBalancer.create();
-        
         final Map<Host, HttpInstanceImpl> lookup = new HashMap<Host, HttpInstanceImpl>();
         
-        instances
-            .map(new Func1<Instance<Host>, HttpInstanceImpl>() {
-                @Override
-                public HttpInstanceImpl call(Instance<Host> t1) {
-                    return new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
-                }
-            })
-            // For looking up state
-            .doOnNext(InstanceCollector.toMap(lookup))
-            // Quarantine logic
-            .flatMap(InstanceQuarantiner.create(HttpInstanceImpl.connector()))
-            // Convert from HttpServer to an HttpClient while managing event subscriptions
-            .map(HttpInstanceImpl.toClient())
-            // Aggregate into a List
-            .compose(InstanceCollector.<Instance<HttpClient<ByteBuf, ByteBuf>>>create())
-            // Discard the Instance wrapper
-            .map(InstanceCollector.<HttpClient<ByteBuf, ByteBuf>>unwrapInstances())
-            // Forward to the load balancer
-            .subscribe(lb)
-            ;
-
+        final RoundRobinLoadBalancer<HttpClient<ByteBuf, ByteBuf>> lb = RoundRobinLoadBalancer.create(
+                instances
+                .map(new Func1<Instance<Host>, HttpInstanceImpl>() {
+                    @Override
+                    public HttpInstanceImpl call(Instance<Host> t1) {
+                        return new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
+                    }
+                })
+                // For looking up state
+                .doOnNext(InstanceCollector.toMap(lookup))
+                // Quarantine logic
+                .flatMap(InstanceQuarantiner.create(HttpInstanceImpl.connector()))
+                // Convert from HttpServer to an HttpClient while managing event subscriptions
+                .map(HttpInstanceImpl.toClient())
+                // Aggregate into a List
+                .compose(InstanceCollector.<Instance<HttpClient<ByteBuf, ByteBuf>>>create())
+                // Discard the Instance wrapper
+                .map(InstanceCollector.<HttpClient<ByteBuf, ByteBuf>>unwrapInstances()));
+        
         // Case 1: Simple add
         Host host = new Host("127.0.0.1", httpServer.getServerPort());
         instances.add(host);
@@ -122,7 +118,7 @@ public class ServerPoolTest {
         AtomicInteger attemptCount = new AtomicInteger();
         
         try {
-            resp = lb.toObservable()
+            resp = Observable.just(lb.next())
                     .doOnNext(RxUtil.increment(attemptCount))
                     .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                         @Override
@@ -141,7 +137,7 @@ public class ServerPoolTest {
         }
         
         HttpInstanceImpl s2 = lookup.get(badHost);
-        Assert.assertEquals(3, s2.getMetricListener().getIncarnationCount());
+        Assert.assertEquals(2, s2.getMetricListener().getIncarnationCount());
 //        httpServer.start();
         
         

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
+import rx.Observable;
 import rx.functions.Func2;
 
 /**
@@ -21,21 +22,21 @@ import rx.functions.Func2;
  *
  * @param <T>
  */
-public class ChoiceOfTwoLoadBalancer<T> extends SettableLoadBalancer<T> {
-    public static <C> ChoiceOfTwoLoadBalancer<C> create(final Func2<C, C, C> func) {
-        return new ChoiceOfTwoLoadBalancer<C>(func);
+public class ChoiceOfTwoLoadBalancer<T> extends AbstractLoadBalancer<T> {
+    public static <T> ChoiceOfTwoLoadBalancer<T> create(Observable<List<T>> source, final Func2<T, T, T> func) {
+        return new ChoiceOfTwoLoadBalancer<T>(source, func);
     }
 
     private final Func2<T, T, T> func;
     private final Random rand = new Random();
     
-    public ChoiceOfTwoLoadBalancer(final Func2<T, T, T> func) {
+    public ChoiceOfTwoLoadBalancer(Observable<List<T>> source, final Func2<T, T, T> func) {
+        super(source);
         this.func = func;
     }
 
     @Override
-    public T next() throws NoSuchElementException {
-        List<T> local = clients.get();
+    protected T choose(List<T> local) throws NoSuchElementException {
         if (local.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
         }

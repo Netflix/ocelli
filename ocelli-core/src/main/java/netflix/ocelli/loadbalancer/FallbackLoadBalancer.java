@@ -32,4 +32,8 @@ public class FallbackLoadBalancer<C> extends LoadBalancer<C> {
         }
         throw new NoSuchElementException();
     }
+
+    @Override
+    public void shutdown() {
+    }
 }

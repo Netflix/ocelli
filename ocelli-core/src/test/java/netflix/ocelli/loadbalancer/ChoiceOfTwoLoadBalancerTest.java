@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 
 import rx.functions.Func2;
-import rx.subjects.PublishSubject;
+import rx.subjects.BehaviorSubject;
 
 import com.google.common.collect.Lists;
 
@@ -28,10 +28,9 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test(expected=NoSuchElementException.class)
     public void testEmpty() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.subscribe(lb);
         source.onNext(Lists.<Integer>newArrayList());
         
         lb.next();
@@ -39,10 +38,9 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testOne() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0));
 
         for (int i = 0; i < 100; i++) {
@@ -52,10 +50,9 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testTwo() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
@@ -69,10 +66,9 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testMany() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(source, COMPARATOR);
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1,2,3,4,5,6,7,8,9));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(10);

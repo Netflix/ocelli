@@ -5,6 +5,8 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import rx.Observable;
+
 /**
  * Very simple LoadBlancer that when subscribed to gets an ImmutableList of active clients 
  * and round robins on the elements in that list
@@ -13,28 +15,29 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @param <Client>
  */
-public class RoundRobinLoadBalancer<C> extends SettableLoadBalancer<C> {
-    public static <C> RoundRobinLoadBalancer<C> create() {
-        return create(-1);
+public class RoundRobinLoadBalancer<T> extends AbstractLoadBalancer<T> {
+    public static <T> RoundRobinLoadBalancer<T> create(Observable<List<T>> source) {
+        return create(source, -1);
     }
     
-    public static <C> RoundRobinLoadBalancer<C> create(int seedPosition) {
-        return new RoundRobinLoadBalancer<C>(seedPosition);
+    public static <T> RoundRobinLoadBalancer<T> create(Observable<List<T>> T, int seedPosition) {
+        return new RoundRobinLoadBalancer<T>(T, seedPosition);
     }
 
     private final AtomicInteger position;
 
-    public RoundRobinLoadBalancer() {
+    public RoundRobinLoadBalancer(Observable<List<T>> source) {
+        super(source);
         this.position = new AtomicInteger(new Random().nextInt(1000));
     }
     
-    public RoundRobinLoadBalancer(int seedPosition) {
+    public RoundRobinLoadBalancer(Observable<List<T>> source, int seedPosition) {
+        super(source);
         this.position = new AtomicInteger(seedPosition);
     }
 
     @Override
-    public C next() throws NoSuchElementException {
-        List<C> local = clients.get();
+    protected T choose(List<T> local) throws NoSuchElementException {
         if (local.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
         }

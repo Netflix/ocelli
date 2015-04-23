@@ -2,10 +2,11 @@ package netflix.ocelli;
 
 import java.util.NoSuchElementException;
 
-import netflix.ocelli.loadbalancer.SettableLoadBalancer;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
+
+
 
 /**
  * The LoadBalancer provides simple access to any load balancing algorithm
@@ -16,17 +17,16 @@ import rx.Subscriber;
  * 
  * @author elandau
  * 
- * @see {@link SettableLoadBalancer}
- * 
  * @param <T>
  */
 public abstract class LoadBalancer<T> {
     public abstract T next() throws NoSuchElementException;
+    public abstract void shutdown();
     
     public Observable<T> toObservable() {
         return Observable.create(new OnSubscribe<T>() {
             @Override
-            public void call(final Subscriber<? super T> s) {
+            public void call(Subscriber<? super T> s) {
                 try {
                     s.onNext(next());
                     s.onCompleted();
@@ -37,4 +37,5 @@ public abstract class LoadBalancer<T> {
             }
         });
     }
+    
 }

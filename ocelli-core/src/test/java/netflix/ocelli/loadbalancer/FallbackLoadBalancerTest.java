@@ -1,24 +1,23 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import junit.framework.Assert;
 import netflix.ocelli.LoadBalancer;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
+
+import rx.subjects.BehaviorSubject;
 
 import com.google.common.collect.Lists;
 
 public class FallbackLoadBalancerTest {
-    private static SettableLoadBalancer<Integer> lb1 = RoundRobinLoadBalancer.create();
-    private static SettableLoadBalancer<Integer> lb2 = RoundRobinLoadBalancer.create();
-    private static SettableLoadBalancer<Integer> lb3 = RoundRobinLoadBalancer.create();
-    
-    @BeforeClass
-    public static void before() {
-        lb3.call(Lists.newArrayList(1));
-    }
+    private static BehaviorSubject<List<Integer>> lb3Source = BehaviorSubject.<List<Integer>>create(Lists.newArrayList(1));
+            
+    private static LoadBalancer<Integer> lb1 = RoundRobinLoadBalancer.create(BehaviorSubject.<List<Integer>>create());
+    private static LoadBalancer<Integer> lb2 = RoundRobinLoadBalancer.create(BehaviorSubject.<List<Integer>>create());
+    private static LoadBalancer<Integer> lb3 = RoundRobinLoadBalancer.create(lb3Source);
     
     @Test
     public void firstHasClient() {
