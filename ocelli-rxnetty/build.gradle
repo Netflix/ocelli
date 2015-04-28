@@ -20,8 +20,8 @@ apply plugin: 'groovy'
 
 dependencies {
     compile project(':ocelli-core')
-    compile 'io.reactivex:rxnetty:0.4.4'
-    compile 'io.reactivex:rxjava:1.0.0'
+    compile 'io.reactivex:rxnetty:0.4.8'
+    compile 'io.reactivex:rxjava:1.0.9'
 
     testCompile 'org.uncommons:uncommons-maths:1.2'
     testCompile 'com.google.guava:guava:14.0.1'
