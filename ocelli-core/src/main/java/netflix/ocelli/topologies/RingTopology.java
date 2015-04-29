@@ -169,10 +169,10 @@ public class RingTopology<K extends Comparable<K>, T> implements Transformer<Ins
     @Override
     public Observable<Instance<T>> call(Observable<Instance<T>> o) {
         return o
-            .flatMap(InstanceToNotification.<Instance<T>>create())
-            .scan(new State(), new Func2<State, InstanceNotification<Instance<T>>, State>() {
+            .flatMap(InstanceToNotification.<T>create())
+            .scan(new State(), new Func2<State, InstanceNotification<T>, State>() {
                 @Override
-                public State call(State state, InstanceNotification<Instance<T>> instance) {
+                public State call(State state, InstanceNotification<T> instance) {
                     switch (instance.getKind()) {
                     case OnAdd:
                         state.add(instance.getInstance());

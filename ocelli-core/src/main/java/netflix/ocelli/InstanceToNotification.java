@@ -5,9 +5,9 @@ import rx.Notification;
 import rx.Observable;
 import rx.functions.Func1;
 
-public class InstanceToNotification<T extends Instance<?>> implements Func1<T, Observable<InstanceNotification<T>>> {
+public class InstanceToNotification<T> implements Func1<Instance<T>, Observable<InstanceNotification<T>>> {
     
-    public static <T extends Instance<?>> InstanceToNotification<T> create() {
+    public static <T> InstanceToNotification<T> create() {
         return new InstanceToNotification<T>();
     }
     
@@ -16,11 +16,11 @@ public class InstanceToNotification<T extends Instance<?>> implements Func1<T, O
         OnRemove
     }
     
-    public static class InstanceNotification<T extends Instance<?>> {
-        private final T value;
+    public static class InstanceNotification<T> {
+        private final Instance<T> value;
         private final Kind kind;
         
-        public InstanceNotification(T instance, Kind kind) {
+        public InstanceNotification(Instance<T> instance, Kind kind) {
             this.value = instance;
             this.kind = kind;
         }
@@ -29,7 +29,7 @@ public class InstanceToNotification<T extends Instance<?>> implements Func1<T, O
             return kind;
         }
         
-        public T getInstance() {
+        public Instance<T> getInstance() {
             return value;
         }
         
@@ -39,7 +39,7 @@ public class InstanceToNotification<T extends Instance<?>> implements Func1<T, O
     }
     
     @Override
-    public Observable<InstanceNotification<T>> call(final T instance) {
+    public Observable<InstanceNotification<T>> call(final Instance<T> instance) {
         return Observable
                 .just(new InstanceNotification<T>(instance, Kind.OnAdd))
                 .concatWith(instance.getLifecycle().materialize().map(new Func1<Notification<Void>, InstanceNotification<T>>() {

@@ -4,11 +4,11 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
+import netflix.ocelli.InstanceQuarantiner.IncarnationFactory;
+import netflix.ocelli.functions.Delays;
 import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
-import netflix.ocelli.util.RxUtil;
 
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -18,7 +18,6 @@ import rx.Observable;
 import rx.functions.Func1;
 import rx.functions.Func2;
 import rx.schedulers.TestScheduler;
-import rx.subjects.BehaviorSubject;
 
 public class InstanceQuarantinerTest {
      
@@ -30,90 +29,78 @@ public class InstanceQuarantinerTest {
     
     final static TestScheduler scheduler = new TestScheduler();
     
-    public static class Client implements EventListener, Instance<Integer> {
+    public static class Client implements EventListener {
         
-        public static Func1<Instance<Integer>, Client> factory() {
-            return new Func1<Instance<Integer>, Client>() {
+        public static Func1<Instance<Integer>, Instance<Client>> connector() {
+            return new Func1<Instance<Integer>, Instance<Client>>() {
                 @Override
-                public Client call(Instance<Integer> t1) {
-                    return new Client(t1.getValue(), t1.getLifecycle());
+                public Instance<Client> call(Instance<Integer> t1) {
+                    return Instance.create(new Client(t1.getValue(), t1.getLifecycle()), t1.getLifecycle());
                 }
             };
         }
         
-        public static Func1<Client, Long> fixed(final long amount) {
-            return new Func1<Client, Long>() {
+        public static IncarnationFactory<Client> incarnationFactory() {
+            return new IncarnationFactory<Client>() {
                 @Override
-                public Long call(Client t1) {
-                    return amount * t1.getFailedCount();
-                }
-            };
-        }
-        
-        public static Func1<Client, Observable<Client>> failureDetector() {
-            return new Func1<Client, Observable<Client>>() {
-                @Override
-                public Observable<Client> call(Client i) {
-                    i = new Client(i);
-                    Observable<Client> o = Observable.just(i);
-
-                    long delay = i.counter.get();
-                    if (delay > 0) {
-                        o = o.delaySubscription(delay, TimeUnit.SECONDS, scheduler);
-                    }
-                    
-                    return o;
+                public Client create(
+                        Client value,
+                        InstanceEventListener listener,
+                        Observable<Void> lifecycle) {
+                    return new Client(value, listener, lifecycle);
                 }
             };
         }
         
         private Integer address;
-        private final BehaviorSubject<Void> control = BehaviorSubject.create();
         private final Observable<Void> lifecycle;
-        private AtomicLong counter = new AtomicLong();
+        private final AtomicInteger counter;
         private AtomicInteger score = new AtomicInteger();
-
+        private final InstanceEventListener listener;
+        private final int id;
+        
         public Client(Integer address, Observable<Void> lifecycle) {
             this.address = address;
-            this.counter = new AtomicLong();
+            this.counter = new AtomicInteger();
             this.lifecycle = lifecycle;
+            this.listener = null;
+            
+            id = 0;
         }
         
-        Client(Client client) {
+        Client(Client client, InstanceEventListener listener, Observable<Void> lifecycle) {
             this.address   = client.address;
             this.counter   = client.counter;
-            this.lifecycle = client.lifecycle.ambWith(control).cache();
+            this.lifecycle = lifecycle;
+            this.listener  = listener;
+            
+            id = this.counter.incrementAndGet();
         }
         
         @Override
         public void onBegin() {
-            System.out.println("begin " + address);
         }
         
         @Override
         public void onSuccess() {
-            counter.set(0);
-            System.out.println("success " + address);
+            listener.onEvent(InstanceEvent.EXECUTION_SUCCESS, 0, TimeUnit.SECONDS, null, null);
         }
         
         @Override
         public void onFailed() {
-            System.out.println("onFailed");
-            counter.incrementAndGet();
-            control.onCompleted();
+            listener.onEvent(InstanceEvent.EXECUTION_FAILED, 0, TimeUnit.SECONDS, new Exception("Failed"), null);
         }
         
-        @Override
         public Integer getValue() {
             return address;
         }
         
-        public long getFailedCount() {
-            return counter.get();
+        public int getId() {
+            return id;
         }
         
         public String toString() {
-            return address.toString();
+            return address.toString() + "[" + id + "]";
         }
         
         public static Func2<Client, Client, Client> compareByMetric() {
@@ -127,7 +114,6 @@ public class InstanceQuarantinerTest {
             };
         }
 
-        @Override
         public Observable<Void> getLifecycle() {
             return lifecycle;
         }
@@ -137,30 +123,24 @@ public class InstanceQuarantinerTest {
     public void basicTest() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
         
-        final LoadBalancer<Client> lb = RoundRobinLoadBalancer.create(instances
-                // Convert instances from address 'Integer' to implementation 'Instance'
-                .map(Client.factory())
-                .doOnNext(RxUtil.info("Primary"))
-                // Reconnect logic
-                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-                .doOnNext(RxUtil.info("Secondary"))
-                // Aggregate into a List
-                .compose(InstanceCollector.<Client>create())
-                .doOnNext(RxUtil.info("Pool")));
-        
+        final LoadBalancer<Client> lb = LoadBalancer
+                .fromSource(instances.map(Client.connector()))
+                .withQuarantiner(Client.incarnationFactory(), Delays.fixed(1, TimeUnit.SECONDS), scheduler)
+                .build(RoundRobinLoadBalancer.<Client>create());
+
         instances.add(1);
         
         // Load balancer now has one instance
-        Client c = lb.next();
+        Client c = lb.toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
-        Assert.assertEquals(0, c.counter.get());
+        Assert.assertEquals(1, c.getId());
         
         // Force the instance to fail
         c.onFailed();
         
         // Load balancer is now empty
         try {
-            c = lb.next();
+            c = lb.toBlocking().first();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
@@ -168,17 +148,16 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.next();
+        c = lb.toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
-        Assert.assertEquals(1, c.counter.get());
+        Assert.assertEquals(2, c.getId());
         
         // Force the instance to fail
         c.onFailed();
         
         // Load balancer is now empty
         try {
-            c = lb.next();
-            Assert.assertEquals(2, c.counter.get());
+            c = lb.toBlocking().first();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
@@ -186,14 +165,14 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.next();
+        c = lb.toBlocking().first();
         Assert.assertNotNull("Load balancer should have an active intance", c);
-        Assert.assertEquals(2, c.counter.get());
+        Assert.assertEquals(3, c.counter.get());
         
         // Remove the instance entirely
         instances.remove(1);
         try {
-            c = lb.next();
+            c = lb.toBlocking().first();
             Assert.fail();
         }
         catch (NoSuchElementException e) {
@@ -207,14 +186,10 @@ public class InstanceQuarantinerTest {
     public void test() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
         
-        final RoundRobinLoadBalancer<Client> lb = RoundRobinLoadBalancer.create(
-                instances
-                // Convert instances from address 'Integer' to implementation 'Instance'
-                .map(Client.factory())
-                // Reconnect logic
-                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-                // Aggregate into a List
-                .compose(InstanceCollector.<Client>create()));
+        final LoadBalancer<Client> lb = LoadBalancer
+                .fromSource(instances.map(Client.connector()))
+                .withQuarantiner(Client.incarnationFactory(), Delays.fixed(1, TimeUnit.SECONDS), scheduler)
+                .build(RoundRobinLoadBalancer.<Client>create());
         
         // Add to the load balancer
         instances.add(1);
@@ -226,7 +201,7 @@ public class InstanceQuarantinerTest {
             .concatMap(new Func1<Long, Observable<String>>() {
                 @Override
                 public Observable<String> call(final Long counter) {
-                    return Observable.just(lb.next())
+                    return Observable.just(lb.toBlocking().first())
                         .concatMap(new Func1<Client, Observable<String>>() {
                             @Override
                             public Observable<String> call(Client instance) {
@@ -252,21 +227,17 @@ public class InstanceQuarantinerTest {
     @Test
     public void integrationTest() {
         final InstanceSubject<Integer> instances = InstanceSubject.create();
-        final ChoiceOfTwoLoadBalancer<Client> lb = ChoiceOfTwoLoadBalancer.create(instances
-                // Convert from address 'Integer' to implementation 'Instance'
-                .map(Client.factory())
-                // Reconnect logic
-                .flatMap(InstanceQuarantiner.create(Client.failureDetector()))
-                // Aggregate into a List
-                .compose(InstanceCollector.<Client>create()),
-                // Forward to the load balancer
-                Client.compareByMetric());
- 
+        
+        final LoadBalancer<Client> lb = LoadBalancer
+                .fromSource(instances.map(Client.connector()))
+                .withQuarantiner(Client.incarnationFactory(), Delays.fixed(1, TimeUnit.SECONDS), scheduler)
+                .build(ChoiceOfTwoLoadBalancer.<Client>create(Client.compareByMetric()));
+        
         instances.add(1);
-        Client client = lb.next();
+        Client client = lb.toBlocking().first();
         
         instances.add(2);
-        client = lb.next();
+        client = lb.toBlocking().first();
         
     }
 }

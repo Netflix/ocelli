@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
+import netflix.ocelli.LoadBalancerStrategy;
 import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
-import rx.Observable;
 
 /**
  * Select the next element using a random number.  
@@ -22,21 +22,20 @@ import rx.Observable;
  * @author elandau
  *
  */
-public class RandomWeightedLoadBalancer<T> extends AbstractLoadBalancer<T> {
-    public static <T> RandomWeightedLoadBalancer<T> create(final Observable<List<T>> source, final WeightingStrategy<T> strategy) {
-        return new RandomWeightedLoadBalancer<T>(source, strategy);
+public class RandomWeightedLoadBalancer<T> implements LoadBalancerStrategy<T> {
+    public static <T> RandomWeightedLoadBalancer<T> create(final WeightingStrategy<T> strategy) {
+        return new RandomWeightedLoadBalancer<T>(strategy);
     }
 
     private final WeightingStrategy<T> strategy;
     private final Random rand = new Random();
 
-    public RandomWeightedLoadBalancer(Observable<List<T>> source, final WeightingStrategy<T> strategy) {
-        super(source);
+    public RandomWeightedLoadBalancer(final WeightingStrategy<T> strategy) {
         this.strategy = strategy;
     }
 
     @Override
-    protected T choose(List<T> local) throws NoSuchElementException {
+    public T choose(List<T> local) throws NoSuchElementException {
         final ClientsAndWeights<T> caw = strategy.call(local);
         if (caw.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");

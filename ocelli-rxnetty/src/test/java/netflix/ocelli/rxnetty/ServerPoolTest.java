@@ -19,8 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
-import netflix.ocelli.InstanceQuarantiner;
 import netflix.ocelli.InstanceSubject;
+import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Metrics;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 import netflix.ocelli.util.RxUtil;
@@ -66,31 +67,28 @@ public class ServerPoolTest {
 
         final Map<Host, HttpInstanceImpl> lookup = new HashMap<Host, HttpInstanceImpl>();
         
-        final RoundRobinLoadBalancer<HttpClient<ByteBuf, ByteBuf>> lb = RoundRobinLoadBalancer.create(
+        final LoadBalancer<HttpClient<ByteBuf, ByteBuf>> lb = LoadBalancer.fromSource(
                 instances
-                .map(new Func1<Instance<Host>, HttpInstanceImpl>() {
-                    @Override
-                    public HttpInstanceImpl call(Instance<Host> t1) {
-                        return new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle());
-                    }
-                })
-                // For looking up state
-                .doOnNext(InstanceCollector.toMap(lookup))
-                // Quarantine logic
-                .flatMap(InstanceQuarantiner.create(HttpInstanceImpl.connector()))
-                // Convert from HttpServer to an HttpClient while managing event subscriptions
-                .map(HttpInstanceImpl.toClient())
-                // Aggregate into a List
-                .compose(InstanceCollector.<Instance<HttpClient<ByteBuf, ByteBuf>>>create())
-                // Discard the Instance wrapper
-                .map(InstanceCollector.<HttpClient<ByteBuf, ByteBuf>>unwrapInstances()));
+                    .map(new Func1<Instance<Host>, Instance<HttpInstanceImpl>>() {
+                        @Override
+                        public Instance<HttpInstanceImpl> call(Instance<Host> t1) {
+                            return Instance.create(
+                                    new HttpInstanceImpl(t1.getValue(), Metrics.quantile(0.95), t1.getLifecycle()), 
+                                    t1.getLifecycle());
+                        }
+                    })
+                    .doOnNext(InstanceCollector.toMap(lookup, HttpInstanceImpl.byHost())))
+                    .withQuarantiner(HttpInstanceImpl.connector(), Delays.immediate())
+                    // Convert from HttpServer to an HttpClient while managing event subscriptions
+                    .convertTo(HttpInstanceImpl.toClient())
+                    .build(RoundRobinLoadBalancer.<HttpClient<ByteBuf, ByteBuf>>create());
         
         // Case 1: Simple add
         Host host = new Host("127.0.0.1", httpServer.getServerPort());
         instances.add(host);
         
         // Case 2: Attempt an operation
-        HttpClientResponse<ByteBuf> resp = lb.next()
+        HttpClientResponse<ByteBuf> resp = lb.toBlocking().first()
                 .submit(HttpClientRequest.createGet("/"))
                 .timeout(1, TimeUnit.SECONDS)
                 .toBlocking()
@@ -105,7 +103,7 @@ public class ServerPoolTest {
         // Case 3: Remove the server
         instances.remove(host);
         try {
-            lb.next();
+            lb.toBlocking().first();
             Assert.fail("Should have failed with no element");
         }
         catch (NoSuchElementException e) {
@@ -118,7 +116,7 @@ public class ServerPoolTest {
         AtomicInteger attemptCount = new AtomicInteger();
         
         try {
-            resp = Observable.just(lb.next())
+            resp = lb
                     .doOnNext(RxUtil.increment(attemptCount))
                     .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                         @Override
@@ -137,7 +135,7 @@ public class ServerPoolTest {
         }
         
         HttpInstanceImpl s2 = lookup.get(badHost);
-        Assert.assertEquals(2, s2.getMetricListener().getIncarnationCount());
+        Assert.assertEquals(3, s2.getMetricListener().getIncarnationCount());
 //        httpServer.start();
         
         

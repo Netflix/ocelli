@@ -2,18 +2,20 @@ package netflix.ocelli;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
-import netflix.ocelli.InstanceToNotification.InstanceNotification;
 import rx.Observable;
+import rx.Observable.Operator;
 import rx.Observable.Transformer;
+import rx.Subscriber;
+import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
 import rx.functions.Func1;
-import rx.functions.Func2;
+import rx.subscriptions.CompositeSubscription;
 
 /**
  * From a list of Instance<T> maintain a List of active Instance<T>.  Add when T is up and remove
@@ -23,30 +25,18 @@ import rx.functions.Func2;
  *
  * @param <T>
  */
-public class InstanceCollector<T extends Instance<?>> implements Transformer<T, List<T>> {
+public class InstanceCollector<T> implements Transformer<Instance<T>, List<T>> {
     
-    public static <T extends Instance<?>> InstanceCollector<T> create() {
+    public static <T> InstanceCollector<T> create() {
         return new InstanceCollector<T>();
     }
     
-    public static <T> Func1<List<Instance<T>>, List<T>> unwrapInstances() {
-        return new Func1<List<Instance<T>>, List<T>>() {
+    // TODO: Move this into a utils package
+    public static <K, T> Action1<Instance<T>> toMap(final Map<K, T> map, final Func1<T, K> keyFunc) {
+        return new Action1<Instance<T>>() {
             @Override
-            public List<T> call(List<Instance<T>> instances) {
-                List<T> newList = new ArrayList<T>(instances.size());
-                for (Instance<T> instance : instances) {
-                    newList.add(instance.getValue());
-                }
-                return newList;
-            }
-        };
-    }
-    
-    public static <K, T extends Instance<K>> Action1<T> toMap(final Map<K, T> map) {
-        return new Action1<T>() {
-            @Override
-            public void call(final T t1) {
-                map.put(t1.getValue(), t1);
+            public void call(final Instance<T> t1) {
+                map.put(keyFunc.call(t1.getValue()), t1.getValue());
                 t1.getLifecycle().doOnCompleted(new Action0() {
                     @Override
                     public void call() {
@@ -58,29 +48,52 @@ public class InstanceCollector<T extends Instance<?>> implements Transformer<T, 
     }
     
     @Override
-    public Observable<List<T>> call(Observable<T> o) {
-        return o
-            .flatMap(InstanceToNotification.<T>create())
-            .scan(new HashSet<T>(), new Func2<Set<T>, InstanceNotification<T>, Set<T>>() {
-                @Override
-                public Set<T> call(Set<T> instances, InstanceNotification<T> notification) {
-                    switch (notification.getKind()) {
-                    case OnAdd:
-                        instances.add(notification.getInstance());
-                        break;
-                    case OnRemove:
-                        instances.remove(notification.getInstance());
-                        break;
+    public Observable<List<T>> call(Observable<Instance<T>> o) {
+        return o.lift(new Operator<Set<T>, Instance<T>>() {
+            @Override
+            public Subscriber<? super Instance<T>> call(final Subscriber<? super Set<T>> s) {
+                final CompositeSubscription cs = new CompositeSubscription();
+                final ConcurrentHashMap<T, Subscription> instances = new ConcurrentHashMap<>();
+                s.add(cs);
+                
+                return new Subscriber<Instance<T>>() {
+                    @Override
+                    public void onCompleted() {
+                        s.onCompleted();
                     }
-                    return instances;
-                }
-            })
-            .map(new Func1<Set<T>, List<T>>() {
-                @Override
-                public List<T> call(Set<T> instances) {
-                    // Make an immutable copy of the list
-                    return Collections.unmodifiableList(new ArrayList<T>(instances));
-                }
-            });
+
+                    @Override
+                    public void onError(Throwable e) {
+                        s.onError(e);
+                    }
+
+                    @Override
+                    public void onNext(final Instance<T> t) {
+                        Subscription sub = t.getLifecycle().doOnCompleted(new Action0() {
+                            @Override
+                            public void call() {
+                                Subscription sub = instances.remove(t.getValue());
+                                cs.remove(sub);
+                                s.onNext(instances.keySet());
+                            }
+                        }).subscribe();
+                        
+                        instances.put(t.getValue(), sub);
+                        
+                        s.onNext(instances.keySet());
+                    }
+                };
+            }
+        })
+        .map(new Func1<Set<T>, List<T>>() {
+            @Override
+            public List<T> call(Set<T> instances) {
+                ArrayList<T> snapshot = new ArrayList<T>(instances.size());
+                snapshot.addAll(instances);
+              
+                // Make an immutable copy of the list
+                return Collections.unmodifiableList(snapshot);
+            }
+        });
     }
 }

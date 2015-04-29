@@ -12,7 +12,7 @@ import rx.subjects.BehaviorSubject;
  *
  * @param <T>
  */
-public abstract class CloseableInstance<T> implements Instance<T> {
+public abstract class CloseableInstance<T> extends Instance<T> {
     
     public static <T> CloseableInstance<T> from(T value) {
         return from(value, BehaviorSubject.<Void>create());
@@ -49,5 +49,6 @@ public abstract class CloseableInstance<T> implements Instance<T> {
     public String toString() {
         return "CloseableInstance[" + getValue() + "]";
     }
+    
     public abstract void close();
 }

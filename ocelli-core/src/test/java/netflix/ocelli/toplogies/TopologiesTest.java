@@ -61,9 +61,8 @@ public class TopologiesTest {
         members
                .doOnNext(RxUtil.info("add"))
                .compose(mapper)
-               .compose(new InstanceCollector<Instance<Integer>>())
+               .compose(new InstanceCollector<Integer>())
                .doOnNext(RxUtil.info("current"))
-               .map(InstanceCollector.<Integer>unwrapInstances())
                .subscribe(RxUtil.set(current));
                
         members.onNext(m11);

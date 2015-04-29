@@ -49,12 +49,12 @@ public class BackupRequestStrategyTest {
                 Observable.just(2),
                 Observable.just(3)));
         
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb  .toObservable()
+        lb  
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -75,12 +75,12 @@ public class BackupRequestStrategyTest {
                 Observable.just(2),
                 Observable.just(3)));
 
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb  .toObservable()
+        lb
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -101,12 +101,12 @@ public class BackupRequestStrategyTest {
                 Observable.just(2),
                 Observable.just(3)));
         
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb  .toObservable() 
+        lb 
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -127,12 +127,12 @@ public class BackupRequestStrategyTest {
                 Observable.just(2).delaySubscription(2, TimeUnit.SECONDS, scheduler),
                 Observable.just(3)));
         
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb  .toObservable()
+        lb
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -154,13 +154,13 @@ public class BackupRequestStrategyTest {
                 Observable.<Integer>error(new Exception("2")),
                 Observable.just(3)));
         
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         final AtomicBoolean failed = new AtomicBoolean(false);
         
-        lb  .toObservable()
+        lb
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)
@@ -188,12 +188,12 @@ public class BackupRequestStrategyTest {
                 Observable.<Integer>error(new Exception("2")),
                 Observable.just(3)));
         
-        LoadBalancer<Observable<Integer>> lb = RoundRobinLoadBalancer.create(subject);
+        LoadBalancer<Observable<Integer>> lb = LoadBalancer.create(subject, RoundRobinLoadBalancer.<Observable<Integer>>create(-1));
         
         final AtomicInteger lbCounter = new AtomicInteger();
         final AtomicReference<String> result = new AtomicReference<String>();
         
-        lb  .toObservable()
+        lb
             .doOnNext(RxUtil.increment(lbCounter))
             .flatMap(Operation)
             .compose(strategy)

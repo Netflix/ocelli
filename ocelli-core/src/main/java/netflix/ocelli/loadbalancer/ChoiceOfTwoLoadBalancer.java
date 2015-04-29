@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
-import rx.Observable;
+import netflix.ocelli.LoadBalancerStrategy;
 import rx.functions.Func2;
 
 /**
@@ -22,21 +22,20 @@ import rx.functions.Func2;
  *
  * @param <T>
  */
-public class ChoiceOfTwoLoadBalancer<T> extends AbstractLoadBalancer<T> {
-    public static <T> ChoiceOfTwoLoadBalancer<T> create(Observable<List<T>> source, final Func2<T, T, T> func) {
-        return new ChoiceOfTwoLoadBalancer<T>(source, func);
+public class ChoiceOfTwoLoadBalancer<T> implements LoadBalancerStrategy<T> {
+    public static <T> ChoiceOfTwoLoadBalancer<T> create(final Func2<T, T, T> func) {
+        return new ChoiceOfTwoLoadBalancer<T>(func);
     }
 
     private final Func2<T, T, T> func;
     private final Random rand = new Random();
     
-    public ChoiceOfTwoLoadBalancer(Observable<List<T>> source, final Func2<T, T, T> func) {
-        super(source);
+    public ChoiceOfTwoLoadBalancer(final Func2<T, T, T> func) {
         this.func = func;
     }
 
     @Override
-    protected T choose(List<T> local) throws NoSuchElementException {
+    public T choose(List<T> local) throws NoSuchElementException {
         if (local.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
         }

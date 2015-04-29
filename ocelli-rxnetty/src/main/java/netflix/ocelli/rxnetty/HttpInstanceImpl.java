@@ -11,41 +11,37 @@ import java.util.concurrent.TimeUnit;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
+import netflix.ocelli.InstanceEvent;
+import netflix.ocelli.InstanceEventListener;
+import netflix.ocelli.InstanceQuarantiner.IncarnationFactory;
 import netflix.ocelli.util.SingleMetric;
 import rx.Observable;
 import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Func1;
-import rx.subjects.BehaviorSubject;
 
 public class HttpInstanceImpl extends HttpClientMetricEventsListener implements HttpInstance<ClientMetricsEvent<?>> {
 
-    public static Func1<HttpInstanceImpl, Observable<HttpInstanceImpl>> connector() {
-        return new Func1<HttpInstanceImpl, Observable<HttpInstanceImpl>>() {
+    public static IncarnationFactory<HttpInstanceImpl> connector() {
+        return new IncarnationFactory<HttpInstanceImpl>() {
             @Override
-            public Observable<HttpInstanceImpl> call(HttpInstanceImpl i) {
-                i = new HttpInstanceImpl(i);
-                Observable<HttpInstanceImpl> o = Observable.just(i);
-
-                long delay = i.metricsListener.getAttemptsSinceLastFail();;
-                if (delay > 0) {
-                    o = o.delaySubscription(delay, TimeUnit.SECONDS);
-                }
-                
-                return o;
+            public HttpInstanceImpl create(HttpInstanceImpl value, InstanceEventListener listener, Observable<Void> lifecycle) {
+                return new HttpInstanceImpl(value, listener, lifecycle);
             }
         };
     }
     
-    public static Func1<HttpInstanceImpl, Instance<HttpClient<ByteBuf, ByteBuf>>> toClient() {
-        return new Func1<HttpInstanceImpl, Instance<HttpClient<ByteBuf, ByteBuf>>>() {
+    public static Func1<Instance<HttpInstanceImpl>, Instance<HttpClient<ByteBuf, ByteBuf>>> toClient() {
+        return new Func1<Instance<HttpInstanceImpl>, Instance<HttpClient<ByteBuf, ByteBuf>>>() {
             @Override
-            public Instance<HttpClient<ByteBuf, ByteBuf>> call(final HttpInstanceImpl server) {
-                final HttpClient<ByteBuf, ByteBuf> client = RxNetty.<ByteBuf, ByteBuf>newHttpClientBuilder(server.getValue().getHostName(), server.getValue().getPort())
+            public Instance<HttpClient<ByteBuf, ByteBuf>> call(final Instance<HttpInstanceImpl> server) {
+                final HttpClient<ByteBuf, ByteBuf> client = RxNetty.<ByteBuf, ByteBuf>newHttpClientBuilder(
+                        server.getValue().getHost().getHostName(), 
+                        server.getValue().getHost().getPort())
                     .channelOption(ChannelOption.CONNECT_TIMEOUT_MILLIS, 100)
                     .build();
 
-                final Subscription sub = client.subscribe(server);
+                final Subscription sub = client.subscribe(server.getValue());
                 return new Instance<HttpClient<ByteBuf, ByteBuf>>() {
                     @Override
                     public Observable<Void> getLifecycle() {
@@ -78,39 +74,29 @@ public class HttpInstanceImpl extends HttpClientMetricEventsListener implements 
     private Host                        host;
     
     /**
-     * Lifecycle control for this instance
-     */
-    private final BehaviorSubject<Void> control = BehaviorSubject.create();
-    
-    /**
-     * Final lifecycle for this instance.  For all incarnations of the Server this is an 
-     * AMB of the primary server and the failure detected lifecycle
+     * Final lifecycle for this instance.  
      */
     private final Observable<Void>      lifecycle;
     
     private final int                   incarnationId;
     
-    public HttpInstanceImpl(Host host, SingleMetric<Long> metric, Observable<Void> lifecycle) {
-        this(new HttpMetricListener(metric), host, lifecycle);
-    }
+    private final InstanceEventListener listener;
     
-    public HttpInstanceImpl(HttpMetricListener state, Host host, Observable<Void> lifecycle) {
-        this.metricsListener = state;
+    public HttpInstanceImpl(Host host, SingleMetric<Long> metric, Observable<Void> lifecycle) {
+        this.metricsListener = new HttpMetricListener(metric);
         this.host            = host;
         this.lifecycle       = lifecycle;
         this.incarnationId   = 0;
+        this.listener        = null;
     }
 
-    HttpInstanceImpl(HttpInstanceImpl server) {
+    HttpInstanceImpl(HttpInstanceImpl server, InstanceEventListener listener, Observable<Void> lifecycle) {
         this.metricsListener = server.metricsListener;
         this.host            = server.host;
-        this.lifecycle       = server.lifecycle.ambWith(control).cache();
+        
+        this.lifecycle       = lifecycle;
+        this.listener        = listener;
         this.incarnationId   = metricsListener.incIncarnation();
-    }
-
-    @Override
-    public Host getValue() {
-        return host;
     }
 
     @Override
@@ -136,9 +122,14 @@ public class HttpInstanceImpl extends HttpClientMetricEventsListener implements 
 
     @Override
     protected void onConnectFailed(long duration, TimeUnit timeUnit, Throwable throwable) {
-        control.onCompleted();
+        listener.onEvent(InstanceEvent.EXECUTION_FAILED, duration, timeUnit, throwable, null);
     }
     
+    @Override
+    protected void onResponseHeadersReceived(long duration, TimeUnit timeUnit) {
+        listener.onEvent(InstanceEvent.EXECUTION_SUCCESS, duration, timeUnit, null, null);
+    }
+
     public HttpMetricListener getMetricListener() {
         return metricsListener;
     }
@@ -149,5 +140,19 @@ public class HttpInstanceImpl extends HttpClientMetricEventsListener implements 
 
     public String toString() {
         return "HttpServerImpl[" + host + "]";
+    }
+
+    @Override
+    public Host getHost() {
+        return host;
+    }
+
+    public static Func1<HttpInstanceImpl, Host> byHost() {
+        return new Func1<HttpInstanceImpl, Host>() {
+            @Override
+            public Host call(HttpInstanceImpl t1) {
+                return t1.getHost();
+            }
+        };
     }
 }

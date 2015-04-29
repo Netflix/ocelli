@@ -2,31 +2,31 @@ package netflix.ocelli.functions;
 
 import java.util.concurrent.TimeUnit;
 
-import rx.functions.Func1;
+import netflix.ocelli.DelayStrategy;
 
 public abstract class Delays {
-    public static Func1<Integer, Long> fixed(final long delay, final TimeUnit units) {
-        return new Func1<Integer, Long>() {
+    public static DelayStrategy fixed(final long delay, final TimeUnit units) {
+        return new DelayStrategy() {
             @Override
-            public Long call(Integer t1) {
+            public long get(int count) {
                 return TimeUnit.MILLISECONDS.convert(delay, units);
             }
         };
     }
 
-    public static Func1<Integer, Long> linear(final long delay, final TimeUnit units) {
-        return new Func1<Integer, Long>() {
+    public static DelayStrategy linear(final long delay, final TimeUnit units) {
+        return new DelayStrategy() {
             @Override
-            public Long call(Integer counter) {
-                return counter * TimeUnit.MILLISECONDS.convert(delay, units);
+            public long get(int count) {
+                return count * TimeUnit.MILLISECONDS.convert(delay, units);
             }
         };
     }
 
-    public static Func1<Integer, Long> exp(final long step, final TimeUnit units) {
-        return new Func1<Integer, Long>() {
+    public static DelayStrategy exp(final long step, final TimeUnit units) {
+        return new DelayStrategy() {
             @Override
-            public Long call(Integer count) {
+            public long get(int count) {
                 if (count < 0) 
                     count = 0;
                 else if (count > 30) 
@@ -36,10 +36,10 @@ public abstract class Delays {
         };
     }
     
-    public static Func1<Integer, Long> boundedExp(final long step, final long max, final TimeUnit units) {
-        return new Func1<Integer, Long>() {
+    public static DelayStrategy boundedExp(final long step, final long max, final TimeUnit units) {
+        return new DelayStrategy() {
             @Override
-            public Long call(Integer count) {
+            public long get(int count) {
                 if (count < 0) 
                     count = 0;
                 else if (count > 30) 
@@ -53,10 +53,10 @@ public abstract class Delays {
         };
     }
 
-    public static Func1<Integer, Long> immediate() {
-        return new Func1<Integer, Long>() {
+    public static DelayStrategy immediate() {
+        return new DelayStrategy() {
             @Override
-            public Long call(Integer t1) {
+            public long get(int t1) {
                 return 0L;
             }
         };

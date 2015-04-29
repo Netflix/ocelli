@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import junit.framework.Assert;
-import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.util.RxUtil;
 
@@ -50,8 +49,7 @@ public class EurekaInterestManagerTest {
             .withRefreshInterval(1, TimeUnit.SECONDS)
             .withScheduler(scheduler)
             .asObservable()
-            .compose(InstanceCollector.<Instance<InstanceInfo>>create())
-            .map(InstanceCollector.<InstanceInfo>unwrapInstances())
+            .compose(InstanceCollector.<InstanceInfo>create())
             .subscribe(RxUtil.set(result));
 
         Mockito.when(application.getInstances()).thenReturn(Arrays.asList(i1, i2));
