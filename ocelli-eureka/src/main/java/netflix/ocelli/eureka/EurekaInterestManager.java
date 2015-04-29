@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import netflix.ocelli.Instance;
-import netflix.ocelli.ListToInstance;
+import netflix.ocelli.SnapshotToInstance;
 import rx.Observable;
 import rx.Scheduler;
 import rx.functions.Func0;
@@ -22,16 +22,19 @@ import com.netflix.discovery.DiscoveryClient;
  * 
  * {@code
  * <pre>
+ *    RoundRobinLoadBalancer lb = RoundRobinLoadBalancer.create();
+ *    
  *    EurekaInterestManager manager = new EurekaInterestMangaer(discoveryClient);
- *    Observable<List<InstanceInfo>> instances = manager
+ *    Subscription sub = manager
  *          .newInterest()
  *              .forApplication("applicationName")
  *              .withRefreshInterval(30, TimeUnit.SECONDS)
  *              .withScheduler(scheduler)
  *              .asObservable()
- *          .compose(InstanceCollector.<InstanceInfo>create());
- *          
- *    RoundRobinLoadBalancer lb = new RoundRobinLoadBalancer(instances);
+ *          .compose(InstanceCollector.<InstanceInfo>create())
+ *          .subscribe(lb);
+ *    
+ *    lb.flatMap(operation);
  * </pre>
  * }
  * 
@@ -128,7 +131,7 @@ public class EurekaInterestManager {
                             }
                         }
                     })
-                    .compose(new ListToInstance<String, InstanceInfo>(INSTANCE_TO_ID));
+                    .compose(new SnapshotToInstance<String, InstanceInfo>(INSTANCE_TO_ID));
         }
         
         private Func0<List<InstanceInfo>> createLister() {

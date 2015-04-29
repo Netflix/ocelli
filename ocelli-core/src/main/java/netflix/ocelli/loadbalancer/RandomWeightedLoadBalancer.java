@@ -1,16 +1,13 @@
 package netflix.ocelli.loadbalancer;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
 
-import netflix.ocelli.LoadBalancer;
+import netflix.ocelli.LoadBalancerStrategy;
 import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
-import rx.Subscriber;
 
 /**
  * Select the next element using a random number.  
@@ -25,58 +22,31 @@ import rx.Subscriber;
  * @author elandau
  *
  */
-public class RandomWeightedLoadBalancer<C> extends LoadBalancer<C> {
-    public static <C> RandomWeightedLoadBalancer<C> create(final WeightingStrategy<C> strategy) {
-        return new RandomWeightedLoadBalancer<C>(strategy);
+public class RandomWeightedLoadBalancer<T> implements LoadBalancerStrategy<T> {
+    public static <T> RandomWeightedLoadBalancer<T> create(final WeightingStrategy<T> strategy) {
+        return new RandomWeightedLoadBalancer<T>(strategy);
     }
 
-    private final AtomicReference<List<C>> clients;
-    
-    public RandomWeightedLoadBalancer(final WeightingStrategy<C> strategy) {
-        this(strategy, new AtomicReference<List<C>>(new ArrayList<C>()));
+    private final WeightingStrategy<T> strategy;
+    private final Random rand = new Random();
+
+    public RandomWeightedLoadBalancer(final WeightingStrategy<T> strategy) {
+        this.strategy = strategy;
     }
 
-    RandomWeightedLoadBalancer(final WeightingStrategy<C> strategy, final AtomicReference<List<C>> clients) {
-        super(new OnSubscribe<C>() {
-            
-            private final Random rand = new Random();
-            
-            @Override
-            public void call(final Subscriber<? super C> s) {
-                List<C> local = clients.get();
-
-                final ClientsAndWeights<C> caw = strategy.call(local);
-                if (!caw.isEmpty()) {
-                    int total = caw.getTotalWeights();
-                    if (total == 0) {
-                        s.onNext(caw.getClient(rand.nextInt(caw.size())));
-                        s.onCompleted();
-                    }
-                    else {
-                        int pos = Collections.binarySearch(caw.getWeights(), rand.nextInt(total));
-                        if (pos >= 0) {
-                            pos = pos+1;
-                        }
-                        else {
-                            pos = -(pos) - 1;
-                        }
-
-                        s.onNext(caw.getClient(pos));
-                        s.onCompleted();
-                    }
-                }
-                else {
-                    s.onError(new NoSuchElementException("No servers available in the load balancer"));
-                }
-            }
-        });
-        
-        this.clients = clients;
-    }
-    
     @Override
-    public void call(List<C> t) {
-        this.clients.set(t);
+    public T choose(List<T> local) throws NoSuchElementException {
+        final ClientsAndWeights<T> caw = strategy.call(local);
+        if (caw.isEmpty()) {
+            throw new NoSuchElementException("No servers available in the load balancer");
+        }
+        
+        int total = caw.getTotalWeights();
+        if (total == 0) {
+            return caw.getClient(rand.nextInt(caw.size()));
+        }
+        
+        int pos = Collections.binarySearch(caw.getWeights(), rand.nextInt(total));
+        return caw.getClient((pos >= 0) ? (pos+1) : (-(pos) - 1));
     }
-
 }
