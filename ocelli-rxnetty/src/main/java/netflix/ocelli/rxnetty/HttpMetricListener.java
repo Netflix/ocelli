@@ -17,6 +17,9 @@ import netflix.ocelli.util.SingleMetric;
 public class HttpMetricListener extends HttpClientMetricEventsListener {
 
     private final AtomicInteger pendingRequests = new AtomicInteger();
+    private final AtomicInteger attemptsSinceLastFail = new AtomicInteger();
+    private final AtomicInteger incarnationCounter = new AtomicInteger();
+    
     private final SingleMetric<Long> metric;
     
     public HttpMetricListener(SingleMetric<Long> metric) {
@@ -29,6 +32,18 @@ public class HttpMetricListener extends HttpClientMetricEventsListener {
 
     public Long getMetric() {
         return metric.get();
+    }
+    
+    public int getAttemptsSinceLastFail() {
+        return this.attemptsSinceLastFail.get();
+    }
+    
+    public int incIncarnation() {
+        return incarnationCounter.incrementAndGet();
+    }
+    
+    public int getIncarnationCount() {
+        return incarnationCounter.get();
     }
     
     @Override

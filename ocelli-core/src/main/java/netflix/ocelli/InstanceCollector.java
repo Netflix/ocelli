@@ -1,75 +1,99 @@
 package netflix.ocelli;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import rx.Observable;
+import rx.Observable.Operator;
 import rx.Observable.Transformer;
-import rx.functions.Func0;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.functions.Action0;
+import rx.functions.Action1;
 import rx.functions.Func1;
+import rx.subscriptions.CompositeSubscription;
 
 /**
- * From a list of Instance<T> maintain a List of active T.  Add when T is up and remove
+ * From a list of Instance<T> maintain a List of active Instance<T>.  Add when T is up and remove
  * when T is either down or Instance failed or completed.
  * 
  * @author elandau
  *
  * @param <T>
- * 
- * TODO:  Use scan()
  */
 public class InstanceCollector<T> implements Transformer<Instance<T>, List<T>> {
     
     public static <T> InstanceCollector<T> create() {
         return new InstanceCollector<T>();
     }
-
+    
+    // TODO: Move this into a utils package
+    public static <K, T> Action1<Instance<T>> toMap(final Map<K, T> map, final Func1<T, K> keyFunc) {
+        return new Action1<Instance<T>>() {
+            @Override
+            public void call(final Instance<T> t1) {
+                map.put(keyFunc.call(t1.getValue()), t1.getValue());
+                t1.getLifecycle().doOnCompleted(new Action0() {
+                    @Override
+                    public void call() {
+                        map.remove(t1.getValue());
+                    }
+                });
+            }
+        };
+    }
+    
     @Override
     public Observable<List<T>> call(Observable<Instance<T>> o) {
-        final Set<T> instances = new HashSet<T>();
-        
-        return o.flatMap(new Func1<Instance<T>, Observable<List<T>>>() {
+        return o.lift(new Operator<Set<T>, Instance<T>>() {
             @Override
-            public Observable<List<T>> call(final Instance<T> instance) {
-                return instance.flatMap(
-                    new Func1<Boolean, Observable<List<T>>>() {
-                        @Override
-                        public Observable<List<T>> call(Boolean isUp) {
-                            if (isUp) {
-                                if (instances.add(instance.getValue())) {
-                                    return Observable.<List<T>>just(new ArrayList<T>(instances));
-                                }
+            public Subscriber<? super Instance<T>> call(final Subscriber<? super Set<T>> s) {
+                final CompositeSubscription cs = new CompositeSubscription();
+                final ConcurrentHashMap<T, Subscription> instances = new ConcurrentHashMap<>();
+                s.add(cs);
+                
+                return new Subscriber<Instance<T>>() {
+                    @Override
+                    public void onCompleted() {
+                        s.onCompleted();
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        s.onError(e);
+                    }
+
+                    @Override
+                    public void onNext(final Instance<T> t) {
+                        Subscription sub = t.getLifecycle().doOnCompleted(new Action0() {
+                            @Override
+                            public void call() {
+                                Subscription sub = instances.remove(t.getValue());
+                                cs.remove(sub);
+                                s.onNext(instances.keySet());
                             }
-                            else {
-                                if (instances.remove(instance.getValue())) {
-                                    return Observable.<List<T>>just(new ArrayList<T>(instances));
-                                }
-                            }
-                            return Observable.empty();
-                        }
-                    },
-                    new Func1<Throwable, Observable<List<T>>>() {
-                        @Override
-                        public Observable<List<T>> call(Throwable t1) {
-                            if (instances.remove(instance.getValue())) {
-                                return Observable.<List<T>>just(new ArrayList<T>(instances));
-                            }
-                            return Observable.empty();
-                        }
-                    },
-                    new Func0<Observable<List<T>>>() {
-                        @Override
-                        public Observable<List<T>> call() {
-                            if (instances.remove(instance.getValue())) {
-                                return Observable.<List<T>>just(new ArrayList<T>(instances));
-                            }
-                            return Observable.empty();
-                        }
-                    });
+                        }).subscribe();
+                        
+                        instances.put(t.getValue(), sub);
+                        
+                        s.onNext(instances.keySet());
+                    }
+                };
+            }
+        })
+        .map(new Func1<Set<T>, List<T>>() {
+            @Override
+            public List<T> call(Set<T> instances) {
+                ArrayList<T> snapshot = new ArrayList<T>(instances.size());
+                snapshot.addAll(instances);
+              
+                // Make an immutable copy of the list
+                return Collections.unmodifiableList(snapshot);
             }
         });
     }
-
 }

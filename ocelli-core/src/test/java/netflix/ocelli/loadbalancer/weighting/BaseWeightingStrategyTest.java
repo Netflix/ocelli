@@ -4,11 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
 
 import org.junit.Ignore;
 
-import rx.Observable;
 import rx.exceptions.OnErrorNotImplementedException;
 import rx.functions.Action1;
 

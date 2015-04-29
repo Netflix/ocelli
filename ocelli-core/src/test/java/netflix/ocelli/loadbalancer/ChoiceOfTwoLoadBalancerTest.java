@@ -5,13 +5,14 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import junit.framework.Assert;
+import netflix.ocelli.LoadBalancer;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
 import rx.functions.Func2;
-import rx.subjects.PublishSubject;
+import rx.subjects.BehaviorSubject;
 
 import com.google.common.collect.Lists;
 
@@ -28,40 +29,38 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test(expected=NoSuchElementException.class)
     public void testEmpty() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
         
-        source.subscribe(lb);
+        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
+        
         source.onNext(Lists.<Integer>newArrayList());
         
-        lb.toBlocking().single();
+        lb.toBlocking().first();
     }
     
     @Test
     public void testOne() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0));
 
         for (int i = 0; i < 100; i++) {
-            Assert.assertEquals(0, (int)lb.toBlocking().single());
+            Assert.assertEquals(0, (int)lb.toBlocking().first());
         }
     }
     
     @Test
     public void testTwo() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
         for (int i = 0; i < 100; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(lb.toBlocking().first());
         }
         Assert.assertEquals(counts.get(0), 0);
         Assert.assertEquals(counts.get(1), 100);
@@ -69,16 +68,15 @@ public class ChoiceOfTwoLoadBalancerTest {
     
     @Test
     public void testMany() {
-        PublishSubject<List<Integer>> source = PublishSubject.create();
-        ChoiceOfTwoLoadBalancer<Integer> lb = ChoiceOfTwoLoadBalancer.create(COMPARATOR);
+        BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
+        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
-        source.subscribe(lb);
         source.onNext(Lists.newArrayList(0,1,2,3,4,5,6,7,8,9));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         
         for (int i = 0; i < 100000; i++) {
-            counts.incrementAndGet(lb.toBlocking().single());
+            counts.incrementAndGet(lb.toBlocking().first());
         }
         Double[] pct = new Double[counts.length()];
         for (int i = 0; i < counts.length(); i++) {
@@ -89,4 +87,5 @@ public class ChoiceOfTwoLoadBalancerTest {
             Assert.assertTrue(counts.get(i) > counts.get(i-1));
         }
     }
+
 }

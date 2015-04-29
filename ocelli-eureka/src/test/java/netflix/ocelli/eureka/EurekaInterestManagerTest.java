@@ -17,6 +17,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import rx.schedulers.TestScheduler;
 
+import com.google.common.collect.Sets;
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.discovery.DiscoveryClient;
@@ -53,19 +54,19 @@ public class EurekaInterestManagerTest {
 
         Mockito.when(application.getInstances()).thenReturn(Arrays.asList(i1, i2));
         scheduler.advanceTimeBy(10, TimeUnit.SECONDS);
-        Assert.assertEquals(Arrays.asList(i2, i1), result.get());
+        Assert.assertEquals(Sets.newHashSet(i2, i1), Sets.newHashSet(result.get()));
         
         Mockito.when(application.getInstances()).thenReturn(Arrays.asList(i1, i2, i3));
         scheduler.advanceTimeBy(10, TimeUnit.SECONDS);
-        Assert.assertEquals(Arrays.asList(i3, i2, i1), result.get());
+        Assert.assertEquals(Sets.newHashSet(i3, i2, i1), Sets.newHashSet(result.get()));
        
         Mockito.when(application.getInstances()).thenReturn(Arrays.asList(i3, i4));
         scheduler.advanceTimeBy(10, TimeUnit.SECONDS);
-        Assert.assertEquals(Arrays.asList(i3, i4), result.get());
+        Assert.assertEquals(Sets.newHashSet(i3, i4), Sets.newHashSet(result.get()));
         
         Mockito.when(application.getInstances()).thenReturn(Arrays.<InstanceInfo>asList());
         scheduler.advanceTimeBy(10, TimeUnit.SECONDS);
-        Assert.assertEquals(Arrays.asList(), result.get());
+        Assert.assertEquals(Sets.newHashSet(), Sets.newHashSet(result.get()));
     }
     
     InstanceInfo createInstance(int id) {
