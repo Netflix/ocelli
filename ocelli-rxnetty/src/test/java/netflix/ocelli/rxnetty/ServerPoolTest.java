@@ -110,7 +110,7 @@ public class ServerPoolTest {
         }
         
         // Case 4: Add a bad host and confirm retry counts
-        Host badHost = new Host("127.0.0.2", httpServer.getServerPort());
+        Host badHost = new Host("127.0.0.2.1", 0);
         instances.add(badHost);
         
         AtomicInteger attemptCount = new AtomicInteger();
