@@ -31,36 +31,36 @@ public class ChoiceOfTwoLoadBalancerTest {
     public void testEmpty() {
         BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
         
-        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
+        LoadBalancer<Integer> lb = LoadBalancer.fromSnapshotSource(source).build(ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
         source.onNext(Lists.<Integer>newArrayList());
         
-        lb.toBlocking().first();
+        lb.next();
     }
     
     @Test
     public void testOne() {
         BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
-        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
+        LoadBalancer<Integer> lb = LoadBalancer.fromSnapshotSource(source).build(ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
         source.onNext(Lists.newArrayList(0));
 
         for (int i = 0; i < 100; i++) {
-            Assert.assertEquals(0, (int)lb.toBlocking().first());
+            Assert.assertEquals(0, (int)lb.next());
         }
     }
     
     @Test
     public void testTwo() {
         BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
-        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
+        LoadBalancer<Integer> lb = LoadBalancer.fromSnapshotSource(source).build(ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
         source.onNext(Lists.newArrayList(0,1));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(2);
         
         for (int i = 0; i < 100; i++) {
-            counts.incrementAndGet(lb.toBlocking().first());
+            counts.incrementAndGet(lb.next());
         }
         Assert.assertEquals(counts.get(0), 0);
         Assert.assertEquals(counts.get(1), 100);
@@ -69,14 +69,14 @@ public class ChoiceOfTwoLoadBalancerTest {
     @Test
     public void testMany() {
         BehaviorSubject<List<Integer>> source = BehaviorSubject.create();
-        LoadBalancer<Integer> lb = new LoadBalancer<Integer>(source, ChoiceOfTwoLoadBalancer.create(COMPARATOR));
+        LoadBalancer<Integer> lb = LoadBalancer.fromSnapshotSource(source).build(ChoiceOfTwoLoadBalancer.create(COMPARATOR));
         
         source.onNext(Lists.newArrayList(0,1,2,3,4,5,6,7,8,9));
         
         AtomicIntegerArray counts = new AtomicIntegerArray(10);
         
         for (int i = 0; i < 100000; i++) {
-            counts.incrementAndGet(lb.toBlocking().first());
+            counts.incrementAndGet(lb.next());
         }
         Double[] pct = new Double[counts.length()];
         for (int i = 0; i < counts.length(); i++) {

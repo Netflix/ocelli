@@ -121,7 +121,7 @@ public class InstanceQuarantinerTest {
     
     @Test
     public void basicTest() {
-        final InstanceSubject<Integer> instances = InstanceSubject.create();
+        final InstanceManager<Integer> instances = InstanceManager.create();
         
         final LoadBalancer<Client> lb = LoadBalancer
                 .fromSource(instances.map(Client.connector()))
@@ -131,7 +131,7 @@ public class InstanceQuarantinerTest {
         instances.add(1);
         
         // Load balancer now has one instance
-        Client c = lb.toBlocking().first();
+        Client c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(1, c.getId());
         
@@ -140,7 +140,7 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toBlocking().first();
+            c = lb.next();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
@@ -148,7 +148,7 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.toBlocking().first();
+        c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(2, c.getId());
         
@@ -157,7 +157,7 @@ public class InstanceQuarantinerTest {
         
         // Load balancer is now empty
         try {
-            c = lb.toBlocking().first();
+            c = lb.next();
             Assert.fail("Load balancer should be empty");
         }
         catch (NoSuchElementException e) {
@@ -165,14 +165,14 @@ public class InstanceQuarantinerTest {
         
         // Advance past quarantine time
         scheduler.advanceTimeBy(2, TimeUnit.SECONDS);
-        c = lb.toBlocking().first();
+        c = lb.next();
         Assert.assertNotNull("Load balancer should have an active intance", c);
         Assert.assertEquals(3, c.counter.get());
         
         // Remove the instance entirely
         instances.remove(1);
         try {
-            c = lb.toBlocking().first();
+            c = lb.next();
             Assert.fail();
         }
         catch (NoSuchElementException e) {
@@ -184,7 +184,7 @@ public class InstanceQuarantinerTest {
     @Test
     @Ignore
     public void test() {
-        final InstanceSubject<Integer> instances = InstanceSubject.create();
+        final InstanceManager<Integer> instances = InstanceManager.create();
         
         final LoadBalancer<Client> lb = LoadBalancer
                 .fromSource(instances.map(Client.connector()))
@@ -201,7 +201,7 @@ public class InstanceQuarantinerTest {
             .concatMap(new Func1<Long, Observable<String>>() {
                 @Override
                 public Observable<String> call(final Long counter) {
-                    return Observable.just(lb.toBlocking().first())
+                    return Observable.just(lb.next())
                         .concatMap(new Func1<Client, Observable<String>>() {
                             @Override
                             public Observable<String> call(Client instance) {
@@ -226,7 +226,7 @@ public class InstanceQuarantinerTest {
     
     @Test
     public void integrationTest() {
-        final InstanceSubject<Integer> instances = InstanceSubject.create();
+        final InstanceManager<Integer> instances = InstanceManager.create();
         
         final LoadBalancer<Client> lb = LoadBalancer
                 .fromSource(instances.map(Client.connector()))
@@ -234,10 +234,10 @@ public class InstanceQuarantinerTest {
                 .build(ChoiceOfTwoLoadBalancer.<Client>create(Client.compareByMetric()));
         
         instances.add(1);
-        Client client = lb.toBlocking().first();
+        Client client = lb.next();
         
         instances.add(2);
-        client = lb.toBlocking().first();
+        client = lb.next();
         
     }
 }
