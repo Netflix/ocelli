@@ -6,7 +6,6 @@ import java.util.NoSuchElementException;
 
 import junit.framework.Assert;
 import netflix.ocelli.LoadBalancer;
-import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
@@ -24,7 +23,7 @@ public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
     public RetryFailedTestRule retryRule = new RetryFailedTestRule();
     
     BehaviorSubject<List<IntClientAndMetrics>> subject = BehaviorSubject.create();
-    LoadBalancer<IntClientAndMetrics> lb = LoadBalancer.create(subject, RandomWeightedLoadBalancer.create( 
+    LoadBalancer<IntClientAndMetrics> lb = LoadBalancer.fromSnapshotSource(subject).build(RandomWeightedLoadBalancer.create( 
             new LinearWeightingStrategy<IntClientAndMetrics>(IntClientAndMetrics.BY_METRIC)));
     
     @Test(expected=NoSuchElementException.class)

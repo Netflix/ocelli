@@ -9,25 +9,28 @@ import rx.Subscriber;
 import rx.subjects.PublishSubject;
 
 /**
- * Container for active members of a server pool that can be manually manipulated via
- * add/remove methods.  
+ * InstanceSubject can be used as a basic bridge from an add/remove host membership
+ * paradigm to Ocelli's internal Instance with lifecycle representation of entity
+ * membership in the load balancer.  
+ * 
+ * @see LoadBalancer
  * 
  * @author elandau
  */
-public class InstanceSubject<T> extends Observable<Instance<T>> {
+public class InstanceManager<T> extends Observable<Instance<T>> {
 
     private final PublishSubject<Instance<T>> subject;
     private final ConcurrentMap<T, CloseableInstance<T>> instances;
     
-    public static <T> InstanceSubject<T> create() {
-        return new InstanceSubject<T>();
+    public static <T> InstanceManager<T> create() {
+        return new InstanceManager<T>();
     }
     
-    public InstanceSubject() {
+    public InstanceManager() {
         this(PublishSubject.<Instance<T>>create(), new ConcurrentHashMap<T, CloseableInstance<T>>());
     }
     
-    private InstanceSubject(final PublishSubject<Instance<T>> subject, final ConcurrentMap<T, CloseableInstance<T>> instances) {
+    private InstanceManager(final PublishSubject<Instance<T>> subject, final ConcurrentMap<T, CloseableInstance<T>> instances) {
         super(new OnSubscribe<Instance<T>>() {
             @Override
             public void call(Subscriber<? super Instance<T>> s) {
@@ -42,6 +45,11 @@ public class InstanceSubject<T> extends Observable<Instance<T>> {
         this.instances = instances;
     }
     
+    /**
+     * Add an entity to the source, which feeds into a load balancer
+     * @param t
+     * @return
+     */
     public CloseableInstance<T> add(T t) {
         CloseableInstance<T> member = CloseableInstance.from(t);
         CloseableInstance<T> existing = instances.putIfAbsent(t, member);
@@ -52,6 +60,13 @@ public class InstanceSubject<T> extends Observable<Instance<T>> {
         return existing;
     }
     
+    /**
+     * Remove an entity from the source.  If the entity exists it's lifecycle will
+     * onComplete.
+     * 
+     * @param t
+     * @return
+     */
     public CloseableInstance<T> remove(T t) {
         CloseableInstance<T> member = instances.remove(t);
         if (member != null) {

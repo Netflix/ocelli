@@ -45,9 +45,9 @@ public class EurekaInterestManager {
     
     private final DiscoveryClient client;
     
-    private static Func1<InstanceInfo, String> INSTANCE_TO_ID = new Func1<InstanceInfo, String>() {
+    private static Func1<InstanceInfo, Object> INSTANCE_TO_ID = new Func1<InstanceInfo, Object>() {
         @Override
-        public String call(InstanceInfo ii) {
+        public Object call(InstanceInfo ii) {
             return ii.getId();
         }
     };
@@ -131,7 +131,7 @@ public class EurekaInterestManager {
                             }
                         }
                     })
-                    .compose(new SnapshotToInstance<String, InstanceInfo>(INSTANCE_TO_ID));
+                    .compose(new SnapshotToInstance<InstanceInfo>(INSTANCE_TO_ID));
         }
         
         private Func0<List<InstanceInfo>> createLister() {

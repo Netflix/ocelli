@@ -12,29 +12,14 @@ import rx.subjects.BehaviorSubject;
  *
  * @param <T>
  */
-public abstract class CloseableInstance<T> extends Instance<T> {
+public class CloseableInstance<T> extends Instance<T> {
     
     public static <T> CloseableInstance<T> from(T value) {
         return from(value, BehaviorSubject.<Void>create());
     }
     
-    public static <T> CloseableInstance<T> from(final T value, final BehaviorSubject<Void> events) {
-        return new CloseableInstance<T>() {
-            @Override
-            public void close() {
-                events.onCompleted();
-            }
-
-            @Override
-            public Observable<Void> getLifecycle() {
-                return events;
-            }
-
-            @Override
-            public T getValue() {
-                return value;
-            }
-        };
+    public static <T> CloseableInstance<T> from(final T value, final BehaviorSubject<Void> lifecycle) {
+        return new CloseableInstance<T>(value, lifecycle);
     }
     
     public static <T> Func1<T, CloseableInstance<T>> toMember() {
@@ -46,9 +31,32 @@ public abstract class CloseableInstance<T> extends Instance<T> {
         };
     }
 
+    private T value;
+    private BehaviorSubject<Void> lifecycle;
+
+    public CloseableInstance(T value, BehaviorSubject<Void> lifecycle) {
+        this.value = value;
+        this.lifecycle = lifecycle;
+    }
+    
     public String toString() {
         return "CloseableInstance[" + getValue() + "]";
     }
     
-    public abstract void close();
+    /**
+     * onComplete the instance's lifecycle Observable<Void>
+     */
+    public void close() {
+        lifecycle.onCompleted();
+    }
+
+    @Override
+    public Observable<Void> getLifecycle() {
+        return lifecycle;
+    }
+
+    @Override
+    public T getValue() {
+        return value;
+    }
 }

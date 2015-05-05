@@ -54,7 +54,7 @@ public class BaseWeightingStrategyTest {
      * @return
      * @throws Throwable 
      */
-    static Integer[] simulate(LoadBalancer<IntClientAndMetrics> select, int N, int count) throws Throwable {
+    static Integer[] simulate(LoadBalancer<IntClientAndMetrics> lb, int N, int count) throws Throwable {
         // Set up array of counts
         final Integer[] counts = new Integer[N];
         for (int i = 0; i < N; i++) {
@@ -64,7 +64,7 @@ public class BaseWeightingStrategyTest {
         // Run simulation
         for (int i = 0; i < count; i++) {
             try {
-                select.subscribe(new Action1<IntClientAndMetrics>() {
+                lb.toObservable().subscribe(new Action1<IntClientAndMetrics>() {
                     @Override
                     public void call(IntClientAndMetrics t1) {
                         counts[t1.getClient()] = counts[t1.getClient()] + 1;
