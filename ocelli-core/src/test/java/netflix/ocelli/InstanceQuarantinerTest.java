@@ -1,5 +1,6 @@
 package netflix.ocelli;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
@@ -16,7 +17,6 @@ import org.junit.Test;
 
 import rx.Observable;
 import rx.functions.Func1;
-import rx.functions.Func2;
 import rx.schedulers.TestScheduler;
 
 public class InstanceQuarantinerTest {
@@ -103,13 +103,11 @@ public class InstanceQuarantinerTest {
             return address.toString() + "[" + id + "]";
         }
         
-        public static Func2<Client, Client, Client> compareByMetric() {
-            return new Func2<Client, Client, Client>() {
+        public static Comparator<Client> compareByMetric() {
+            return new Comparator<Client>() {
                 @Override
-                public Client call(Client t1, Client t2) {
-                    int v1 = t1.score.get();
-                    int v2 = t2.score.get();
-                    return v1 > v2 ? t1 : t2;
+                public int compare(Client o1, Client o2) {
+                    return o1.score.get() - o2.score.get();
                 }
             };
         }

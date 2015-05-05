@@ -1,11 +1,11 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
 import netflix.ocelli.LoadBalancerStrategy;
-import rx.functions.Func2;
 
 /**
  * This selector chooses 2 random hosts and picks the host with the 'best' 
@@ -23,30 +23,31 @@ import rx.functions.Func2;
  * @param <T>
  */
 public class ChoiceOfTwoLoadBalancer<T> implements LoadBalancerStrategy<T> {
-    public static <T> ChoiceOfTwoLoadBalancer<T> create(final Func2<T, T, T> func) {
+    public static <T> ChoiceOfTwoLoadBalancer<T> create(final Comparator<T> func) {
         return new ChoiceOfTwoLoadBalancer<T>(func);
     }
 
-    private final Func2<T, T, T> func;
+    private final Comparator<T> func;
     private final Random rand = new Random();
     
-    public ChoiceOfTwoLoadBalancer(final Func2<T, T, T> func) {
-        this.func = func;
+    public ChoiceOfTwoLoadBalancer(final Comparator<T> func2) {
+        this.func = func2;
     }
 
     @Override
-    public T choose(List<T> local) throws NoSuchElementException {
-        if (local.isEmpty()) {
+    public T choose(List<T> candidates) throws NoSuchElementException {
+        if (candidates.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
         }
-        else if (local.size() == 1) {
-            return local.get(0);
+        else if (candidates.size() == 1) {
+            return candidates.get(0);
         }
         else {
-            int first  = rand.nextInt(local.size());
-            int second = (rand.nextInt(local.size()-1) + first + 1) % local.size();
+            int pos  = rand.nextInt(candidates.size());
+            T first  = candidates.get(pos);
+            T second = candidates.get((rand.nextInt(candidates.size()-1) + pos + 1) % candidates.size());
             
-            return func.call(local.get(first), local.get(second));
+            return func.compare(first, second) >= 0 ? first : second;
         }
     }
 }

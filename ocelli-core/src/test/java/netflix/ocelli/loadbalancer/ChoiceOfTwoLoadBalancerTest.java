@@ -1,5 +1,6 @@
 package netflix.ocelli.loadbalancer;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -11,7 +12,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-import rx.functions.Func2;
 import rx.subjects.BehaviorSubject;
 
 import com.google.common.collect.Lists;
@@ -20,10 +20,10 @@ public class ChoiceOfTwoLoadBalancerTest {
     @Rule
     public TestName name = new TestName();
         
-    private static Func2<Integer, Integer, Integer> COMPARATOR = new Func2<Integer, Integer, Integer>() {
+    private static Comparator<Integer> COMPARATOR = new Comparator<Integer>() {
         @Override
-        public Integer call(Integer t1, Integer t2) {
-            return (t1 > t2) ? t1 : t2;
+        public int compare(Integer o1, Integer o2) {
+            return o1 - o2;
         }
     };
     
