@@ -52,7 +52,7 @@ Services are sometimes partitioned to distribute data, load or functionality.  O
 
 ### Pluggable weighting strategy
 
-#### Idnetity
+#### Identity
 
 The weight provided by the function is used as the weight.  The highest value translates into a higher weight.
 
