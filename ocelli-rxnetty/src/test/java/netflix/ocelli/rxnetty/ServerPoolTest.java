@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceCollector;
-import netflix.ocelli.InstanceSubject;
+import netflix.ocelli.InstanceManager;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.functions.Delays;
 import netflix.ocelli.functions.Metrics;
@@ -63,7 +63,7 @@ public class ServerPoolTest {
 
     @Test
     public void testSimple() throws Exception {
-        final InstanceSubject<Host> instances = InstanceSubject.create();
+        final InstanceManager<Host> instances = InstanceManager.create();
 
         final Map<Host, HttpInstanceImpl> lookup = new HashMap<Host, HttpInstanceImpl>();
         
@@ -88,7 +88,7 @@ public class ServerPoolTest {
         instances.add(host);
         
         // Case 2: Attempt an operation
-        HttpClientResponse<ByteBuf> resp = lb.toBlocking().first()
+        HttpClientResponse<ByteBuf> resp = lb.next()
                 .submit(HttpClientRequest.createGet("/"))
                 .timeout(1, TimeUnit.SECONDS)
                 .toBlocking()
@@ -103,20 +103,20 @@ public class ServerPoolTest {
         // Case 3: Remove the server
         instances.remove(host);
         try {
-            lb.toBlocking().first();
+            lb.next();
             Assert.fail("Should have failed with no element");
         }
         catch (NoSuchElementException e) {
         }
         
         // Case 4: Add a bad host and confirm retry counts
-        Host badHost = new Host("127.0.0.2", httpServer.getServerPort());
+        Host badHost = new Host("127.0.0.2.1", 0);
         instances.add(badHost);
         
         AtomicInteger attemptCount = new AtomicInteger();
         
         try {
-            resp = lb
+            resp = lb.toObservable()
                     .doOnNext(RxUtil.increment(attemptCount))
                     .concatMap(new Func1<HttpClient<ByteBuf, ByteBuf>, Observable<HttpClientResponse<ByteBuf>>>() {
                         @Override

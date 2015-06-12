@@ -6,7 +6,7 @@ import javax.inject.Inject;
 
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
-import netflix.ocelli.InstanceSubject;
+import netflix.ocelli.InstanceManager;
 import rx.Observable;
 import rx.Observable.OnSubscribe;
 import rx.Subscriber;
@@ -51,7 +51,7 @@ public class Eureka2InterestManager {
         return Observable.create(new OnSubscribe<Instance<Host>>() {
             @Override
             public void call(Subscriber<? super Instance<Host>> s) {
-                final InstanceSubject<Host> subject = InstanceSubject.create();
+                final InstanceManager<Host> subject = InstanceManager.create();
                 s.add(client
                         .forInterest(interest)
                         .subscribe(new Action1<ChangeNotification<InstanceInfo>>() {
