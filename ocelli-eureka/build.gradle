@@ -19,8 +19,8 @@ apply plugin: 'groovy'
 
 dependencies {
     compile project(':ocelli-core')
-    compile 'io.reactivex:rxjava:1.0.5'
-    compile 'com.netflix.eureka:eureka-client:1.1.147'
+    compile 'io.reactivex:rxjava:1.0.9'
+    compile 'com.netflix.eureka:eureka-client:1.1.151'
 
     testCompile 'org.mockito:mockito-core:1.9.5'
     testCompile 'junit:junit:4.10'
