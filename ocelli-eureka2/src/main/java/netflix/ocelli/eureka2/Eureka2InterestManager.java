@@ -4,6 +4,10 @@ import java.util.HashSet;
 
 import javax.inject.Inject;
 
+import com.netflix.eureka2.client.EurekaInterestClient;
+import com.netflix.eureka2.client.Eurekas;
+import com.netflix.eureka2.registry.instance.InstanceInfo;
+import com.netflix.eureka2.registry.instance.ServicePort;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceManager;
@@ -13,29 +17,25 @@ import rx.Subscriber;
 import rx.functions.Action1;
 import rx.functions.Func1;
 
-import com.netflix.eureka2.client.Eureka;
-import com.netflix.eureka2.client.EurekaClient;
 import com.netflix.eureka2.client.resolver.ServerResolver;
 import com.netflix.eureka2.interests.ChangeNotification;
 import com.netflix.eureka2.interests.Interest;
 import com.netflix.eureka2.interests.Interests;
-import com.netflix.eureka2.registry.InstanceInfo;
-import com.netflix.eureka2.registry.ServicePort;
 
 /**
  * @author Nitesh Kant
  */
 public class Eureka2InterestManager {
 
-    private final EurekaClient client;
+    private final EurekaInterestClient client;
     private static final DefaultMapper defaultMapper = new DefaultMapper();
 
     public Eureka2InterestManager(ServerResolver eurekaResolver) {
-        this.client = Eureka.newClient(eurekaResolver);
+        this.client = Eurekas.newInterestClientBuilder().withServerResolver(eurekaResolver).build();
     }
 
     @Inject
-    public Eureka2InterestManager(EurekaClient client) {
+    public Eureka2InterestManager(EurekaInterestClient client) {
         this.client = client;
     }
 
