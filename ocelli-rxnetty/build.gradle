@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-repositories {
-    maven { url 'https://oss.jfrog.org/libs-snapshot' }
-}
-
 apply plugin: 'osgi'
 apply plugin: 'groovy'
+
+repositories {
+    maven { url 'https://oss.jfrog.org/libs-snapshot' }
+    jcenter()
+}
 
 dependencies {
     compile project(':ocelli-core')

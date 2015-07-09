@@ -5,18 +5,20 @@ import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import netflix.ocelli.Instance;
 import netflix.ocelli.rxnetty.FailureListener;
 import rx.Observable;
+import rx.Observable.OnSubscribe;
+import rx.Subscriber;
+import rx.Subscription;
 import rx.functions.Action1;
 import rx.functions.Func1;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 class HostHolder<W, R> {
 
     private final Observable<List<HostConnectionProvider<W, R>>> providerStream;
-    private final AtomicBoolean started = new AtomicBoolean();
     private volatile List<HostConnectionProvider<W, R>> providers;
+    private Subscription streamSubscription;
 
     HostHolder(Observable<Instance<ConnectionProvider<W, R>>> providerStream,
                final Func1<FailureListener, ? extends TcpClientEventListener> eventListenerFactory) {
@@ -30,16 +32,41 @@ class HostHolder<W, R> {
     }
 
     public Observable<Void> start() {
+        return Observable.create(new OnSubscribe<Void>() {
+            @Override
+            public void call(final Subscriber<? super Void> subscriber) {
+                streamSubscription = providerStream.subscribe(new Action1<List<HostConnectionProvider<W, R>>>() {
+                    @Override
+                    public void call(List<HostConnectionProvider<W, R>> hostConnectionProviders) {
+                        /*First onNext will complete & unsubscribe this subscriber, hence this will send onComplete
+                        just once*/
+                        if (!subscriber.isUnsubscribed()) {
+                            subscriber.onCompleted();
+                        }
+                        providers = hostConnectionProviders;
+                    }
+                }, new Action1<Throwable>() {
+                    @Override
+                    public void call(Throwable throwable) {
+                        if (!subscriber.isUnsubscribed()) {
+                            subscriber.onError(throwable);
+                        }
+                    }
+                });
+            }
+        });
+    }
 
-        if (started.compareAndSet(false, true)) {
-            providerStream.subscribe(new Action1<List<HostConnectionProvider<W, R>>>() {
-                @Override
-                public void call(List<HostConnectionProvider<W, R>> hostConnectionProviders) {
-                    providers = hostConnectionProviders;
+    public Observable<Void> shutdown() {
+        return Observable.create(new OnSubscribe<Void>() {
+            @Override
+            public void call(Subscriber<? super Void> subscriber) {
+                if (null != streamSubscription) {
+                    streamSubscription.unsubscribe();
                 }
-            });
-        }
 
-        return Observable.empty();
+                subscriber.onCompleted();
+            }
+        });
     }
 }

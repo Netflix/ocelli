@@ -107,7 +107,6 @@ public abstract class AbstractLoadBalancer<W, R> {
                                      Observable<Instance<ConnectionProvider<W, R>>> providerStream) {
             super(connectionFactory);
             hostHolder = new HostHolder<>(providerStream, eventListenerFactory);
-            hostHolder.start(); // TODO: RxNetty as of today does not call start.
         }
 
         @Override
@@ -136,12 +135,13 @@ public abstract class AbstractLoadBalancer<W, R> {
         }
 
         @Override
-        public Observable<Void> start() {
+        protected Observable<Void> doStart() {
             return hostHolder.start();
         }
 
-        /*Visible for testing*/HostHolder<W, R> getHostHolder() {
-            return hostHolder;
+        @Override
+        protected Observable<Void> doShutdown() {
+            return hostHolder.shutdown();
         }
     }
 }
