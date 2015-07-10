@@ -1,39 +1,32 @@
 package netflix.ocelli.eureka2;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import junit.framework.Assert;
+import com.netflix.eureka2.client.EurekaInterestClient;
+import com.netflix.eureka2.interests.ChangeNotification;
+import com.netflix.eureka2.interests.Interest;
+import com.netflix.eureka2.interests.Interests;
+import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
+import com.netflix.eureka2.registry.instance.InstanceInfo;
+import com.netflix.eureka2.registry.instance.ServicePort;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
-
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
-
 import rx.Observable;
 
-import com.netflix.eureka2.client.EurekaClient;
-import com.netflix.eureka2.interests.ChangeNotification;
-import com.netflix.eureka2.interests.Interest;
-import com.netflix.eureka2.interests.Interests;
-import com.netflix.eureka2.registry.InstanceInfo;
-import com.netflix.eureka2.registry.ServicePort;
-import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-/**
- * @author Nitesh Kant
- */
 @RunWith(MockitoJUnitRunner.class)
 public class Eureka2InterestManagerTest {
-
     @Mock
-    private EurekaClient clientMock;
+    private EurekaInterestClient clientMock;
     private Eureka2InterestManager membershipSource;
 
     public static final InstanceInfo INSTANCE_1 = new InstanceInfo.Builder()
@@ -41,7 +34,7 @@ public class Eureka2InterestManagerTest {
             .withApp("ServiceA")
             .withAppGroup("ServiceA_1")
             .withStatus(InstanceInfo.Status.UP)
-            .withPorts(new HashSet<ServicePort>(Arrays.asList(new ServicePort(8000, false))))
+            .withPorts(new HashSet<ServicePort>(Collections.singletonList(new ServicePort(8000, false))))
             .withDataCenterInfo(BasicDataCenterInfo.fromSystemData())
             .build();
 
@@ -50,7 +43,7 @@ public class Eureka2InterestManagerTest {
             .withApp("ServiceA")
             .withAppGroup("ServiceA_1")
             .withStatus(InstanceInfo.Status.UP)
-            .withPorts(new HashSet<ServicePort>(Arrays.asList(new ServicePort(8001, false))))
+            .withPorts(new HashSet<ServicePort>(Collections.singletonList(new ServicePort(8001, false))))
             .withDataCenterInfo(BasicDataCenterInfo.fromSystemData())
             .build();
 

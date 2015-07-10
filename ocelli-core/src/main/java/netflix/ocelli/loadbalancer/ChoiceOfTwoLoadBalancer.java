@@ -1,11 +1,11 @@
 package netflix.ocelli.loadbalancer;
 
+import netflix.ocelli.LoadBalancerStrategy;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-
-import netflix.ocelli.LoadBalancerStrategy;
 
 /**
  * This selector chooses 2 random hosts and picks the host with the 'best' 
@@ -31,11 +31,14 @@ public class ChoiceOfTwoLoadBalancer<T> implements LoadBalancerStrategy<T> {
     private final Random rand = new Random();
     
     public ChoiceOfTwoLoadBalancer(final Comparator<T> func2) {
-        this.func = func2;
+        func = func2;
     }
 
+    /**
+     * @throws NoSuchElementException
+     */
     @Override
-    public T choose(List<T> candidates) throws NoSuchElementException {
+    public T choose(List<T> candidates) {
         if (candidates.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
         }
@@ -46,7 +49,7 @@ public class ChoiceOfTwoLoadBalancer<T> implements LoadBalancerStrategy<T> {
             int pos  = rand.nextInt(candidates.size());
             T first  = candidates.get(pos);
             T second = candidates.get((rand.nextInt(candidates.size()-1) + pos + 1) % candidates.size());
-            
+
             return func.compare(first, second) >= 0 ? first : second;
         }
     }

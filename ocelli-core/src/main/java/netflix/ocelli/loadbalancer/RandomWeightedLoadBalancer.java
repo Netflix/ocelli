@@ -1,13 +1,13 @@
 package netflix.ocelli.loadbalancer;
 
+import netflix.ocelli.LoadBalancerStrategy;
+import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
+import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-
-import netflix.ocelli.LoadBalancerStrategy;
-import netflix.ocelli.loadbalancer.weighting.ClientsAndWeights;
-import netflix.ocelli.loadbalancer.weighting.WeightingStrategy;
 
 /**
  * Select the next element using a random number.  
@@ -34,8 +34,11 @@ public class RandomWeightedLoadBalancer<T> implements LoadBalancerStrategy<T> {
         this.strategy = strategy;
     }
 
+    /**
+     * @throws NoSuchElementException
+     */
     @Override
-    public T choose(List<T> local) throws NoSuchElementException {
+    public T choose(List<T> local) {
         final ClientsAndWeights<T> caw = strategy.call(local);
         if (caw.isEmpty()) {
             throw new NoSuchElementException("No servers available in the load balancer");
@@ -47,6 +50,6 @@ public class RandomWeightedLoadBalancer<T> implements LoadBalancerStrategy<T> {
         }
         
         int pos = Collections.binarySearch(caw.getWeights(), rand.nextInt(total));
-        return caw.getClient((pos >= 0) ? (pos+1) : (-(pos) - 1));
+        return caw.getClient(pos >= 0? pos+1 : -pos - 1);
     }
 }
