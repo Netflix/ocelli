@@ -1,26 +1,23 @@
 package netflix.ocelli.loadbalancer;
 
+import com.google.common.collect.Lists;
+import netflix.ocelli.LoadBalancer;
+import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestName;
+import rx.subjects.BehaviorSubject;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
-import junit.framework.Assert;
-import netflix.ocelli.LoadBalancer;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TestName;
-
-import rx.subjects.BehaviorSubject;
-
-import com.google.common.collect.Lists;
-
 public class ChoiceOfTwoLoadBalancerTest {
     @Rule
     public TestName name = new TestName();
         
-    private static Comparator<Integer> COMPARATOR = new Comparator<Integer>() {
+    private static final Comparator<Integer> COMPARATOR = new Comparator<Integer>() {
         @Override
         public int compare(Integer o1, Integer o2) {
             return o1 - o2;

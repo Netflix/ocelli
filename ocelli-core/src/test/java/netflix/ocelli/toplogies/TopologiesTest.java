@@ -1,9 +1,6 @@
 package netflix.ocelli.toplogies;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-
-import junit.framework.Assert;
+import com.google.common.collect.Sets;
 import netflix.ocelli.CloseableInstance;
 import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
@@ -11,13 +8,13 @@ import netflix.ocelli.InstanceCollector;
 import netflix.ocelli.functions.Functions;
 import netflix.ocelli.topologies.RingTopology;
 import netflix.ocelli.util.RxUtil;
-
+import org.junit.Assert;
 import org.junit.Test;
-
 import rx.schedulers.TestScheduler;
 import rx.subjects.PublishSubject;
 
-import com.google.common.collect.Sets;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TopologiesTest {
     public static class HostWithId extends Host {
@@ -61,7 +58,7 @@ public class TopologiesTest {
         members
                .doOnNext(RxUtil.info("add"))
                .compose(mapper)
-               .compose(new InstanceCollector<Integer>())
+               .compose(InstanceCollector.<Integer>create())
                .doOnNext(RxUtil.info("current"))
                .subscribe(RxUtil.set(current));
                

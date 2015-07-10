@@ -2,6 +2,7 @@ package netflix.ocelli.rxnetty.internal;
 
 import io.reactivex.netty.protocol.tcp.client.ConnectionFactory;
 import io.reactivex.netty.protocol.tcp.client.ConnectionObservable;
+import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
 import netflix.ocelli.Instance;
 import org.junit.Rule;
 import org.junit.Test;
@@ -20,13 +21,18 @@ public class AbstractLoadBalancerTest {
         List<Instance<SocketAddress>> hosts = lbRule.setupDefault();
         AbstractLoadBalancer<String, String> loadBalancer = lbRule.getLoadBalancer();
         ConnectionFactory<String, String> cfMock = lbRule.newConnectionFactoryMock();
-        ConnectionObservable<String, String> co = loadBalancer.toConnectionProvider(cfMock).nextConnection();
+        ConnectionProvider<String, String> cp = loadBalancer.toConnectionProvider(cfMock);
+        lbRule.startConnectionProvider(cp);
+
+        ConnectionObservable<String, String> co = cp.nextConnection();
 
         lbRule.connect(co);
         Mockito.verify(cfMock).newConnection(hosts.get(0).getValue());
         Mockito.verifyNoMoreInteractions(cfMock);
 
-        co = loadBalancer.toConnectionProvider(cfMock).nextConnection();
+        cp = loadBalancer.toConnectionProvider(cfMock);
+        lbRule.startConnectionProvider(cp);
+        co = cp.nextConnection();
         lbRule.connect(co);
         Mockito.verify(cfMock).newConnection(hosts.get(1).getValue());
         Mockito.verifyNoMoreInteractions(cfMock);

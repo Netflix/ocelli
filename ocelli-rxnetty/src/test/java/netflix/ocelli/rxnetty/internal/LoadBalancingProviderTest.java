@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.mockito.verification.VerificationMode;
 import rx.Observable;
 import rx.functions.Func1;
+import rx.observers.TestSubscriber;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -40,7 +41,7 @@ public class LoadBalancingProviderTest {
         Observable<Instance<ConnectionProvider<String, String>>> providers =
                 loadBalancerRule.getHostsAsConnectionProviders(cfMock);
 
-        LoadBalancingProvider lbProvider = loadBalancer.new LoadBalancingProvider(cfMock, providers);
+        LoadBalancingProvider lbProvider = newLoadBalancingProvider(loadBalancer, cfMock, providers);
 
         @SuppressWarnings("unchecked")
         ConnectionObservable<String, String> connectionObservable = lbProvider.nextConnection();
@@ -76,7 +77,7 @@ public class LoadBalancingProviderTest {
         Observable<Instance<ConnectionProvider<String, String>>> providers =
                 loadBalancerRule.getHostsAsConnectionProviders(cfMock);
 
-        LoadBalancingProvider lbProvider = loadBalancer.new LoadBalancingProvider(cfMock, providers);
+        LoadBalancingProvider lbProvider = newLoadBalancingProvider(loadBalancer, cfMock, providers);
 
         @SuppressWarnings("unchecked")
         ConnectionObservable<String, String> connectionObservable = lbProvider.nextConnection();
@@ -94,5 +95,18 @@ public class LoadBalancingProviderTest {
         Connection<String, String> c = loadBalancerRule.connect(connectionObservable);
         verify(cfMock, verificationMode).newConnection(host);
         return c;
+    }
+
+    protected LoadBalancingProvider newLoadBalancingProvider(AbstractLoadBalancer<String, String> loadBalancer,
+                                                             ConnectionFactory<String, String> cfMock,
+                                                             Observable<Instance<ConnectionProvider<String, String>>> providers) {
+        LoadBalancingProvider lbProvider = loadBalancer.new LoadBalancingProvider(cfMock, providers);
+        TestSubscriber<Void> subscriber = new TestSubscriber<>();
+        @SuppressWarnings("unchecked")
+        Observable<Void> start = lbProvider.start();
+        start.subscribe(subscriber);
+        subscriber.awaitTerminalEvent();
+        subscriber.assertNoErrors();
+        return lbProvider;
     }
 }

@@ -1,12 +1,5 @@
 package netflix.ocelli;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import rx.Observable;
 import rx.Observable.Operator;
 import rx.Observable.Transformer;
@@ -14,8 +7,16 @@ import rx.Subscriber;
 import rx.Subscription;
 import rx.functions.Action0;
 import rx.functions.Action1;
+import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.subscriptions.CompositeSubscription;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * From a list of Instance<T> maintain a List of active Instance<T>.  Add when T is up and remove
@@ -26,11 +27,26 @@ import rx.subscriptions.CompositeSubscription;
  * @param <T>
  */
 public class InstanceCollector<T> implements Transformer<Instance<T>, List<T>> {
-    
-    public static <T> InstanceCollector<T> create() {
-        return new InstanceCollector<T>();
+
+    private final Func0<Map<T, Subscription>> instanceStoreFactory;
+
+    private InstanceCollector(Func0<Map<T, Subscription>> instanceStoreFactory) {
+        this.instanceStoreFactory = instanceStoreFactory;
     }
-    
+
+    public static <T> InstanceCollector<T> create() {
+        return create(new Func0<Map<T, Subscription>>() {
+            @Override
+            public Map<T, Subscription> call() {
+                return new ConcurrentHashMap<T, Subscription>();
+            }
+        });
+    }
+
+    public static <T> InstanceCollector<T> create(Func0<Map<T, Subscription>> instanceStoreFactory) {
+        return new InstanceCollector<T>(instanceStoreFactory);
+    }
+
     // TODO: Move this into a utils package
     public static <K, T> Action1<Instance<T>> toMap(final Map<K, T> map, final Func1<T, K> keyFunc) {
         return new Action1<Instance<T>>() {
@@ -53,7 +69,7 @@ public class InstanceCollector<T> implements Transformer<Instance<T>, List<T>> {
             @Override
             public Subscriber<? super Instance<T>> call(final Subscriber<? super Set<T>> s) {
                 final CompositeSubscription cs = new CompositeSubscription();
-                final ConcurrentHashMap<T, Subscription> instances = new ConcurrentHashMap<>();
+                final Map<T, Subscription> instances = instanceStoreFactory.call();
                 s.add(cs);
                 
                 return new Subscriber<Instance<T>>() {
