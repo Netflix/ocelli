@@ -29,8 +29,9 @@ public class ClientsAndWeights<C> {
     }
     
     public int getTotalWeights() {
-        if (weights == null || weights.size() == 0)
+        if (weights == null || weights.isEmpty()) {
             return 0;
+        }
         return weights.get(weights.size() -1);
     }
 
@@ -39,14 +40,14 @@ public class ClientsAndWeights<C> {
     }
     
     public int getWeight(int index) {
-        if (weights == null) 
+        if (weights == null) {
             return 0;
+        }
         return weights.get(index);
     }
     
     @Override
     public String toString() {
-        return "ClientsAndWeights [clients=" + clients + ", weights=" + weights
-                + "]";
+        return "ClientsAndWeights [clients=" + clients + ", weights=" + weights + ']';
     }
 }

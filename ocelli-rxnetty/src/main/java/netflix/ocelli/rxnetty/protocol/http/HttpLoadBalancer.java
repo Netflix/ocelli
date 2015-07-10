@@ -5,10 +5,14 @@ import io.reactivex.netty.protocol.http.client.events.HttpClientEventsListener;
 import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
 import netflix.ocelli.Instance;
 import netflix.ocelli.LoadBalancerStrategy;
+import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;
+import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
+import netflix.ocelli.loadbalancer.weighting.LinearWeightingStrategy;
 import netflix.ocelli.rxnetty.FailureListener;
 import netflix.ocelli.rxnetty.internal.AbstractLoadBalancer;
 import netflix.ocelli.rxnetty.internal.HostConnectionProvider;
+import netflix.ocelli.rxnetty.protocol.WeightComparator;
 import rx.Observable;
 import rx.functions.Func1;
 
@@ -46,9 +50,17 @@ public class HttpLoadBalancer<W, R> extends AbstractLoadBalancer<W, R> {
         this(hosts, loadBalancer, NO_LISTENER_FACTORY);
     }
 
-    private HttpLoadBalancer(Observable<Instance<SocketAddress>> hosts,
+    /**
+     * Typically, static methods in this class would be used to create new instances of the load balancer with known
+     * load balancing strategies. However, for any custom load balancing schemes, one can use this constructor directly.
+     *
+     * @param hosts Stream of hosts to use for load balancing.
+     * @param loadBalancer The load balancing strategy.
+     * @param eventListenerFactory A factory for creating new {@link HttpClientEventsListener} per host.
+     */
+    public HttpLoadBalancer(Observable<Instance<SocketAddress>> hosts,
                              LoadBalancerStrategy<HostConnectionProvider<W, R>> loadBalancer,
-                             Func1<FailureListener, HttpClientEventsListener> eventListenerFactory) {
+                             Func1<FailureListener, ? extends HttpClientEventsListener> eventListenerFactory) {
         super(hosts, eventListenerFactory, loadBalancer);
     }
 
@@ -91,4 +103,47 @@ public class HttpLoadBalancer<W, R> extends AbstractLoadBalancer<W, R> {
                                       failureDetector);
     }
 
+    /**
+     * Creates a new load balancer using a weighted random load balancing strategy ({@link RandomWeightedLoadBalancer})
+     * over the passed stream of hosts.
+     *
+     * @param hosts Stream of hosts to use for load balancing.
+     * @param listenerFactory A factory for creating {@link WeightedHttpClientListener} per active host.
+     *
+     * @param <W> Type of Objects written on the connections created by this load balancer.
+     * @param <R> Type of Objects read from the connections created by this load balancer.
+     *
+     * @return New load balancer instance.
+     */
+    public static <W, R> HttpLoadBalancer<W, R> weigthedRandom(Observable<Instance<SocketAddress>> hosts,
+                                                               Func1<FailureListener, WeightedHttpClientListener> listenerFactory) {
+        LinearWeightingStrategy<HostConnectionProvider<W, R>> ws = new LinearWeightingStrategy<>(
+                new Func1<HostConnectionProvider<W, R>, Integer>() {
+                    @Override
+                    public Integer call(HostConnectionProvider<W, R> cp) {
+                        WeightedHttpClientListener el = (WeightedHttpClientListener) cp.getEventsListener();
+                        return el.getWeight();
+                    }
+                });
+        return new HttpLoadBalancer<W, R>(hosts, new RandomWeightedLoadBalancer<HostConnectionProvider<W, R>>(ws),
+                                          listenerFactory);
+    }
+
+    /**
+     * Creates a new load balancer using a power of two choices load balancing strategy ({@link ChoiceOfTwoLoadBalancer})
+     * over the passed stream of hosts.
+     *
+     * @param hosts Stream of hosts to use for load balancing.
+     * @param listenerFactory A factory for creating {@link WeightedHttpClientListener} per active host.
+     *
+     * @param <W> Type of Objects written on the connections created by this load balancer.
+     * @param <R> Type of Objects read from the connections created by this load balancer.
+     *
+     * @return New load balancer instance.
+     */
+    public static <W, R> HttpLoadBalancer<W, R> choiceOfTwo(Observable<Instance<SocketAddress>> hosts,
+                                                            Func1<FailureListener, WeightedHttpClientListener> listenerFactory) {
+        return new HttpLoadBalancer<W, R>(hosts, new ChoiceOfTwoLoadBalancer<>(new WeightComparator<W, R>()),
+                                          listenerFactory);
+    }
 }

@@ -30,6 +30,7 @@ subprojects {
     targetCompatibility = JavaVersion.VERSION_1_7
 
     repositories {
+        maven { url 'https://oss.jfrog.org/libs-snapshot' }
         jcenter()
     }
 

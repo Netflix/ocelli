@@ -17,11 +17,6 @@
 apply plugin: 'osgi'
 apply plugin: 'groovy'
 
-repositories {
-    maven { url 'https://oss.jfrog.org/libs-snapshot' }
-    jcenter()
-}
-
 dependencies {
     compile project(':ocelli-core')
     compile 'io.reactivex:rxnetty:0.5.0-SNAPSHOT'
