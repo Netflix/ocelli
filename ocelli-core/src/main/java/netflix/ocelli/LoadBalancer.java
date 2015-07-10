@@ -1,10 +1,5 @@
 package netflix.ocelli;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import netflix.ocelli.InstanceQuarantiner.IncarnationFactory;
 import netflix.ocelli.loadbalancer.RoundRobinLoadBalancer;
 import rx.Observable;
@@ -17,6 +12,11 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 import rx.subscriptions.Subscriptions;
+
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The LoadBalancer tracks lifecycle of entities and selects the next best entity based on plugable 
@@ -112,6 +112,15 @@ public class LoadBalancer<T> {
          */
         public LoadBalancer<T> build(LoadBalancerStrategy<T> strategy) {
             return new LoadBalancer<T>(source.compose(InstanceCollector.<T>create()), strategy);
+        }
+
+        /**
+         * Finally create a load balancer given a specified strategy such as RoundRobin or ChoiceOfTwo
+         * @param strategy
+         * @return
+         */
+        public LoadBalancer<T> build(LoadBalancerStrategy<T> strategy, InstanceCollector<T> instanceCollector) {
+            return new LoadBalancer<T>(source.compose(instanceCollector), strategy);
         }
     }
     

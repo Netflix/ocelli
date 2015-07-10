@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-apply plugin: 'osgi'
-apply plugin: 'groovy'
-
 // examples are in Java 8 while rest of projects is Java 7
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8

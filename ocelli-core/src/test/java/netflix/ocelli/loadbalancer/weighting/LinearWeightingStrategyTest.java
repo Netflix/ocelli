@@ -1,21 +1,18 @@
 package netflix.ocelli.loadbalancer.weighting;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.NoSuchElementException;
-
-import junit.framework.Assert;
+import com.google.common.collect.Lists;
 import netflix.ocelli.LoadBalancer;
 import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
 import netflix.ocelli.retry.RetryFailedTestRule;
 import netflix.ocelli.retry.RetryFailedTestRule.Retry;
-
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
-
 import rx.subjects.BehaviorSubject;
 
-import com.google.common.collect.Lists;
+import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 public class LinearWeightingStrategyTest extends BaseWeightingStrategyTest {
                 

@@ -206,6 +206,13 @@ public class LoadBalancerRule extends ExternalResource {
         return cfMock;
     }
 
+    public void startConnectionProvider(ConnectionProvider<String, String> cp) {
+        TestSubscriber<Void> startSub = new TestSubscriber<>();
+        cp.start().subscribe(startSub);
+        startSub.awaitTerminalEvent();
+        startSub.assertNoErrors();
+    }
+
     private static class DummyInstance extends Instance<SocketAddress> {
 
         private final SocketAddress socketAddress;
