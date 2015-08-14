@@ -7,7 +7,6 @@ import com.netflix.eureka2.interests.Interests;
 import com.netflix.eureka2.registry.datacenter.BasicDataCenterInfo;
 import com.netflix.eureka2.registry.instance.InstanceInfo;
 import com.netflix.eureka2.registry.instance.ServicePort;
-import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import org.junit.Assert;
 import org.junit.Before;
@@ -18,6 +17,7 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import rx.Observable;
 
+import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -63,7 +63,7 @@ public class Eureka2InterestManagerTest {
         Interest<InstanceInfo> interest = Interests.forVips("test-vip");
         Mockito.when(clientMock.forInterest(interest)).thenReturn(Observable.just(ADD_INSTANCE_1, ADD_INSTANCE_2));
         
-        List<Instance<Host>> instances = membershipSource
+        List<Instance<SocketAddress>> instances = membershipSource
             .forInterest(interest)
             .take(2)
             .toList().toBlocking()

@@ -16,7 +16,7 @@
 
 dependencies {
     compile project(':ocelli-core')
-    compile 'io.reactivex:rxnetty:0.5.0-SNAPSHOT'
+    compile 'io.reactivex:rxnetty-http:0.5.0-SNAPSHOT'
 
     testCompile 'org.uncommons:uncommons-maths:1.2'
     testCompile 'com.google.guava:guava:14.0.1'

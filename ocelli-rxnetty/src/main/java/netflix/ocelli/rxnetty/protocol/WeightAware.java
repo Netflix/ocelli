@@ -1,6 +1,6 @@
 package netflix.ocelli.rxnetty.protocol;
 
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionProvider;
 import netflix.ocelli.loadbalancer.RandomWeightedLoadBalancer;
 
 /**

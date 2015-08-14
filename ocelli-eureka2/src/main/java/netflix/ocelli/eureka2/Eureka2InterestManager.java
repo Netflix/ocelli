@@ -8,7 +8,6 @@ import com.netflix.eureka2.interests.Interest;
 import com.netflix.eureka2.interests.Interests;
 import com.netflix.eureka2.registry.instance.InstanceInfo;
 import com.netflix.eureka2.registry.instance.ServicePort;
-import netflix.ocelli.Host;
 import netflix.ocelli.Instance;
 import netflix.ocelli.InstanceManager;
 import rx.Observable;
@@ -18,6 +17,8 @@ import rx.functions.Action1;
 import rx.functions.Func1;
 
 import javax.inject.Inject;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.HashSet;
 
 /**
@@ -37,25 +38,26 @@ public class Eureka2InterestManager {
         this.client = client;
     }
 
-    public Observable<Instance<Host>> forVip(String... vips) {
+    public Observable<Instance<SocketAddress>> forVip(String... vips) {
         return forInterest(Interests.forVips(vips));
     }
 
-    public Observable<Instance<Host>> forInterest(Interest<InstanceInfo> interest) {
+    public Observable<Instance<SocketAddress>> forInterest(Interest<InstanceInfo> interest) {
         return forInterest(interest, defaultMapper);
     }
 
-    public Observable<Instance<Host>> forInterest(final Interest<InstanceInfo> interest, final Func1<InstanceInfo, Host> instanceInfoToHost) {
-        return Observable.create(new OnSubscribe<Instance<Host>>() {
+    public Observable<Instance<SocketAddress>> forInterest(final Interest<InstanceInfo> interest,
+                                                           final Func1<InstanceInfo, SocketAddress> instanceInfoToHost) {
+        return Observable.create(new OnSubscribe<Instance<SocketAddress>>() {
             @Override
-            public void call(Subscriber<? super Instance<Host>> s) {
-                final InstanceManager<Host> subject = InstanceManager.create();
+            public void call(Subscriber<? super Instance<SocketAddress>> s) {
+                final InstanceManager<SocketAddress> subject = InstanceManager.create();
                 s.add(client
                         .forInterest(interest)
                         .subscribe(new Action1<ChangeNotification<InstanceInfo>>() {
                             @Override
                             public void call(ChangeNotification<InstanceInfo> notification) {
-                                Host host = instanceInfoToHost.call(notification.getData());
+                                SocketAddress host = instanceInfoToHost.call(notification.getData());
                                 switch (notification.getKind()) {
                                     case Add:
                                         subject.add(host);
@@ -78,14 +80,14 @@ public class Eureka2InterestManager {
         });
     }
 
-    protected static class DefaultMapper implements Func1<InstanceInfo, Host> {
+    protected static class DefaultMapper implements Func1<InstanceInfo, SocketAddress> {
 
         @Override
-        public Host call(InstanceInfo instanceInfo) {
+        public SocketAddress call(InstanceInfo instanceInfo) {
             String ipAddress = instanceInfo.getDataCenterInfo().getDefaultAddress().getIpAddress();
             HashSet<ServicePort> servicePorts = instanceInfo.getPorts();
             ServicePort portToUse = servicePorts.iterator().next();
-            return new Host(ipAddress, portToUse.getPort());
+            return new InetSocketAddress(ipAddress, portToUse.getPort());
         }
     }
 }

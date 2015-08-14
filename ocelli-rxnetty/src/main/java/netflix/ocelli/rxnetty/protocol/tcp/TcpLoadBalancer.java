@@ -1,6 +1,6 @@
 package netflix.ocelli.rxnetty.protocol.tcp;
 
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionProvider;
 import io.reactivex.netty.protocol.tcp.client.TcpClient;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import netflix.ocelli.Instance;

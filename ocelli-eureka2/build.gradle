@@ -16,5 +16,5 @@
 
 dependencies {
     compile project(':ocelli-core')
-    compile 'com.netflix.eureka:eureka2-client:2.0.0-rc.2'
+    compile "com.netflix.eureka:eureka2-client-shaded:2.0.0-rc.2"
 }
