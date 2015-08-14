@@ -1,8 +1,8 @@
 package netflix.ocelli.rxnetty.protocol.http;
 
+import io.reactivex.netty.client.ConnectionProvider;
 import io.reactivex.netty.protocol.http.client.HttpClient;
 import io.reactivex.netty.protocol.http.client.events.HttpClientEventsListener;
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
 import netflix.ocelli.Instance;
 import netflix.ocelli.LoadBalancerStrategy;
 import netflix.ocelli.loadbalancer.ChoiceOfTwoLoadBalancer;

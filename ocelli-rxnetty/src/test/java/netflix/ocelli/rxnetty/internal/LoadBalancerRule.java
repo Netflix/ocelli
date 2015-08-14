@@ -3,10 +3,11 @@ package netflix.ocelli.rxnetty.internal;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.reactivex.netty.channel.Connection;
 import io.reactivex.netty.channel.ConnectionImpl;
-import io.reactivex.netty.protocol.tcp.client.ConnectionFactory;
-import io.reactivex.netty.protocol.tcp.client.ConnectionObservable;
-import io.reactivex.netty.protocol.tcp.client.ConnectionObservable.OnSubcribeFunc;
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionFactory;
+import io.reactivex.netty.client.ConnectionObservable;
+import io.reactivex.netty.client.ConnectionObservable.OnSubcribeFunc;
+import io.reactivex.netty.client.ConnectionProvider;
+import io.reactivex.netty.client.events.ClientEventListener;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventPublisher;
 import netflix.ocelli.Instance;
@@ -191,8 +192,8 @@ public class LoadBalancerRule extends ExternalResource {
             Mockito.when(cfMock.newConnection(instance.getValue()))
                    .thenReturn(ConnectionObservable.createNew(new OnSubcribeFunc<String, String>() {
                        @Override
-                       public Subscription subscribeForEvents(TcpClientEventListener eventListener) {
-                           return eventPublisher.subscribe(eventListener);
+                       public Subscription subscribeForEvents(ClientEventListener eventListener) {
+                           return eventPublisher.subscribe((TcpClientEventListener) eventListener);
                        }
 
                        @Override
@@ -204,13 +205,6 @@ public class LoadBalancerRule extends ExternalResource {
         }
 
         return cfMock;
-    }
-
-    public void startConnectionProvider(ConnectionProvider<String, String> cp) {
-        TestSubscriber<Void> startSub = new TestSubscriber<>();
-        cp.start().subscribe(startSub);
-        startSub.awaitTerminalEvent();
-        startSub.assertNoErrors();
     }
 
     private static class DummyInstance extends Instance<SocketAddress> {

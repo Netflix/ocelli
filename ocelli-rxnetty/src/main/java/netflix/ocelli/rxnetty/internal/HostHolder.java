@@ -1,6 +1,6 @@
 package netflix.ocelli.rxnetty.internal;
 
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionProvider;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import netflix.ocelli.Instance;
 import netflix.ocelli.rxnetty.FailureListener;
@@ -25,34 +25,18 @@ class HostHolder<W, R> {
         this.providerStream = providerStream.lift(new HostCollector<W, R>(eventListenerFactory))
                                             .serialize()/*Host collector emits concurrently*/;
         providers = Collections.emptyList();
+        subscribeToHostStream();
     }
 
     List<HostConnectionProvider<W, R>> getProviders() {
         return providers;
     }
 
-    public Observable<Void> start() {
-        return Observable.create(new OnSubscribe<Void>() {
+    private void subscribeToHostStream() {
+        streamSubscription = providerStream.subscribe(new Action1<List<HostConnectionProvider<W, R>>>() {
             @Override
-            public void call(final Subscriber<? super Void> subscriber) {
-                streamSubscription = providerStream.subscribe(new Action1<List<HostConnectionProvider<W, R>>>() {
-                    @Override
-                    public void call(List<HostConnectionProvider<W, R>> hostConnectionProviders) {
-                        /*First onNext will complete & unsubscribe this subscriber, hence this will send onComplete
-                        just once*/
-                        if (!subscriber.isUnsubscribed()) {
-                            subscriber.onCompleted();
-                        }
-                        providers = hostConnectionProviders;
-                    }
-                }, new Action1<Throwable>() {
-                    @Override
-                    public void call(Throwable throwable) {
-                        if (!subscriber.isUnsubscribed()) {
-                            subscriber.onError(throwable);
-                        }
-                    }
-                });
+            public void call(List<HostConnectionProvider<W, R>> hostConnectionProviders) {
+                providers = hostConnectionProviders;
             }
         });
     }

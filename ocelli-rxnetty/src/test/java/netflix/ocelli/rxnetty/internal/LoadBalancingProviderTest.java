@@ -1,9 +1,9 @@
 package netflix.ocelli.rxnetty.internal;
 
 import io.reactivex.netty.channel.Connection;
-import io.reactivex.netty.protocol.tcp.client.ConnectionFactory;
-import io.reactivex.netty.protocol.tcp.client.ConnectionObservable;
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionFactory;
+import io.reactivex.netty.client.ConnectionObservable;
+import io.reactivex.netty.client.ConnectionProvider;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import netflix.ocelli.Instance;
 import netflix.ocelli.rxnetty.FailureListener;
@@ -13,7 +13,6 @@ import org.junit.Test;
 import org.mockito.verification.VerificationMode;
 import rx.Observable;
 import rx.functions.Func1;
-import rx.observers.TestSubscriber;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -101,12 +100,6 @@ public class LoadBalancingProviderTest {
                                                              ConnectionFactory<String, String> cfMock,
                                                              Observable<Instance<ConnectionProvider<String, String>>> providers) {
         LoadBalancingProvider lbProvider = loadBalancer.new LoadBalancingProvider(cfMock, providers);
-        TestSubscriber<Void> subscriber = new TestSubscriber<>();
-        @SuppressWarnings("unchecked")
-        Observable<Void> start = lbProvider.start();
-        start.subscribe(subscriber);
-        subscriber.awaitTerminalEvent();
-        subscriber.assertNoErrors();
         return lbProvider;
     }
 }

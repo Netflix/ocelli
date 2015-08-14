@@ -32,7 +32,6 @@ public final class ChoiceOfTwo {
 
                         @Override
                         public int getWeight() {
-                            System.out.println("Weight => " + lastSeenLatencyInverse);
                             return lastSeenLatencyInverse;
                         }
 

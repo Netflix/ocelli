@@ -1,11 +1,11 @@
 package netflix.ocelli.rxnetty.internal;
 
 import io.reactivex.netty.channel.Connection;
-import io.reactivex.netty.channel.pool.PooledConnectionProvider;
-import io.reactivex.netty.protocol.tcp.client.ConnectionFactory;
-import io.reactivex.netty.protocol.tcp.client.ConnectionObservable;
-import io.reactivex.netty.protocol.tcp.client.ConnectionObservable.AbstractOnSubscribeFunc;
-import io.reactivex.netty.protocol.tcp.client.ConnectionProvider;
+import io.reactivex.netty.client.ConnectionFactory;
+import io.reactivex.netty.client.ConnectionObservable;
+import io.reactivex.netty.client.ConnectionObservable.AbstractOnSubscribeFunc;
+import io.reactivex.netty.client.ConnectionProvider;
+import io.reactivex.netty.client.pool.PooledConnectionProvider;
 import io.reactivex.netty.protocol.tcp.client.events.TcpClientEventListener;
 import netflix.ocelli.Instance;
 import netflix.ocelli.LoadBalancerStrategy;
@@ -132,11 +132,6 @@ public abstract class AbstractLoadBalancer<W, R> {
                     nextConnection.unsafeSubscribe(sub);
                 }
             });
-        }
-
-        @Override
-        protected Observable<Void> doStart() {
-            return hostHolder.start();
         }
 
         @Override
