@@ -1,10 +1,7 @@
 package netflix.ocelli.eureka;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import javax.inject.Inject;
-
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.discovery.DiscoveryClient;
 import netflix.ocelli.Instance;
 import netflix.ocelli.SnapshotToInstance;
 import rx.Observable;
@@ -13,8 +10,9 @@ import rx.functions.Func0;
 import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
-import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.DiscoveryClient;
+import javax.inject.Inject;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Wrapper for v1 DisoveryClient which offers a convenient DSL to express interests 
@@ -44,14 +42,7 @@ public class EurekaInterestManager {
     private static final int DEFAULT_REFRESH_RATE = 30;
     
     private final DiscoveryClient client;
-    
-    private static Func1<InstanceInfo, Object> INSTANCE_TO_ID = new Func1<InstanceInfo, Object>() {
-        @Override
-        public Object call(InstanceInfo ii) {
-            return ii.getId();
-        }
-    };
-    
+
     @Inject
     public EurekaInterestManager(DiscoveryClient client) {
         this.client = client;
@@ -119,7 +110,7 @@ public class EurekaInterestManager {
         private Observable<Instance<InstanceInfo>> create(final Func0<List<InstanceInfo>> lister) {
             return Observable
                     .interval(interval, intervalUnits, scheduler)
-                    .debounce(interval/2, intervalUnits, scheduler)
+                    .onBackpressureDrop()
                     .flatMap(new Func1<Long, Observable<List<InstanceInfo>>>() {
                         @Override
                         public Observable<List<InstanceInfo>> call(Long t1) {
@@ -130,8 +121,9 @@ public class EurekaInterestManager {
                                 return Observable.empty();
                             }
                         }
-                    })
-                    .compose(new SnapshotToInstance<InstanceInfo>(INSTANCE_TO_ID));
+                    }, 1)
+                    .serialize()
+                    .compose(new SnapshotToInstance<InstanceInfo>());
         }
         
         private Func0<List<InstanceInfo>> createLister() {
