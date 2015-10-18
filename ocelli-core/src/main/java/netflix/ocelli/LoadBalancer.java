@@ -152,17 +152,6 @@ public class LoadBalancer<T> {
     }
     
     /**
-     * Construct a load balancer builder from a stream of client snapshots providing
-     * a custom function to extract the cache key from the type.
-     * 
-     * @param source
-     * @return
-     */
-    public static <T> Builder<T> fromSnapshotSource(Observable<List<T>> source, final Func1<T, ?> keyFunc) {
-        return new Builder<T>(source.compose(new SnapshotToInstance<T>(keyFunc)));
-    }
-    
-    /**
      * Construct a load balancer builder from a fixed list of clients
      * @param clients
      * @return
