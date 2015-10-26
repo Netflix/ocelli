@@ -128,7 +128,7 @@ public abstract class AbstractLoadBalancer<W, R> {
                     if (hcp.getEventsListener() != null) {
                         nextConnection.subscribeForEvents(hcp.getEventsListener());
                     }
-
+                    subscribeAllListenersAction.call(nextConnection);
                     nextConnection.unsafeSubscribe(sub);
                 }
             });
